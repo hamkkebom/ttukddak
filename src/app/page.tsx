@@ -48,15 +48,6 @@ const contestEntries = [
   { id: 9, title: "스틸 라이프", author: "강작가", image: "photo-1677442136019-21780ecad995", category: "AI 이미지", span: "" },
 ];
 
-// 우승작 데이터
-const contestWinner = {
-  title: "네온시티 체이스",
-  subtitle: "제1회 뚝딱 AI 영상 공모전 대상",
-  author: "김영상",
-  authorTitle: "AI 영상 · 모션그래픽 전문가",
-  description: "AI 기술과 전통 영상미를 완벽하게 결합한 작품",
-  image: "photo-1536240478700-b869070f9279",
-};
 
 export default function HomePage() {
   const popularServices = [...services]
@@ -335,60 +326,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== 공모전 우승작 — 시네마틱 배너 ===== */}
-      <section className="relative h-[320px] md:h-[380px] overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src={`https://images.unsplash.com/${contestWinner.image}?w=1920&h=600&fit=crop&q=80`}
-            alt={contestWinner.title}
-            fill
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        </div>
-        <div className="container mx-auto px-4 relative h-full flex items-center">
-          <div className="max-w-lg">
-            <div className="inline-flex items-center gap-2 bg-amber-500/20 backdrop-blur-md border border-amber-400/30 rounded-full px-4 py-1.5 mb-4">
-              <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span className="text-xs text-amber-200 font-semibold tracking-wide uppercase">제1회 뚝딱 AI 영상 공모전</span>
-            </div>
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-2 tracking-tight leading-tight">
-              {contestWinner.title}
-            </h2>
-            <p className="text-white/50 text-sm mb-4">{contestWinner.subtitle}</p>
-            <p className="text-white/70 text-base mb-6 leading-relaxed">
-              {contestWinner.description}
-            </p>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/contest"
-                className="inline-flex items-center gap-2 bg-white text-slate-900 font-semibold px-6 py-3 rounded-xl text-sm hover:bg-white/90 transition-colors shadow-lg"
-              >
-                <Play className="h-4 w-4 fill-current" />
-                우승작 보기
-              </Link>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">{contestWinner.author[0]}</span>
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium">{contestWinner.author}</p>
-                  <p className="text-white/40 text-xs">{contestWinner.authorTitle}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 우측 하단 뱃지 */}
-          <div className="absolute bottom-6 right-6 hidden md:flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/15 rounded-full px-4 py-2">
-            <span className="text-white/60 text-xs">Available on</span>
-            <span className="text-white font-bold text-xs tracking-wider uppercase">뚝딱 오리지널</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== 공모전 출품작 — 다크 벤토 그리드 ===== */}
+      {/* ===== 공모전 출품작 — 벤토 그리드 ===== */}
       <section className="py-12 md:py-16 bg-slate-950">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
