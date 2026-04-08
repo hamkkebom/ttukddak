@@ -185,7 +185,7 @@ export default function HomePage() {
               "from-indigo-500 to-violet-600",
             ];
             return (
-              <div className="grid grid-cols-4 md:grid-cols-8 gap-3 grid-rows-[120px]">
+              <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
                 {categories.map((cat, i) => {
                   const Icon = iconMap[cat.icon] || Sparkles;
                   return (

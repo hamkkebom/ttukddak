@@ -28,7 +28,7 @@ export function ServiceCard({ service, expert, className }: ServiceCardProps) {
   return (
     <Link href={`/service/${service.id}`}>
       <Card className={cn(
-        "group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-0 shadow-md",
+        "group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-0 shadow-md h-full flex flex-col",
         className
       )}>
         {/* Thumbnail */}
@@ -97,9 +97,9 @@ export function ServiceCard({ service, expert, className }: ServiceCardProps) {
           </div>
         </div>
 
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex-1 flex flex-col">
           {/* Expert Info */}
-          {expert && (
+          {expert ? (
             <div className="flex items-center gap-2 mb-3">
               <Avatar className="h-7 w-7 ring-2 ring-white shadow-sm">
                 <AvatarImage src={expert.profileImage} alt={expert.name} />
@@ -120,10 +120,12 @@ export function ServiceCard({ service, expert, className }: ServiceCardProps) {
                 </Badge>
               )}
             </div>
+          ) : (
+            <div className="h-7 mb-3" />
           )}
 
           {/* Title */}
-          <h3 className="font-semibold text-slate-900 line-clamp-2 mb-3 leading-snug group-hover:text-primary transition-colors">
+          <h3 className="font-semibold text-slate-900 line-clamp-2 mb-3 leading-snug group-hover:text-primary transition-colors flex-1">
             {service.title}
           </h3>
 
@@ -140,7 +142,7 @@ export function ServiceCard({ service, expert, className }: ServiceCardProps) {
           </div>
 
           {/* Price & Rating */}
-          <div className="flex items-end justify-between pt-3 border-t border-slate-100">
+          <div className="flex items-end justify-between pt-3 border-t border-slate-100 mt-auto">
             <div>
               <p className="text-xs text-slate-500 mb-0.5">시작가</p>
               <p className="text-xl font-bold text-slate-900 font-number">
