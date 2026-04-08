@@ -6,10 +6,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface HorizontalScrollRowProps {
   children: ReactNode;
   className?: string;
-  showFade?: boolean;
 }
 
-export function HorizontalScrollRow({ children, className = "", showFade = true }: HorizontalScrollRowProps) {
+export function HorizontalScrollRow({ children, className = "" }: HorizontalScrollRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -46,7 +45,7 @@ export function HorizontalScrollRow({ children, className = "", showFade = true 
       {canScrollLeft && (
         <button
           onClick={() => scroll("left")}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center opacity-0 group-hover/scroll:opacity-100 transition-opacity hover:bg-slate-50 -ml-3"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-slate-200 flex items-center justify-center opacity-0 group-hover/scroll:opacity-100 transition-opacity hover:bg-white -ml-3"
           aria-label="왼쪽으로 스크롤"
         >
           <ChevronLeft className="h-5 w-5 text-slate-600" />
@@ -57,7 +56,7 @@ export function HorizontalScrollRow({ children, className = "", showFade = true 
       {canScrollRight && (
         <button
           onClick={() => scroll("right")}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center opacity-0 group-hover/scroll:opacity-100 transition-opacity hover:bg-slate-50 -mr-3"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-slate-200 flex items-center justify-center opacity-0 group-hover/scroll:opacity-100 transition-opacity hover:bg-white -mr-3"
           aria-label="오른쪽으로 스크롤"
         >
           <ChevronRight className="h-5 w-5 text-slate-600" />
@@ -71,15 +70,6 @@ export function HorizontalScrollRow({ children, className = "", showFade = true 
       >
         {children}
       </div>
-
-      {/* Right Fade */}
-      {showFade && canScrollRight && (
-        <div className="absolute right-0 top-0 bottom-2 w-20 bg-gradient-to-l from-white to-transparent pointer-events-none z-[5]" />
-      )}
-      {/* Left Fade */}
-      {showFade && canScrollLeft && (
-        <div className="absolute left-0 top-0 bottom-2 w-20 bg-gradient-to-r from-white to-transparent pointer-events-none z-[5]" />
-      )}
     </div>
   );
 }

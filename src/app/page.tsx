@@ -27,12 +27,12 @@ const popularSearches = [
   "제품 광고", "AI 아바타", "3D 렌더링",
 ];
 
-// 추천 전문가 데이터
+// 추천 전문가 데이터 (실제 프리랜서)
 const featuredExperts = [
-  { name: "김영상", specialty: "AI 영상 · 모션그래픽", rating: 4.9, reviews: 87, completionRate: 98, responseTime: "2시간", color: "from-orange-500 to-red-500", image: "photo-1536240478700-b869070f9279" },
-  { name: "이모션", specialty: "모션그래픽 · 3D", rating: 4.8, reviews: 132, completionRate: 97, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "photo-1574717024653-61fd2cf4d44d" },
-  { name: "엔유흠", specialty: "숏폼 · 유튜브", rating: 4.7, reviews: 73, completionRate: 99, responseTime: "30분", color: "from-cyan-500 to-blue-600", image: "photo-1492691527719-9d1e07e534b4" },
-  { name: "박프로", specialty: "광고 · 홍보 영상", rating: 4.9, reviews: 105, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "photo-1505739998589-00fc191ce01d" },
+  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "photo-1536240478700-b869070f9279", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["photo-1535016120720-40c646be5580", "photo-1550745165-9bc0b252726f", "photo-1611532736597-de2d4265fba3"], badge: "TOP" },
+  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "photo-1574717024653-61fd2cf4d44d", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["photo-1536240478700-b869070f9279", "photo-1492691527719-9d1e07e534b4", "photo-1598488035139-bdbb2231ce04"], badge: "HOT" },
+  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "photo-1492691527719-9d1e07e534b4", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["photo-1505739998589-00fc191ce01d", "photo-1574717024653-61fd2cf4d44d", "photo-1677442136019-21780ecad995"], badge: "FAST" },
+  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "photo-1505739998589-00fc191ce01d", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["photo-1536240478700-b869070f9279", "photo-1535016120720-40c646be5580", "photo-1550745165-9bc0b252726f"], badge: "PRO" },
 ];
 
 // 공모전 출품작 데이터
@@ -163,7 +163,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== 카테고리 탐색 — 벤토 그리드 ===== */}
+      {/* ===== 카테고리 탐색 — 2행 그리드 ===== */}
       <section className="py-10 md:py-14 bg-slate-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-2.5 mb-6">
@@ -174,6 +174,26 @@ export default function HomePage() {
           </div>
 
           {(() => {
+            const homeCats = [
+              // 1행 — 대분류 8개
+              { name: "영상", slug: "video", icon: "Play", count: 342 },
+              { name: "CG", slug: "cg", icon: "Zap", count: 156 },
+              { name: "애니메이션", slug: "animation", icon: "Layers", count: 98 },
+              { name: "AI 콘텐츠", slug: "ai-content", icon: "Sparkles", count: 124 },
+              { name: "사진", slug: "photo", icon: "ImageIcon", count: 87 },
+              { name: "음향", slug: "audio", icon: "Volume2", count: 93 },
+              { name: "엔터테이너", slug: "entertainer", icon: "UserCircle", count: 45 },
+              { name: "기타", slug: "etc", icon: "LayoutGrid", count: 38 },
+              // 2행 — 인기 서브카테고리 8개
+              { name: "숏폼", slug: "short-form", icon: "Smartphone", count: 68 },
+              { name: "유튜브", slug: "youtube", icon: "Play", count: 56 },
+              { name: "광고·홍보", slug: "ad-video", icon: "ShoppingBag", count: 52 },
+              { name: "모션그래픽", slug: "motion-graphic", icon: "Wand2", count: 48 },
+              { name: "제품 영상", slug: "product-video", icon: "Box", count: 41 },
+              { name: "AI 영상", slug: "ai-video", icon: "Film", count: 67 },
+              { name: "3D 모델링", slug: "3d-modeling", icon: "Gamepad2", count: 35 },
+              { name: "성우·나레이션", slug: "voice-acting", icon: "Mic", count: 42 },
+            ];
             const gradients = [
               "from-orange-500 to-red-500",
               "from-violet-600 to-purple-700",
@@ -183,21 +203,29 @@ export default function HomePage() {
               "from-amber-500 to-orange-600",
               "from-slate-600 to-slate-700",
               "from-indigo-500 to-violet-600",
+              "from-pink-500 to-rose-600",
+              "from-red-500 to-orange-500",
+              "from-blue-500 to-indigo-600",
+              "from-teal-500 to-cyan-600",
+              "from-fuchsia-500 to-purple-600",
+              "from-cyan-500 to-sky-600",
+              "from-lime-600 to-emerald-600",
+              "from-yellow-500 to-amber-600",
             ];
             return (
               <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-                {categories.map((cat, i) => {
+                {homeCats.map((cat, i) => {
                   const Icon = iconMap[cat.icon] || Sparkles;
                   return (
-                    <Link key={cat.id} href={`/category/${cat.slug}`}>
-                      <div className={`relative h-[120px] rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} p-4 flex flex-col justify-between group overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
-                        <Icon className="h-6 w-6 text-white/60" />
+                    <Link key={cat.slug} href={`/category/${cat.slug}`}>
+                      <div className={`relative h-[100px] rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} p-3 flex flex-col justify-between group overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
+                        <Icon className="h-5 w-5 text-white/60" />
                         <div>
-                          <p className="text-white font-bold text-sm">{cat.name}</p>
-                          <p className="text-white/50 text-[11px] mt-0.5">{cat.serviceCount}개</p>
+                          <p className="text-white font-bold text-xs leading-tight">{cat.name}</p>
+                          <p className="text-white/50 text-[10px] mt-0.5">{cat.count}개</p>
                         </div>
-                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="h-3.5 w-3.5 text-white/80" />
+                        <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowRight className="h-3 w-3 text-white/80" />
                         </div>
                       </div>
                     </Link>
@@ -209,63 +237,103 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== 추천 전문가 — 포트폴리오 카드 ===== */}
+      {/* ===== 추천 전문가 — 시네마틱 포트폴리오 ===== */}
       <section className="py-10 md:py-14 bg-slate-50">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50">
                 <Sparkles className="h-4 w-4 text-orange-500" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900">추천 전문가</h2>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">추천 전문가</h2>
+                <p className="text-xs text-slate-400 mt-0.5">뚝딱이 엄선한 최고의 크리에이터</p>
+              </div>
             </div>
             <Link href="/experts" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
               전체보기 <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {featuredExperts.map((expert) => (
-              <div key={expert.name} className="group bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                {/* 포트폴리오 대표 이미지 */}
-                <div className="h-[140px] bg-slate-200 relative overflow-hidden">
-                  <Image src={`https://images.unsplash.com/${expert.image}?w=400&h=140&fit=crop`} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                </div>
+              <Link key={expert.name} href={`/experts/${expert.name}`} className="group">
+                <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                  {/* 포트폴리오 썸네일 갤러리 */}
+                  <div className="relative h-[200px] overflow-hidden">
+                    {/* 메인 이미지 */}
+                    <Image src={`https://images.unsplash.com/${expert.image}?w=500&h=300&fit=crop`} alt={expert.service} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                <div className="p-4">
-                  {/* 전문가 정보 */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${expert.color} flex items-center justify-center shrink-0`}>
-                      <span className="text-white font-bold text-sm">{expert.name[0]}</span>
+                    {/* 배지 */}
+                    <div className="absolute top-3 left-3">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide ${
+                        expert.badge === "TOP" ? "bg-orange-500 text-white" :
+                        expert.badge === "HOT" ? "bg-rose-500 text-white" :
+                        expert.badge === "FAST" ? "bg-emerald-500 text-white" :
+                        "bg-violet-500 text-white"
+                      }`}>
+                        {expert.badge === "TOP" && <><TrendingUp className="h-3 w-3 mr-1" />TOP</>}
+                        {expert.badge === "HOT" && <><Flame className="h-3 w-3 mr-1" />HOT</>}
+                        {expert.badge === "FAST" && <><Zap className="h-3 w-3 mr-1" />FAST</>}
+                        {expert.badge === "PRO" && <><Award className="h-3 w-3 mr-1" />PRO</>}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-slate-900">{expert.name}</p>
-                      <p className="text-xs text-slate-400">{expert.specialty}</p>
+
+                    {/* 호버 재생 버튼 */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 scale-75 group-hover:scale-100 transition-transform duration-300">
+                        <Play className="h-6 w-6 text-white fill-white ml-0.5" />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-600">{expert.rating}</span>
+
+                    {/* 미니 포트폴리오 갤러리 (하단) */}
+                    <div className="absolute bottom-3 left-3 right-3 flex gap-1.5">
+                      {expert.portfolioImages.map((img, i) => (
+                        <div key={i} className="relative h-10 flex-1 rounded-lg overflow-hidden ring-1 ring-white/20">
+                          <Image src={`https://images.unsplash.com/${img}?w=120&h=60&fit=crop`} alt="" fill className="object-cover" />
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* 통계 */}
-                  <div className="flex justify-between pt-3 border-t border-slate-100">
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-slate-900">{expert.reviews}</p>
-                      <p className="text-[10px] text-slate-400">리뷰</p>
+                  {/* 카드 바디 */}
+                  <div className="p-4">
+                    {/* 프로필 + 평점 */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${expert.color} flex items-center justify-center shrink-0 ring-2 ring-white shadow-md`}>
+                        <span className="text-white font-bold text-sm">{expert.name[0]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-sm text-slate-900">{expert.name}</p>
+                          <Shield className="h-3.5 w-3.5 text-orange-500" />
+                        </div>
+                        <p className="text-xs text-slate-400 truncate">{expert.specialty}</p>
+                      </div>
+                      <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg shrink-0">
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        <span className="text-xs font-bold text-amber-600">{expert.rating}</span>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-slate-900">{expert.completionRate}%</p>
-                      <p className="text-[10px] text-slate-400">완료율</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-slate-900">{expert.responseTime}</p>
-                      <p className="text-[10px] text-slate-400">응답</p>
+
+                    {/* 대표 서비스 */}
+                    <p className="text-sm text-slate-700 font-medium mb-3 line-clamp-1 group-hover:text-orange-600 transition-colors">{expert.service}</p>
+
+                    {/* 하단 — 가격 + 통계 */}
+                    <div className="flex items-end justify-between pt-3 border-t border-slate-100">
+                      <div>
+                        <p className="text-[10px] text-slate-400">시작가</p>
+                        <p className="text-lg font-bold text-slate-900">{new Intl.NumberFormat("ko-KR").format(expert.price)}<span className="text-xs font-normal text-slate-400">원~</span></p>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                        <span>리뷰 <b className="text-slate-600">{expert.reviews}</b></span>
+                        <span>응답 <b className="text-slate-600">{expert.responseTime}</b></span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -289,41 +357,49 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* 가로 스크롤 */}
-          <HorizontalScrollRow showFade={false}>
-            {contestEntries.map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/contest/${entry.id}`}
-                className="relative rounded-2xl overflow-hidden group cursor-pointer min-w-[280px] h-[200px] shrink-0 snap-start"
-              >
-                <Image
-                  src={`https://images.unsplash.com/${entry.image}?w=600&h=400&fit=crop`}
-                  alt={entry.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                {/* Hover overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                  <p className="text-white font-bold text-sm">{entry.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-white/60 text-xs">{entry.author}</span>
-                    <span className="text-white/30 text-xs">·</span>
-                    <span className="text-amber-400/80 text-xs">{entry.category}</span>
-                  </div>
+          {/* 벤토 그리드 — 왼쪽 대형 + 오른쪽 2x3 */}
+          <div className="flex gap-2.5">
+            {/* 대형 카드 */}
+            <Link href={`/contest/${contestEntries[0].id}`} className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
+              <Image src={`https://images.unsplash.com/${contestEntries[0].image}?w=600&h=400&fit=crop`} alt={contestEntries[0].title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-5">
+                <div className="inline-flex bg-orange-500 rounded-full px-2.5 py-0.5 mb-2">
+                  <span className="text-white text-[10px] font-bold">대상</span>
                 </div>
-
-                {/* Play icon on hover */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
-                    <Play className="h-5 w-5 text-white fill-white ml-0.5" />
-                  </div>
+                <p className="text-white font-bold text-lg">{contestEntries[0].title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-white/60 text-xs">{contestEntries[0].author}</span>
+                  <span className="text-white/30 text-xs">·</span>
+                  <span className="text-orange-400/80 text-xs">{contestEntries[0].category}</span>
                 </div>
-              </Link>
-            ))}
-          </HorizontalScrollRow>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
+                  <Play className="h-6 w-6 text-white fill-white ml-0.5" />
+                </div>
+              </div>
+            </Link>
+
+            {/* 오른쪽 2행 3열 */}
+            <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-2.5">
+              {contestEntries.slice(1, 7).map((entry) => (
+                <Link key={entry.id} href={`/contest/${entry.id}`} className="relative rounded-2xl overflow-hidden group">
+                  <Image src={`https://images.unsplash.com/${entry.image}?w=400&h=200&fit=crop`} alt={entry.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                    <p className="text-white font-semibold text-sm">{entry.title}</p>
+                    <span className="text-white/50 text-xs">{entry.author}</span>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
+                      <Play className="h-4 w-4 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
 
           {/* 공모전 참가 CTA */}
           <div className="mt-8 flex items-center justify-center">
@@ -403,7 +479,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <HorizontalScrollRow showFade={false}>
+          <HorizontalScrollRow>
             {[...services]
               .filter((s) => s.tags.some((t) => ["광고", "홍보", "제품", "마케팅", "브랜드", "SNS"].includes(t)))
               .sort((a, b) => b.salesCount - a.salesCount)
@@ -486,30 +562,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== 이용 방법 ===== */}
-      <section className="py-12 md:py-16 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">이렇게 이용하세요</h2>
-            <p className="text-sm text-slate-400">3단계로 간편하게</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-            {[
-              { n: "1", icon: Search, title: "서비스 검색", desc: "필요한 영상 유형을 검색하고\n전문가 포트폴리오를 비교하세요", color: "bg-orange-50 text-orange-500", ring: "ring-orange-500/10" },
-              { n: "2", icon: Shield, title: "안전 결제", desc: "에스크로 결제로\n납품 확인 전까지 결제금 보호", color: "bg-emerald-50 text-emerald-500", ring: "ring-emerald-500/10" },
-              { n: "3", icon: CheckCircle, title: "결과물 수령", desc: "수정 요청부터 최종 납품까지\n전문가와 실시간 소통", color: "bg-violet-50 text-violet-500", ring: "ring-violet-500/10" },
-            ].map((item) => (
-              <div key={item.n} className="text-center bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl ${item.color} ring-4 ${item.ring} mb-4`}>
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <h3 className="font-bold text-slate-900 mb-2 text-lg">{item.title}</h3>
-                <p className="text-sm text-slate-400 whitespace-pre-line leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ===== 전문가 등록 CTA — 넷플릭스 시네마틱 ===== */}
       <section className="relative py-20 md:py-28 overflow-hidden">
