@@ -37,15 +37,15 @@ const featuredExperts = [
 
 // 공모전 출품작 데이터
 const contestEntries = [
-  { id: 1, title: "네온시티 체이스", author: "김영상", image: "photo-1536240478700-b869070f9279", category: "AI 영상", span: "col-span-2 row-span-2" },
-  { id: 2, title: "사이버 워리어", author: "이모션", image: "photo-1535016120720-40c646be5580", category: "모션그래픽", span: "" },
-  { id: 3, title: "미래도시", author: "박프로", image: "photo-1550745165-9bc0b252726f", category: "3D 렌더링", span: "" },
-  { id: 4, title: "일상 속 마법", author: "최아트", image: "photo-1574717024653-61fd2cf4d44d", category: "숏폼", span: "" },
-  { id: 5, title: "코스믹 댄스", author: "정크리", image: "photo-1492691527719-9d1e07e534b4", category: "AI 영상", span: "col-span-2" },
-  { id: 6, title: "도시의 빛", author: "한비주", image: "photo-1505739998589-00fc191ce01d", category: "광고 영상", span: "" },
-  { id: 7, title: "자연의 숨결", author: "윤감독", image: "photo-1598488035139-bdbb2231ce04", category: "드론 촬영", span: "" },
-  { id: 8, title: "디지털 블룸", author: "송피디", image: "photo-1611532736597-de2d4265fba3", category: "모션그래픽", span: "" },
-  { id: 9, title: "스틸 라이프", author: "강작가", image: "photo-1677442136019-21780ecad995", category: "AI 이미지", span: "" },
+  { id: 1, title: "네온시티 체이스", author: "김영상", image: "photo-1536240478700-b869070f9279", category: "AI 영상" },
+  { id: 2, title: "사이버 워리어", author: "이모션", image: "photo-1535016120720-40c646be5580", category: "모션그래픽" },
+  { id: 3, title: "미래도시", author: "박프로", image: "photo-1550745165-9bc0b252726f", category: "3D 렌더링" },
+  { id: 4, title: "일상 속 마법", author: "최아트", image: "photo-1574717024653-61fd2cf4d44d", category: "숏폼" },
+  { id: 5, title: "코스믹 댄스", author: "정크리", image: "photo-1492691527719-9d1e07e534b4", category: "AI 영상" },
+  { id: 6, title: "도시의 빛", author: "한비주", image: "photo-1505739998589-00fc191ce01d", category: "광고 영상" },
+  { id: 7, title: "자연의 숨결", author: "윤감독", image: "photo-1598488035139-bdbb2231ce04", category: "드론 촬영" },
+  { id: 8, title: "디지털 블룸", author: "송피디", image: "photo-1611532736597-de2d4265fba3", category: "모션그래픽" },
+  { id: 9, title: "스틸 라이프", author: "강작가", image: "photo-1677442136019-21780ecad995", category: "AI 이미지" },
 ];
 
 
@@ -289,13 +289,13 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* 벤토 그리드 */}
-          <div className="grid grid-cols-4 auto-rows-[160px] gap-2.5">
+          {/* 가로 스크롤 */}
+          <HorizontalScrollRow showFade={false}>
             {contestEntries.map((entry) => (
               <Link
                 key={entry.id}
                 href={`/contest/${entry.id}`}
-                className={`relative rounded-2xl overflow-hidden group cursor-pointer ${entry.span}`}
+                className="relative rounded-2xl overflow-hidden group cursor-pointer min-w-[280px] h-[200px] shrink-0 snap-start"
               >
                 <Image
                   src={`https://images.unsplash.com/${entry.image}?w=600&h=400&fit=crop`}
@@ -323,7 +323,7 @@ export default function HomePage() {
                 </div>
               </Link>
             ))}
-          </div>
+          </HorizontalScrollRow>
 
           {/* 공모전 참가 CTA */}
           <div className="mt-8 flex items-center justify-center">
