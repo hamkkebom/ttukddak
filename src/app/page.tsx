@@ -27,25 +27,25 @@ const popularSearches = [
   "제품 광고", "AI 아바타", "3D 렌더링",
 ];
 
-// 추천 전문가 데이터 (실제 프리랜서)
+// 추천 전문가 데이터 (실제 프리랜서 + 실제 썸네일)
 const featuredExperts = [
-  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "photo-1536240478700-b869070f9279", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["photo-1535016120720-40c646be5580", "photo-1550745165-9bc0b252726f", "photo-1611532736597-de2d4265fba3"], badge: "TOP" },
-  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "photo-1574717024653-61fd2cf4d44d", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["photo-1536240478700-b869070f9279", "photo-1492691527719-9d1e07e534b4", "photo-1598488035139-bdbb2231ce04"], badge: "HOT" },
-  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "photo-1492691527719-9d1e07e534b4", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["photo-1505739998589-00fc191ce01d", "photo-1574717024653-61fd2cf4d44d", "photo-1677442136019-21780ecad995"], badge: "FAST" },
-  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "photo-1505739998589-00fc191ce01d", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["photo-1536240478700-b869070f9279", "photo-1535016120720-40c646be5580", "photo-1550745165-9bc0b252726f"], badge: "PRO" },
+  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/a30c6320-2037-4536-bb0a-89273700e17d.jpeg", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/87c2692d-b67a-4741-a098-3156453f5463.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkp2a00fqsgtx0j5dsi0a.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/44eb8e10-6b93-4b40-8edc-afa32b2ea9a2.png"], badge: "TOP" },
+  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmn2xnaz8000004l88s3jqsbc.jpg", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkq7300j9sgtxbb83ma0s.jpeg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png"], badge: "HOT" },
+  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkpvc00i8sgtx6gv5s9w9.jpg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhe5000ysgtxvvmcrpex/17edcf60-e416-4e13-8e95-5df493b28705.jpeg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhe5000ysgtxvvmcrpex/f7881fd0-ec75-4aa4-b505-d6673c5ed9f3.jpeg"], badge: "FAST" },
+  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr7800mesgtxh89tldij.png", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkr0z00lusgtxrefvjlud.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpbp00gjsgtxgi852aeb.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkh7g000nsgtxni39gt98/446c3fc3-b4b3-4e30-b53f-4f16875cc4e7.png"], badge: "PRO" },
 ];
 
-// 공모전 출품작 데이터
+// 크리에이터 작품 데이터 (실제 프리랜서 영상)
 const contestEntries = [
-  { id: 1, title: "네온시티 체이스", author: "김영상", image: "photo-1536240478700-b869070f9279", category: "AI 영상" },
-  { id: 2, title: "사이버 워리어", author: "이모션", image: "photo-1535016120720-40c646be5580", category: "모션그래픽" },
-  { id: 3, title: "미래도시", author: "박프로", image: "photo-1550745165-9bc0b252726f", category: "3D 렌더링" },
-  { id: 4, title: "일상 속 마법", author: "최아트", image: "photo-1574717024653-61fd2cf4d44d", category: "숏폼" },
-  { id: 5, title: "코스믹 댄스", author: "정크리", image: "photo-1492691527719-9d1e07e534b4", category: "AI 영상" },
-  { id: 6, title: "도시의 빛", author: "한비주", image: "photo-1505739998589-00fc191ce01d", category: "광고 영상" },
-  { id: 7, title: "자연의 숨결", author: "윤감독", image: "photo-1598488035139-bdbb2231ce04", category: "드론 촬영" },
-  { id: 8, title: "디지털 블룸", author: "송피디", image: "photo-1611532736597-de2d4265fba3", category: "모션그래픽" },
-  { id: 9, title: "스틸 라이프", author: "강작가", image: "photo-1677442136019-21780ecad995", category: "AI 이미지" },
+  { id: 1, title: "콕콕상담 소개 영상", author: "새론", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/a30c6320-2037-4536-bb0a-89273700e17d.jpeg", category: "콕콕상담" },
+  { id: 2, title: "상담사 소개홍보 영상", author: "박건우", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkq7300j9sgtxbb83ma0s.jpeg", category: "소개영상" },
+  { id: 3, title: "타로 상담송", author: "여울", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png", category: "타로코너" },
+  { id: 4, title: "콕콕상담 소개", author: "아이", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png", category: "콕콕상담" },
+  { id: 5, title: "상담사 기도문 영상", author: "버들", image: "https://pub-r2.hamkkebom.com/thumbnails/cmn2xnaz8000004l88s3jqsbc.jpg", category: "기도영상" },
+  { id: 6, title: "단골상담 소개", author: "샛별", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkh7g000nsgtxni39gt98/446c3fc3-b4b3-4e30-b53f-4f16875cc4e7.png", category: "단골상담" },
+  { id: 7, title: "자기소개 영상", author: "산다라", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr7800mesgtxh89tldij.png", category: "소개영상" },
+  { id: 8, title: "콕콕상담 홍보", author: "해솔", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr0z00lusgtxrefvjlud.png", category: "콕콕상담" },
+  { id: 9, title: "오늘의 운세", author: "꿈돌", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpbp00gjsgtxgi852aeb.png", category: "콕콕상담" },
 ];
 
 
@@ -65,19 +65,20 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ===== HERO — 넷플릭스 시네마틱 + 크몽 검색 ===== */}
+      {/* ===== HERO — 배경 영상 + 크몽 검색 ===== */}
       <section className="relative h-[480px] md:h-[520px] overflow-hidden">
-        {/* 배경 이미지 */}
+        {/* 배경 영상 (Cloudflare Stream) */}
         <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1536240478700-b869070f9279?w=1920&h=800&fit=crop"
-            alt="Hero background"
-            fill
-            className="object-cover"
-            priority
+          <iframe
+            src="https://customer-2cdfhb1r3hh6t0pj.cloudflarestream.com/a22ed2808d0a0439e5a2f77a55eff85f/iframe?muted=true&autoplay=true&loop=true&controls=false&poster=https%3A%2F%2Fpub-r2.hamkkebom.com%2Fthumbnails%2Fcmlegkhdj000xsgtxrvebcqgb%2Fa30c6320-2037-4536-bb0a-89273700e17d.jpeg"
+            className="absolute inset-0 w-full h-full border-0 pointer-events-none"
+            style={{ transform: "scale(1.5)", transformOrigin: "center center" }}
+            allow="autoplay; encrypted-media"
+            title="Hero background video"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+          {/* 왼쪽 진한 그라데이션 → 오른쪽 투명 (텍스트 보호) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
         </div>
 
         <div className="container mx-auto px-4 relative h-full flex flex-col justify-center">
@@ -262,7 +263,7 @@ export default function HomePage() {
                   {/* 포트폴리오 썸네일 갤러리 */}
                   <div className="relative h-[200px] overflow-hidden">
                     {/* 메인 이미지 */}
-                    <Image src={`https://images.unsplash.com/${expert.image}?w=500&h=300&fit=crop`} alt={expert.service} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <Image src={expert.image} alt={expert.service} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                     {/* 배지 */}
@@ -291,7 +292,7 @@ export default function HomePage() {
                     <div className="absolute bottom-3 left-3 right-3 flex gap-1.5">
                       {expert.portfolioImages.map((img, i) => (
                         <div key={i} className="relative h-10 flex-1 rounded-lg overflow-hidden ring-1 ring-white/20">
-                          <Image src={`https://images.unsplash.com/${img}?w=120&h=60&fit=crop`} alt="" fill className="object-cover" />
+                          <Image src={img} alt="" fill className="object-cover" />
                         </div>
                       ))}
                     </div>
@@ -361,7 +362,7 @@ export default function HomePage() {
           <div className="flex gap-2.5">
             {/* 대형 카드 */}
             <Link href={`/contest/${contestEntries[0].id}`} className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
-              <Image src={`https://images.unsplash.com/${contestEntries[0].image}?w=600&h=400&fit=crop`} alt={contestEntries[0].title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+              <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5">
                 <div className="inline-flex bg-orange-500 rounded-full px-2.5 py-0.5 mb-2">
@@ -385,7 +386,7 @@ export default function HomePage() {
             <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-2.5">
               {contestEntries.slice(1, 7).map((entry) => (
                 <Link key={entry.id} href={`/contest/${entry.id}`} className="relative rounded-2xl overflow-hidden group">
-                  <Image src={`https://images.unsplash.com/${entry.image}?w=400&h=200&fit=crop`} alt={entry.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <Image src={entry.image} alt={entry.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                     <p className="text-white font-semibold text-sm">{entry.title}</p>
@@ -567,7 +568,7 @@ export default function HomePage() {
       <section className="relative py-20 md:py-28 overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=1920&h=600&fit=crop"
+            src="https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png"
             alt="CTA background"
             fill
             className="object-cover"

@@ -11,11 +11,19 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "picsum.photos",
+        hostname: "pub-r2.hamkkebom.com",
       },
       {
         protocol: "https",
         hostname: "api.dicebear.com",
+      },
+      {
+        protocol: "https",
+        hostname: "customer-2cdfhb1r3hh6t0pj.cloudflarestream.com",
+      },
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
       },
       {
         protocol: "https",
