@@ -184,69 +184,14 @@ export default function HomePage() {
               "from-slate-600 to-slate-700",
               "from-indigo-500 to-violet-600",
             ];
-            const bgImages = [
-              "photo-1536240478700-b869070f9279",
-              "photo-1550745165-9bc0b252726f",
-              "photo-1574717024653-61fd2cf4d44d",
-              "photo-1677442136019-21780ecad995",
-              "photo-1505739998589-00fc191ce01d",
-              "photo-1598488035139-bdbb2231ce04",
-              "photo-1492691527719-9d1e07e534b4",
-              "photo-1611532736597-de2d4265fba3",
-            ];
-            // 첫 번째: 큰 카드, 2-4: 중간, 5-8: 작은
             return (
-              <div className="grid grid-cols-4 grid-rows-[200px_200px_140px] gap-3 auto-rows-fr">
-                {/* 대형 카드 — 영상 (2col x 2row) */}
-                {categories[0] && (() => {
-                  const cat = categories[0];
-                  const Icon = iconMap[cat.icon] || Sparkles;
-                  return (
-                    <Link key={cat.id} href={`/category/${cat.slug}`} className="col-span-2 row-span-2">
-                      <div className="relative h-full rounded-2xl overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                        <Image src={`https://images.unsplash.com/${bgImages[0]}?w=600&h=400&fit=crop`} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <div className={`absolute inset-0 bg-gradient-to-t ${gradients[0]} opacity-70`} />
-                        <div className="absolute inset-0 p-6 flex flex-col justify-between">
-                          <Icon className="h-10 w-10 text-white/80" />
-                          <div>
-                            <p className="text-white font-extrabold text-2xl mb-1">{cat.name}</p>
-                            <p className="text-white/60 text-sm">{cat.serviceCount}개 서비스</p>
-                          </div>
-                        </div>
-                        <div className="absolute top-5 right-5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="h-5 w-5 text-white/80" />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })()}
-
-                {/* 중형 카드 3개 (각 1col x 1row) */}
-                {categories.slice(1, 4).map((cat, i) => {
+              <div className="grid grid-cols-4 md:grid-cols-8 gap-3 grid-rows-[120px]">
+                {categories.map((cat, i) => {
                   const Icon = iconMap[cat.icon] || Sparkles;
                   return (
                     <Link key={cat.id} href={`/category/${cat.slug}`}>
-                      <div className={`relative h-full rounded-2xl bg-gradient-to-br ${gradients[i + 1]} p-5 flex flex-col justify-between group overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
-                        <Icon className="h-7 w-7 text-white/60" />
-                        <div>
-                          <p className="text-white font-bold text-base">{cat.name}</p>
-                          <p className="text-white/50 text-xs mt-0.5">{cat.serviceCount}개 서비스</p>
-                        </div>
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="h-4 w-4 text-white/80" />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-
-                {/* 소형 카드 4개 (마지막 행) */}
-                {categories.slice(4, 8).map((cat, i) => {
-                  const Icon = iconMap[cat.icon] || Sparkles;
-                  return (
-                    <Link key={cat.id} href={`/category/${cat.slug}`}>
-                      <div className={`relative h-full rounded-2xl bg-gradient-to-br ${gradients[i + 4]} p-4 flex flex-col justify-between group overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
-                        <Icon className="h-5 w-5 text-white/60" />
+                      <div className={`relative h-[120px] rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} p-4 flex flex-col justify-between group overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
+                        <Icon className="h-6 w-6 text-white/60" />
                         <div>
                           <p className="text-white font-bold text-sm">{cat.name}</p>
                           <p className="text-white/50 text-[11px] mt-0.5">{cat.serviceCount}개</p>
