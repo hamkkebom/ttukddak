@@ -5,6 +5,8 @@ export interface Category {
   description: string;
   icon: string;
   serviceCount: number;
+  parentId?: string;
+  children?: Category[];
 }
 
 export interface Expert {

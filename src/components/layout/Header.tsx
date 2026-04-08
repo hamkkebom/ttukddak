@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { categories } from "@/data/categories";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -194,8 +194,6 @@ export function Header() {
             )}
 
             <div className="w-px h-6 bg-slate-200 mx-2" aria-hidden="true" />
-
-            <ThemeToggle />
 
             {isLoggedIn && user ? (
               <>
@@ -392,7 +390,6 @@ export function Header() {
                          <Link href="/faq" onClick={() => setIsOpen(false)} className="hover:text-primary">FAQ</Link>
                          <Link href="/about" onClick={() => setIsOpen(false)} className="hover:text-primary">회사소개</Link>
                        </div>
-                       <ThemeToggle />
                      </div>
                    </div>
                 </div>

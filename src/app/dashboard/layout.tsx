@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex bg-muted/30">
       {/* Sidebar */}
-      <aside className="w-56 bg-white dark:bg-slate-900 border-r flex flex-col shrink-0 sticky top-0 h-screen">
+      <aside className="w-56 bg-white border-r flex flex-col shrink-0 sticky top-0 h-screen">
         {/* Logo */}
         <div className="p-4 border-b">
           <Link href="/dashboard" className="flex items-center gap-2">

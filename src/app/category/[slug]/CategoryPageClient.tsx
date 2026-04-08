@@ -29,7 +29,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ServiceCard } from "@/components/ServiceCard";
-import { getCategoryBySlug, categories } from "@/data/categories";
+import { getCategoryBySlug, categories, getSubcategories } from "@/data/categories";
 import { getServicesByCategory } from "@/data/services";
 import { getExpertById } from "@/data/experts";
 
@@ -45,7 +45,9 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
   const [showMasterOnly, setShowMasterOnly] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const allServices = category ? getServicesByCategory(category.id) : [];
+  const subs = category ? getSubcategories(category.id) : [];
+  const subIds = subs.map((s) => s.id);
+  const allServices = category ? getServicesByCategory(category.id, subIds) : [];
 
   const filteredAndSortedServices = useMemo(() => {
     let result = [...allServices];
@@ -214,14 +216,14 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {/* Subcategory Tabs */}
+      {/* Main Category Tabs */}
       <div className="border-b bg-background sticky top-16 z-40">
         <div className="container mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
             {categories.map((cat) => (
               <Link key={cat.id} href={`/category/${cat.slug}`}>
                 <Badge
-                  variant={cat.id === category.id ? "default" : "outline"}
+                  variant={cat.id === category.id || cat.id === category.parentId ? "default" : "outline"}
                   className="cursor-pointer whitespace-nowrap"
                 >
                   {cat.name}
@@ -231,6 +233,39 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+
+      {/* Subcategory Tabs */}
+      {(() => {
+        const parentId = category.parentId || category.id;
+        const subs = getSubcategories(parentId);
+        if (subs.length === 0) return null;
+        return (
+          <div className="border-b">
+            <div className="container mx-auto px-4">
+              <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
+                <Link href={`/category/${getCategoryBySlug(parentId)?.slug || parentId}`}>
+                  <Badge
+                    variant={!category.parentId ? "default" : "outline"}
+                    className="cursor-pointer whitespace-nowrap text-xs"
+                  >
+                    전체
+                  </Badge>
+                </Link>
+                {subs.map((sub) => (
+                  <Link key={sub.id} href={`/category/${sub.slug}`}>
+                    <Badge
+                      variant={sub.id === category.id ? "default" : "outline"}
+                      className="cursor-pointer whitespace-nowrap text-xs"
+                    >
+                      {sub.name}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="container mx-auto px-4 py-6">
         <div className="flex gap-8">

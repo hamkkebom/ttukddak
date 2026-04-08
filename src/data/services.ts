@@ -235,7 +235,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc6-1/800/600",
     ],
-    categoryId: "youtube-shorts",
+    categoryId: "short-form",
     expertId: "expert-5",
     price: 50000,
     rating: 4.7,
@@ -280,7 +280,7 @@ export const services: Service[] = [
       "https://picsum.photos/seed/svc7-1/800/600",
       "https://picsum.photos/seed/svc7-2/800/600",
     ],
-    categoryId: "product-ad",
+    categoryId: "ad-video",
     expertId: "expert-6",
     price: 200000,
     rating: 4.8,
@@ -324,7 +324,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc8-1/800/600",
     ],
-    categoryId: "corporate",
+    categoryId: "industry-video",
     expertId: "expert-7",
     price: 300000,
     rating: 4.85,
@@ -368,7 +368,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc9-1/800/600",
     ],
-    categoryId: "music-video",
+    categoryId: "youtube",
     expertId: "expert-8",
     price: 300000,
     rating: 4.75,
@@ -412,7 +412,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc10-1/800/600",
     ],
-    categoryId: "wedding-event",
+    categoryId: "event-video",
     expertId: "expert-9",
     price: 200000,
     rating: 4.9,
@@ -456,7 +456,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc11-1/800/600",
     ],
-    categoryId: "education",
+    categoryId: "edu-video",
     expertId: "expert-10",
     price: 150000,
     rating: 4.85,
@@ -500,7 +500,7 @@ export const services: Service[] = [
     images: [
       "https://picsum.photos/seed/svc12-1/800/600",
     ],
-    categoryId: "youtube-shorts",
+    categoryId: "short-form",
     expertId: "expert-5",
     price: 30000,
     rating: 4.65,
@@ -540,7 +540,11 @@ export function getServiceById(id: string): Service | undefined {
   return services.find((s) => s.id === id);
 }
 
-export function getServicesByCategory(categoryId: string): Service[] {
+export function getServicesByCategory(categoryId: string, includeSubIds?: string[]): Service[] {
+  if (includeSubIds && includeSubIds.length > 0) {
+    const allIds = new Set([categoryId, ...includeSubIds]);
+    return services.filter((s) => allIds.has(s.categoryId));
+  }
   return services.filter((s) => s.categoryId === categoryId);
 }
 
