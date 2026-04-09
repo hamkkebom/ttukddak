@@ -2,9 +2,10 @@
 
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  ChevronRight, CheckCircle, Clock, FileText, Upload,
-  MessageCircle, Star, Package, CreditCard, Eye
+  ChevronRight, CheckCircle, FileText, Upload,
+  MessageCircle, Star, Package, CreditCard, Eye, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,17 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getOrderByIdClient, getServiceByIdClient, getExpertByIdClient } from "@/lib/db-client";
 import type { Order, Service, Expert } from "@/types";
+import { toast } from "sonner";
+
+interface OrderDelivery {
+  id: string;
+  order_id: string;
+  expert_id: string;
+  message: string;
+  files: string[];
+  version: number;
+  created_at: string;
+}
 
 function getOrderSteps(status: string) {
   const statusMap: Record<string, number> = {
@@ -46,10 +58,15 @@ export default function OrderTrackingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [service, setService] = useState<Service | null>(null);
   const [expert, setExpert] = useState<Expert | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deliveries, setDeliveries] = useState<OrderDelivery[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [revisionReason, setRevisionReason] = useState("");
 
   useEffect(() => {
     getOrderByIdClient(id).then(async (o) => {
@@ -65,6 +82,59 @@ export default function OrderTrackingPage({
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    fetch(`/api/orders/${id}/deliveries`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setDeliveries(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [id]);
+
+  async function handleConfirm() {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/orders/${id}/confirm`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "구매 확정에 실패했습니다");
+        return;
+      }
+      toast.success("구매가 확정되었습니다");
+      router.push(`/order/${id}/review`);
+    } catch {
+      toast.error("오류가 발생했습니다");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleRevision() {
+    if (!revisionReason.trim()) {
+      toast.error("수정 요청 사유를 입력해주세요");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/orders/${id}/revision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: revisionReason }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "수정 요청에 실패했습니다");
+        return;
+      }
+      toast.success("수정 요청이 전달되었습니다");
+      setShowRevisionModal(false);
+      setRevisionReason("");
+      setOrder((prev) => prev ? { ...prev, status: "in_progress" } : prev);
+    } catch {
+      toast.error("오류가 발생했습니다");
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   const orderSteps = getOrderSteps(order?.status || "pending");
   const currentStepIndex = orderSteps.findIndex((s) => s.status === "current");
@@ -161,15 +231,98 @@ export default function OrderTrackingPage({
                 </CardContent>
               </Card>
 
-              {/* Deliveries - TODO: implement deliveries table */}
+              {/* Deliveries */}
               <Card>
                 <CardHeader><CardTitle className="text-base">납품물</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    아직 납품물이 없습니다
-                  </div>
+                  {deliveries.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      아직 납품물이 없습니다
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {deliveries.map((delivery) => (
+                        <div key={delivery.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="secondary">버전 {delivery.version}</Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(delivery.created_at).toLocaleString("ko-KR")}
+                            </span>
+                          </div>
+                          {delivery.message && (
+                            <p className="text-sm">{delivery.message}</p>
+                          )}
+                          {delivery.files && delivery.files.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">첨부 파일</p>
+                              {delivery.files.map((url, i) => (
+                                <a
+                                  key={i}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                >
+                                  <Download className="h-3 w-3" />
+                                  {url.split("/").pop() || `파일 ${i + 1}`}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {order?.status === "delivered" && (
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        className="flex-1"
+                        onClick={handleConfirm}
+                        disabled={actionLoading}
+                      >
+                        구매 확정
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setShowRevisionModal(true)}
+                        disabled={actionLoading}
+                      >
+                        수정 요청
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Revision Request Modal */}
+              {showRevisionModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-background rounded-xl shadow-lg p-6 w-full max-w-md mx-4 space-y-4">
+                    <h3 className="font-semibold text-lg">수정 요청</h3>
+                    <p className="text-sm text-muted-foreground">수정이 필요한 사항을 구체적으로 설명해주세요.</p>
+                    <textarea
+                      className="w-full border rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      rows={5}
+                      placeholder="수정 요청 사유를 입력하세요"
+                      value={revisionReason}
+                      onChange={(e) => setRevisionReason(e.target.value)}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setShowRevisionModal(false); setRevisionReason(""); }}
+                        disabled={actionLoading}
+                      >
+                        취소
+                      </Button>
+                      <Button onClick={handleRevision} disabled={actionLoading}>
+                        수정 요청 전송
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sidebar */}
@@ -217,18 +370,29 @@ export default function OrderTrackingPage({
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">남은 수정</span>
-                    <Badge variant="secondary">3회 중 3회</Badge>
+                    <span className="text-muted-foreground">납품 횟수</span>
+                    <Badge variant="secondary">{deliveries.length}회</Badge>
                   </div>
                 </CardContent>
               </Card>
 
               <div className="space-y-2">
-                <Button className="w-full" size="sm" asChild>
-                  <Link href={`/order/${id}/review`}>구매 확정 & 리뷰 작성</Link>
+                <Button
+                  className="w-full"
+                  size="sm"
+                  onClick={handleConfirm}
+                  disabled={actionLoading || order?.status !== "delivered"}
+                >
+                  구매 확정 & 리뷰 작성
                 </Button>
-                <Button variant="outline" className="w-full" size="sm" asChild>
-                  <Link href="/messages">수정 요청</Link>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => setShowRevisionModal(true)}
+                  disabled={actionLoading || order?.status !== "delivered"}
+                >
+                  수정 요청
                 </Button>
               </div>
             </div>

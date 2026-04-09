@@ -73,7 +73,7 @@ export interface Order {
   expertId: string;
   packageName: string;
   price: number;
-  status: "pending" | "paid" | "in_progress" | "review" | "completed" | "cancelled" | "refunded";
+  status: "pending" | "paid" | "in_progress" | "review" | "delivered" | "completed" | "cancelled" | "refunded";
   paymentId?: string;
   requirements?: string;
   createdAt: string;

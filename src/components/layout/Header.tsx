@@ -32,6 +32,7 @@ export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string; image: string } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     getCategoriesClient().then(setCategories);
@@ -67,6 +68,48 @@ export function Header() {
 
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
+
+  useEffect(() => {
+    let channelRef: ReturnType<typeof supabase.channel> | undefined;
+
+    const fetchUnreadCount = async (userId: string) => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      setUnreadCount(count ?? 0);
+    };
+
+    const setupNotifications = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      await fetchUnreadCount(authUser.id);
+
+      channelRef = supabase
+        .channel("header-notifications")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${authUser.id}`,
+          },
+          () => {
+            fetchUnreadCount(authUser.id);
+          }
+        )
+        .subscribe();
+    };
+
+    setupNotifications();
+
+    return () => {
+      if (channelRef) supabase.removeChannel(channelRef);
+    };
+  }, [supabase]);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -210,7 +253,11 @@ export function Header() {
                 <Button variant="ghost" size="icon" asChild className="text-slate-600 relative">
                   <Link href="/notifications" aria-label="알림">
                     <Bell className="h-4 w-4" />
-                    <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                   </Link>
                 </Button>
                 <Button variant="ghost" size="icon" asChild className="text-slate-600">

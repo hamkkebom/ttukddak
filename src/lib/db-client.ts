@@ -66,7 +66,23 @@ interface DBProfile {
 // Transform DB → App types
 // ============================================
 
-function dbServiceToApp(s: DBService): Service {
+const DEFAULT_PACKAGES = (price: number) => [
+  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["30초 영상", "HD 화질", "배경음악 포함", "자막 포함"] },
+  { name: "스탠다드", price: price * 2, deliveryDays: 10, revisions: 3, features: ["1분 영상", "4K 화질", "배경음악 포함", "자막+효과음"] },
+  { name: "프리미엄", price: price * 3, deliveryDays: 14, revisions: 5, features: ["2분 영상", "4K 화질", "맞춤 음악", "소스파일 제공"] },
+];
+
+function dbServiceToApp(s: DBService, packages?: any[]): Service {
+  const pkgs = packages && packages.length > 0
+    ? packages.map((p: any) => ({
+        name: p.name,
+        price: p.price,
+        deliveryDays: p.delivery_days,
+        revisions: p.revisions,
+        features: p.features || [],
+      }))
+    : DEFAULT_PACKAGES(s.price);
+
   return {
     id: s.id,
     title: s.title,
@@ -82,11 +98,7 @@ function dbServiceToApp(s: DBService): Service {
     tags: s.tags || [],
     isPrime: s.is_prime || false,
     isFastResponse: s.is_fast_response || false,
-    packages: [
-      { name: "베이직", price: s.price, deliveryDays: 7, revisions: 2, features: ["30초 영상", "HD 화질", "배경음악 포함", "자막 포함"] },
-      { name: "스탠다드", price: s.price * 2, deliveryDays: 10, revisions: 3, features: ["1분 영상", "4K 화질", "배경음악 포함", "자막+효과음"] },
-      { name: "프리미엄", price: s.price * 3, deliveryDays: 14, revisions: 5, features: ["2분 영상", "4K 화질", "맞춤 음악", "소스파일 제공"] },
-    ],
+    packages: pkgs,
     createdAt: s.created_at?.split("T")[0] || "2026-01-01",
   };
 }
@@ -141,18 +153,17 @@ export async function getServicesClient(limit?: number): Promise<Service[]> {
   if (limit) query = query.limit(limit);
 
   const { data } = await query;
-  return (data || []).map(dbServiceToApp);
+  return (data || []).map((s: any) => dbServiceToApp(s));
 }
 
 export async function getServiceByIdClient(id: string): Promise<Service | null> {
   const sb = createClient();
-  const { data } = await sb
-    .from("services")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data }, { data: packages }] = await Promise.all([
+    sb.from("services").select("*").eq("id", id).maybeSingle(),
+    sb.from("service_packages").select("*").eq("service_id", id).order("price"),
+  ]);
 
-  return data ? dbServiceToApp(data) : null;
+  return data ? dbServiceToApp(data, packages || undefined) : null;
 }
 
 export async function getExpertByIdClient(id: string): Promise<Expert | null> {
@@ -177,7 +188,7 @@ export async function getServicesByExpertClient(expertId: string): Promise<Servi
     .eq("expert_id", expertId)
     .eq("status", "active");
 
-  return (data || []).map(dbServiceToApp);
+  return (data || []).map((s: any) => dbServiceToApp(s));
 }
 
 export async function searchServicesClient(query: string): Promise<Service[]> {
@@ -191,7 +202,7 @@ export async function searchServicesClient(query: string): Promise<Service[]> {
     .order("sales_count", { ascending: false })
     .limit(50);
 
-  return (data || []).map(dbServiceToApp);
+  return (data || []).map((s: any) => dbServiceToApp(s));
 }
 
 export async function getCategoriesClient(): Promise<Category[]> {

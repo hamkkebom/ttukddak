@@ -94,6 +94,9 @@ export default function ReviewPage({
         reviewerId: user.id,
         reviewerName: user.user_metadata?.name || user.email?.split("@")[0] || "사용자",
         rating: overallRating,
+        qualityRating: categoryRatings.quality || overallRating,
+        communicationRating: categoryRatings.communication || overallRating,
+        deliveryRating: categoryRatings.delivery || overallRating,
         content: reviewText,
       }),
     });

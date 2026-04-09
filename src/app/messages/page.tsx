@@ -89,6 +89,89 @@ export default function MessagesPage() {
     });
   }, [selectedConv]);
 
+  // Realtime subscription for current conversation messages
+  useEffect(() => {
+    if (!selectedConv || !currentUserId) return;
+
+    const sb = createClient();
+    const channel = sb
+      .channel(`messages:${selectedConv}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${selectedConv}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Only add if not sent by current user (already added optimistically)
+          if (newMsg.sender_id !== currentUserId) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: newMsg.id,
+                conversationId: newMsg.conversation_id,
+                senderId: newMsg.sender_id,
+                content: newMsg.content,
+                isRead: newMsg.is_read,
+                createdAt: newMsg.created_at,
+              },
+            ]);
+          }
+        }
+      )
+      .subscribe();
+
+    // Mark unread messages as read
+    sb.from("messages")
+      .update({ is_read: true })
+      .eq("conversation_id", selectedConv)
+      .neq("sender_id", currentUserId)
+      .eq("is_read", false)
+      .then(() => {});
+
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [selectedConv, currentUserId]);
+
+  // Realtime subscription for conversation list updates
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const sb = createClient();
+    const channel = sb
+      .channel("conversations-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversations",
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          // Check if current user is a participant
+          if (updated.participant_1 === currentUserId || updated.participant_2 === currentUserId) {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === updated.id
+                  ? { ...c, lastMessage: updated.last_message || c.lastMessage, lastTime: "방금" }
+                  : c
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
   const selectedConversation = conversations.find((c) => c.id === selectedConv);
 
   const handleSend = async (e: React.FormEvent) => {

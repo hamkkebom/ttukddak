@@ -1,143 +1,153 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell, MessageCircle, ShoppingBag, Star, CreditCard,
-  Megaphone, CheckCheck, Trash2, Settings
+  CheckCheck, Trash2, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
-type NotifCategory = "all" | "order" | "message" | "review" | "payment" | "promo";
+type NotifType = "order" | "message" | "review" | "payment" | "system";
+type FilterCategory = "all" | NotifType;
 
-interface Notification {
+interface DbNotification {
   id: string;
-  category: NotifCategory;
-  icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
+  user_id: string;
+  type: NotifType;
   title: string;
-  description: string;
-  time: string;
-  read: boolean;
-  link?: string;
+  message: string;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
-const STORAGE_KEY = "ttukddak_notifications";
-
-const baseNotifications: Omit<Notification, "read">[] = [
-  {
-    id: "n1", category: "order", icon: ShoppingBag, iconColor: "text-blue-600 bg-blue-100",
-    title: "새 주문이 접수되었습니다",
-    description: "김의뢰님이 'AI 프리미엄 뮤직비디오' 스탠다드 패키지를 주문했습니다.",
-    time: "10분 전", link: "/dashboard",
-  },
-  {
-    id: "n2", category: "message", icon: MessageCircle, iconColor: "text-green-600 bg-green-100",
-    title: "새 메시지가 도착했습니다",
-    description: "박고객님: '중간 시안 확인했습니다. 색감을 조금 더 따뜻하게...'",
-    time: "30분 전", link: "/messages",
-  },
-  {
-    id: "n3", category: "review", icon: Star, iconColor: "text-amber-600 bg-amber-100",
-    title: "새 리뷰가 등록되었습니다",
-    description: "이만족님이 별점 5점 리뷰를 남겼습니다: '퀄리티가 기대 이상이었습니다!'",
-    time: "2시간 전", link: "/dashboard",
-  },
-  {
-    id: "n4", category: "payment", icon: CreditCard, iconColor: "text-purple-600 bg-purple-100",
-    title: "정산이 완료되었습니다",
-    description: "300,000원이 등록된 계좌로 입금되었습니다.",
-    time: "어제",
-  },
-  {
-    id: "n5", category: "order", icon: ShoppingBag, iconColor: "text-blue-600 bg-blue-100",
-    title: "주문 상태가 변경되었습니다",
-    description: "'Runway 시네마틱 영상' 주문이 검수 대기 상태로 변경되었습니다.",
-    time: "어제", link: "/dashboard",
-  },
-  {
-    id: "n6", category: "promo", icon: Megaphone, iconColor: "text-primary bg-primary/10",
-    title: "봄맞이 프로모션 안내",
-    description: "신규 서비스 등록 시 수수료 50% 할인 이벤트를 진행합니다!",
-    time: "3일 전", link: "/event",
-  },
-  {
-    id: "n7", category: "message", icon: MessageCircle, iconColor: "text-green-600 bg-green-100",
-    title: "견적 요청이 도착했습니다",
-    description: "최신규님이 'AI 영상 생성' 카테고리에서 견적을 요청했습니다.",
-    time: "3일 전", link: "/request",
-  },
-];
-
-const filterTabs: { value: NotifCategory; label: string }[] = [
+const filterTabs: { value: FilterCategory; label: string }[] = [
   { value: "all", label: "전체" },
   { value: "order", label: "주문" },
   { value: "message", label: "메시지" },
   { value: "review", label: "리뷰" },
   { value: "payment", label: "정산" },
-  { value: "promo", label: "프로모션" },
 ];
 
-function loadFromStorage(): { readIds: string[]; deletedIds: string[] } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { readIds: [], deletedIds: [] };
+function getIconConfig(type: NotifType): {
+  Icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+} {
+  switch (type) {
+    case "order":
+      return { Icon: ShoppingBag, colorClass: "text-blue-600 bg-blue-100" };
+    case "message":
+      return { Icon: MessageCircle, colorClass: "text-green-600 bg-green-100" };
+    case "review":
+      return { Icon: Star, colorClass: "text-amber-600 bg-amber-100" };
+    case "payment":
+      return { Icon: CreditCard, colorClass: "text-purple-600 bg-purple-100" };
+    case "system":
+    default:
+      return { Icon: Bell, colorClass: "text-primary bg-primary/10" };
+  }
 }
 
-function saveToStorage(readIds: string[], deletedIds: string[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ readIds, deletedIds }));
-  } catch {}
+function formatTime(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffMin < 1) return "방금 전";
+  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  if (diffDay === 1) return "어제";
+  if (diffDay < 7) return `${diffDay}일 전`;
+  return date.toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
 }
 
 export default function NotificationsPage() {
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [deletedIds, setDeletedIds] = useState<string[]>([]);
-  const [activeFilter, setActiveFilter] = useState<NotifCategory>("all");
-  const [mounted, setMounted] = useState(false);
+  const supabase = createClient();
+  const [notifications, setNotifications] = useState<DbNotification[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>("all");
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const { readIds: r, deletedIds: d } = loadFromStorage();
-    setReadIds(r);
-    setDeletedIds(d);
-    setMounted(true);
+  const fetchNotifications = useCallback(async () => {
+    const res = await fetch("/api/notifications?limit=50");
+    if (res.ok) {
+      const data = await res.json();
+      setNotifications(data);
+    }
+    setLoading(false);
   }, []);
 
-  const notifications: Notification[] = baseNotifications
-    .filter((n) => !deletedIds.includes(n.id))
-    .map((n) => ({ ...n, read: readIds.includes(n.id) }));
+  useEffect(() => {
+    fetchNotifications();
+
+    // Subscribe to realtime inserts for the current user
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel("notifications-page")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setNotifications((prev) => [payload.new as DbNotification, ...prev]);
+          }
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    let channelRef: ReturnType<typeof supabase.channel> | undefined;
+    setupRealtime().then((ch) => { channelRef = ch; });
+
+    return () => {
+      if (channelRef) supabase.removeChannel(channelRef);
+    };
+  }, [fetchNotifications, supabase]);
 
   const filtered = notifications.filter(
-    (n) => activeFilter === "all" || n.category === activeFilter
+    (n) => activeFilter === "all" || n.type === activeFilter
   );
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const markAllRead = () => {
-    const allIds = notifications.map((n) => n.id);
-    const next = [...new Set([...readIds, ...allIds])];
-    setReadIds(next);
-    saveToStorage(next, deletedIds);
+  const markAllRead = async () => {
+    await fetch("/api/notifications/read", { method: "PATCH", body: JSON.stringify({}) });
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
-  const markRead = (id: string) => {
-    if (readIds.includes(id)) return;
-    const next = [...readIds, id];
-    setReadIds(next);
-    saveToStorage(next, deletedIds);
+  const markRead = async (id: string) => {
+    const notif = notifications.find((n) => n.id === id);
+    if (!notif || notif.is_read) return;
+    await fetch("/api/notifications/read", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
   };
 
-  const deleteNotification = (id: string) => {
-    const next = [...deletedIds, id];
-    setDeletedIds(next);
-    saveToStorage(readIds, next);
+  const deleteNotification = async (id: string) => {
+    await supabase.from("notifications").delete().eq("id", id);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  if (!mounted) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-muted/20 flex items-center justify-center">
         <p className="text-muted-foreground">로딩 중...</p>
@@ -183,6 +193,7 @@ export default function NotificationsPage() {
           <div className="space-y-2">
             {filtered.length > 0 ? (
               filtered.map((notif) => {
+                const { Icon, colorClass } = getIconConfig(notif.type);
                 const Wrapper = notif.link ? Link : "div";
                 const wrapperProps = notif.link ? { href: notif.link } : {};
                 return (
@@ -190,35 +201,41 @@ export default function NotificationsPage() {
                     key={notif.id}
                     className={cn(
                       "transition-colors",
-                      !notif.read && "border-primary/30 bg-primary/[0.02]"
+                      !notif.is_read && "border-primary/30 bg-primary/[0.02]"
                     )}
                   >
                     <Wrapper {...(wrapperProps as any)} onClick={() => markRead(notif.id)}>
                       <CardContent className="p-4 flex items-start gap-4">
-                        <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", notif.iconColor)}>
-                          <notif.icon className="h-5 w-5" />
+                        <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", colorClass)}>
+                          <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <p className={cn("text-sm", !notif.read && "font-semibold")}>
+                              <p className={cn("text-sm", !notif.is_read && "font-semibold")}>
                                 {notif.title}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {notif.description}
+                                {notif.message}
                               </p>
                             </div>
-                            {!notif.read && (
+                            {!notif.is_read && (
                               <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-1.5" />
                             )}
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-2">{notif.time}</p>
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            {formatTime(notif.created_at)}
+                          </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteNotification(notif.id); }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteNotification(notif.id);
+                          }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
