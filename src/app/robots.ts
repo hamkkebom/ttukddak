@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/", "/mypage/", "/login/", "/signup/"],
       },
     ],
-    sitemap: "https://ai-video-market.vercel.app/sitemap.xml",
+    sitemap: "https://ttukddak.vercel.app/sitemap.xml",
   }
 }

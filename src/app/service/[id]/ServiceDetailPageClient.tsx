@@ -13,38 +13,38 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { getServiceById } from "@/data/services";
-import { getExpertById } from "@/data/experts";
-import { getCategoryById } from "@/data/categories";
+import type { Service, Expert, Category } from "@/types";
 import { cn } from "@/lib/utils";
 import { InquiryModal } from "@/components/InquiryModal";
+import { extractStreamUid } from "@/components/VideoThumbnail";
 
-export default function ServiceDetailPageClient({ id }: { id: string }) {
-  const service = getServiceById(id);
-  const expert = service ? getExpertById(service.expertId) : null;
-  const category = service ? getCategoryById(service.categoryId) : null;
+const cfIframe = (uid: string) => `https://iframe.videodelivery.net/${uid}`;
+const cfThumb = (uid: string) => `https://customer-6q1yzz06ggg2ef4g.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?width=640&height=360&fit=crop`;
+const cfThumbSmall = (uid: string) => `https://customer-6q1yzz06ggg2ef4g.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?width=192&height=108&fit=crop`;
 
+export default function ServiceDetailPageClient({
+  service,
+  expert,
+  category,
+  expertServices,
+}: {
+  service: Service;
+  expert: Expert;
+  category: Category;
+  expertServices: Service[];
+}) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(1);
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [reviewFilter, setReviewFilter] = useState<number | null>(null);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [galleryPlaying, setGalleryPlaying] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ko-KR").format(price);
   };
-
-  if (!service || !expert || !category) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">서비스를 찾을 수 없습니다</h1>
-        <Button asChild>
-          <Link href="/">홈으로 돌아가기</Link>
-        </Button>
-      </div>
-    );
-  }
 
   const images = [service.thumbnail, ...service.images];
 
@@ -99,15 +99,50 @@ export default function ServiceDetailPageClient({ id }: { id: string }) {
 
             {/* Image Gallery */}
             <div className="space-y-3">
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 group cursor-pointer">
-                <Image src={images[selectedImage]} alt={service.title} fill className="object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
-                    <Play className="h-7 w-7 text-slate-800 fill-slate-800 ml-1" />
-                  </div>
-                </div>
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 group cursor-pointer"
+                onClick={() => {
+                  const uid = extractStreamUid(images[selectedImage]);
+                  if (uid && !galleryPlaying) setGalleryPlaying(true);
+                }}
+              >
+                {(() => {
+                  const uid = extractStreamUid(images[selectedImage]);
+                  if (uid && galleryPlaying) {
+                    return (
+                      <iframe
+                        src={`${cfIframe(uid)}?autoplay=true&muted=false`}
+                        className="absolute inset-0 w-full h-full border-0"
+                        allow="autoplay; encrypted-media; fullscreen"
+                        title={service.title}
+                      />
+                    );
+                  }
+                  if (uid) {
+                    return (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cfThumb(uid)} alt={service.title} className="absolute inset-0 w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center opacity-70 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
+                            <Play className="h-7 w-7 text-slate-800 fill-slate-800 ml-1" />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      <Image src={images[selectedImage]} alt={service.title} fill className="object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
+                          <Play className="h-7 w-7 text-slate-800 fill-slate-800 ml-1" />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
                 {/* Badges */}
-                <div className="absolute top-4 left-4 flex gap-2">
+                <div className="absolute top-4 left-4 flex gap-2 z-10">
                   {service.isPrime && (
                     <Badge className="bg-orange-500 text-white border-0 shadow-lg">
                       <Zap className="h-3 w-3 mr-1" />프라임
@@ -120,29 +155,37 @@ export default function ServiceDetailPageClient({ id }: { id: string }) {
                   )}
                 </div>
                 {/* Image counter */}
-                <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
+                <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm z-10">
                   {selectedImage + 1} / {images.length}
                 </div>
               </div>
               {/* Thumbnails */}
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {images.map((img, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={cn(
-                      "relative w-24 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all",
-                      selectedImage === index ? "border-orange-500 shadow-md" : "border-slate-200 hover:border-slate-300"
-                    )}
-                  >
-                    <Image src={img} alt="" fill className="object-cover" />
-                    {index === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                        <Play className="h-4 w-4 text-white fill-white" />
-                      </div>
-                    )}
-                  </button>
-                ))}
+                {images.map((img, index) => {
+                  const uid = extractStreamUid(img);
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => { setSelectedImage(index); setGalleryPlaying(false); }}
+                      className={cn(
+                        "relative w-24 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all",
+                        selectedImage === index ? "border-orange-500 shadow-md" : "border-slate-200 hover:border-slate-300"
+                      )}
+                    >
+                      {uid ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={cfThumbSmall(uid)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <Image src={img} alt="" fill className="object-cover" />
+                      )}
+                      {uid && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Play className="h-4 w-4 text-white fill-white" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -319,6 +362,65 @@ export default function ServiceDetailPageClient({ id }: { id: string }) {
                 </div>
               </div>
             </div>
+
+            <Separator />
+
+            {/* ===== 전문가 영상 포트폴리오 ===== */}
+            {(() => {
+              // 서비스의 thumbnail + images에서 CF Stream UID 추출
+              const extractUid = (url: string) => {
+                const match = url.match(/cloudflarestream\.com\/([a-f0-9]+)\//);
+                return match ? match[1] : null;
+              };
+              const allImageUrls = [service.thumbnail, ...service.images];
+              // 같은 전문가의 다른 서비스 영상도 포함
+              expertServices.forEach((s) => {
+                if (s.id !== service.id) {
+                  allImageUrls.push(s.thumbnail, ...s.images);
+                }
+              });
+              const videoUids = [...new Set(allImageUrls.map(extractUid).filter(Boolean))] as string[];
+
+              if (videoUids.length === 0) return null;
+
+              return (
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 mb-2">{expert.name}님의 영상 포트폴리오</h2>
+                  <p className="text-sm text-slate-500 mb-5">총 {videoUids.length}개의 영상</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {videoUids.map((uid) => (
+                      <div key={uid} className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 group cursor-pointer"
+                        onClick={() => setPlayingVideo(playingVideo === uid ? null : uid)}
+                      >
+                        {playingVideo === uid ? (
+                          <iframe
+                            src={`${cfIframe(uid)}?autoplay=true&loop=true&muted=true`}
+                            className="absolute inset-0 w-full h-full border-0"
+                            allow="autoplay; encrypted-media; fullscreen"
+                            title="영상 재생"
+                          />
+                        ) : (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={cfThumb(uid)}
+                              alt="영상 썸네일"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-10">
+                              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center opacity-70 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
+                                <Play className="h-5 w-5 text-slate-800 fill-slate-800 ml-0.5" />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <Separator />
 

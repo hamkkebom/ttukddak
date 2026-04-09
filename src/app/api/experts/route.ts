@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { experts, getExpertsByCategory } from "@/data/experts";
+import { getExperts, getExpertsByCategory } from "@/lib/db-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -7,8 +7,9 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
 
-  let result = experts;
-  if (category) result = getExpertsByCategory(category);
+  const result = category
+    ? await getExpertsByCategory(category)
+    : await getExperts();
 
   const start = (page - 1) * limit;
   const end = start + limit;

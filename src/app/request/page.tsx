@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,20 +11,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { categories } from "@/data/categories";
+import { getCategoriesClient, createQuoteRequestClient } from "@/lib/db-client";
+import { createClient } from "@/lib/supabase/client";
+import type { Category } from "@/types";
 
 const budgetRanges = [
-  { value: "under-50", label: "50만원 미만" },
-  { value: "50-100", label: "50~100만원" },
-  { value: "100-300", label: "100~300만원" },
-  { value: "300-500", label: "300~500만원" },
-  { value: "500-plus", label: "500만원 이상" },
-  { value: "negotiable", label: "협의 가능" },
+  { value: "under-50", label: "50만원 미만", min: 0, max: 500000 },
+  { value: "50-100", label: "50~100만원", min: 500000, max: 1000000 },
+  { value: "100-300", label: "100~300만원", min: 1000000, max: 3000000 },
+  { value: "300-500", label: "300~500만원", min: 3000000, max: 5000000 },
+  { value: "500-plus", label: "500만원 이상", min: 5000000, max: 99999999 },
+  { value: "negotiable", label: "협의 가능", min: 0, max: 0 },
 ];
 
 const deadlineOptions = [
@@ -37,7 +39,9 @@ const deadlineOptions = [
 
 export default function RequestPage() {
   const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -47,6 +51,10 @@ export default function RequestPage() {
     referenceLinks: [""],
     contactMethod: "message",
   });
+
+  useEffect(() => {
+    getCategoriesClient().then(setCategories);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -74,11 +82,40 @@ export default function RequestPage() {
     }));
   };
 
-  const handleSubmit = () => {
-    toast.success("견적 요청이 등록되었습니다!", {
-      description: "전문가들의 견적을 기다려주세요.",
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const sb = createClient();
+    const { data: { user } } = await sb.auth.getUser();
+
+    if (!user) {
+      toast.error("로그인이 필요합니다");
+      router.push("/login");
+      setSubmitting(false);
+      return;
+    }
+
+    const budgetRange = budgetRanges.find((b) => b.value === formData.budget);
+
+    const ok = await createQuoteRequestClient({
+      userId: user.id,
+      title: formData.title,
+      category: formData.category || undefined,
+      budgetMin: budgetRange?.min,
+      budgetMax: budgetRange?.max,
+      deadline: formData.deadline || undefined,
+      description: formData.description || undefined,
     });
-    router.push("/mypage");
+
+    setSubmitting(false);
+
+    if (ok) {
+      toast.success("견적 요청이 등록되었습니다!", {
+        description: "전문가들의 견적을 기다려주세요.",
+      });
+      router.push("/mypage");
+    } else {
+      toast.error("등록에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   const steps = [
@@ -326,8 +363,8 @@ export default function RequestPage() {
                     다음 <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 ) : (
-                  <Button onClick={handleSubmit}>
-                    견적 요청 등록 <Check className="h-4 w-4 ml-2" />
+                  <Button onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? "등록 중..." : "견적 요청 등록"} <Check className="h-4 w-4 ml-2" />
                   </Button>
                 )}
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { categories } from "@/data/categories";
+import { createClient } from "@/lib/supabase/client";
+import { getCategoriesClient } from "@/lib/db-client";
+import type { Category } from "@/types";
 
 interface PackageData {
   name: string;
@@ -40,6 +42,7 @@ const suggestedTags = [
 
 export default function NewServicePage() {
   const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -48,6 +51,11 @@ export default function NewServicePage() {
     customTag: "",
   });
   const [packages, setPackages] = useState<PackageData[]>(defaultPackages);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getCategoriesClient().then(setCategories).catch(console.error);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -95,9 +103,40 @@ export default function NewServicePage() {
     ));
   };
 
-  const handleSubmit = () => {
-    toast.success("서비스가 등록되었습니다!", { description: "검토 후 활성화됩니다." });
-    router.push("/dashboard");
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) { toast.error("서비스 제목을 입력해주세요"); return; }
+    if (!formData.category) { toast.error("카테고리를 선택해주세요"); return; }
+
+    setSubmitting(true);
+    try {
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { toast.error("로그인이 필요합니다"); return; }
+
+      const basePrice = parseInt(packages[0].price || "0", 10);
+      const res = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expertId: user.id,
+          categoryId: formData.category,
+          title: formData.title,
+          description: formData.description,
+          price: basePrice,
+          tags: formData.tags,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create service");
+
+      toast.success("서비스가 등록되었습니다!", { description: "검토 후 활성화됩니다." });
+      router.push("/dashboard");
+    } catch (err) {
+      console.error(err);
+      toast.error("서비스 등록에 실패했습니다");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -291,8 +330,10 @@ export default function NewServicePage() {
                 <Link href="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" /> 취소</Link>
               </Button>
               <div className="flex gap-3">
-                <Button variant="outline">임시 저장</Button>
-                <Button onClick={handleSubmit}>서비스 등록 <Check className="h-4 w-4 ml-2" /></Button>
+                <Button variant="outline" disabled={submitting}>임시 저장</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? "등록 중..." : "서비스 등록"} <Check className="h-4 w-4 ml-2" />
+                </Button>
               </div>
             </div>
           </div>

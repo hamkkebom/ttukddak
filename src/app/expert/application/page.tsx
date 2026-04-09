@@ -1,19 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Clock, CheckCircle, XCircle, FileText, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-// 실제로는 Supabase에서 expert_applications 조회
-const application = {
-  id: "APP-001",
-  status: "pending" as "pending" | "reviewing" | "approved" | "rejected",
-  submittedAt: "2024-03-18",
-  category: "AI 영상 생성",
-  name: "홍길동",
-};
+import { createClient } from "@/lib/supabase/client";
+import { getExpertApplicationByUserClient } from "@/lib/db-client";
+import type { ExpertApplication } from "@/types";
 
 const statusConfig = {
   pending: { label: "심사 대기", color: "bg-amber-100 text-amber-700", icon: Clock, description: "신청서가 접수되었습니다. 영업일 기준 1~3일 내에 심사가 시작됩니다." },
@@ -23,7 +18,60 @@ const statusConfig = {
 };
 
 export default function ApplicationStatusPage() {
-  const config = statusConfig[application.status];
+  const [application, setApplication] = useState<ExpertApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      setLoggedIn(true);
+      const app = await getExpertApplicationByUserClient(user.id);
+      setApplication(app);
+      setLoading(false);
+    };
+    init();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (!loggedIn) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">로그인이 필요합니다</p>
+          <Button asChild><Link href="/login">로그인</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="min-h-screen bg-muted/20 py-16">
+        <div className="container mx-auto px-4 max-w-lg text-center">
+          <h1 className="text-2xl font-bold mb-2">전문가 신청 현황</h1>
+          <p className="text-muted-foreground mb-8">신청 내역이 없습니다</p>
+          <Button asChild>
+            <Link href="/expert/register">
+              전문가 등록 신청하기 <ArrowRight className="h-4 w-4 ml-2" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const status = (application.status in statusConfig ? application.status : "pending") as keyof typeof statusConfig;
+  const config = statusConfig[status];
   const StatusIcon = config.icon;
 
   return (
@@ -57,7 +105,7 @@ export default function ApplicationStatusPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">신청일</span>
-                <span className="font-medium">{application.submittedAt}</span>
+                <span className="font-medium">{application.createdAt?.split("T")[0] || "-"}</span>
               </div>
             </div>
           </CardContent>

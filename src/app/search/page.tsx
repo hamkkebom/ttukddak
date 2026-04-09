@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,9 +14,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ServiceCard } from "@/components/ServiceCard";
-import { searchServices, services } from "@/data/services";
-import { experts, getExpertById } from "@/data/experts";
-import { categories } from "@/data/categories";
+import {
+  searchServicesClient,
+  getServicesClient,
+  getCategoriesClient,
+  getExpertByIdClient,
+} from "@/lib/db-client";
+import type { Service, Expert, Category } from "@/types";
 
 const popularKeywords = [
   "AI 영상", "모션그래픽", "유튜브 편집", "3D", "숏폼",
@@ -42,6 +46,48 @@ function SearchPageContent() {
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [searchResults, setSearchResults] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Load categories once
+  useEffect(() => {
+    getCategoriesClient().then(setCategories);
+  }, []);
+
+  // Load services / search results when submittedQuery changes
+  useEffect(() => {
+    setLoading(true);
+    const fetchServices = submittedQuery
+      ? searchServicesClient(submittedQuery)
+      : getServicesClient();
+
+    fetchServices.then((svcs) => {
+      if (submittedQuery) {
+        setSearchResults(svcs);
+      } else {
+        setAllServices(svcs);
+      }
+      setLoading(false);
+    });
+  }, [submittedQuery]);
+
+  // Load experts for visible services
+  const activeServices = submittedQuery ? searchResults : allServices;
+  useEffect(() => {
+    const ids = [...new Set(activeServices.map((s) => s.expertId))];
+    Promise.all(ids.map((id) => getExpertByIdClient(id).then((e) => ({ id, expert: e })))).then(
+      (results) => {
+        const map: Record<string, Expert> = {};
+        for (const { id, expert } of results) {
+          if (expert) map[id] = expert;
+        }
+        setExpertMap((prev) => ({ ...prev, ...map }));
+      }
+    );
+  }, [activeServices]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,9 +100,7 @@ function SearchPageContent() {
   };
 
   const results = useMemo(() => {
-    let filtered = submittedQuery
-      ? searchServices(submittedQuery)
-      : [...services];
+    let filtered = [...activeServices];
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter((s) => s.categoryId === selectedCategory);
@@ -78,18 +122,18 @@ function SearchPageContent() {
     }
 
     return filtered;
-  }, [submittedQuery, sortBy, selectedCategory]);
+  }, [activeServices, sortBy, selectedCategory]);
 
   const matchedExperts = useMemo(() => {
     if (!submittedQuery) return [];
     const lower = submittedQuery.toLowerCase();
-    return experts.filter(
+    return Object.values(expertMap).filter(
       (e) =>
         e.name.toLowerCase().includes(lower) ||
         e.title.toLowerCase().includes(lower) ||
         e.skills.some((s) => s.toLowerCase().includes(lower))
     );
-  }, [submittedQuery]);
+  }, [submittedQuery, expertMap]);
 
   return (
     <div className="min-h-screen">
@@ -259,13 +303,17 @@ function SearchPageContent() {
         </div>
 
         {/* Service Results */}
-        {results.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground">로딩중...</p>
+          </div>
+        ) : results.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {results.map((service) => (
               <ServiceCard
                 key={service.id}
                 service={service}
-                expert={getExpertById(service.expertId)}
+                expert={expertMap[service.expertId]}
               />
             ))}
           </div>

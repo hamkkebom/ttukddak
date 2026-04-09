@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getOrderByIdClient, getServiceByIdClient, getExpertByIdClient } from "@/lib/db-client";
+import { createClient } from "@/lib/supabase/client";
+import type { Order, Service, Expert } from "@/types";
 
 const ratingLabels: Record<number, string> = {
   1: "별로예요",
@@ -40,6 +43,10 @@ export default function ReviewPage({
   const { id } = use(params);
   const router = useRouter();
 
+  const [order, setOrder] = useState<Order | null>(null);
+  const [service, setService] = useState<Service | null>(null);
+  const [expert, setExpert] = useState<Expert | null>(null);
+  const [loading, setLoading] = useState(true);
   const [overallRating, setOverallRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [categoryRatings, setCategoryRatings] = useState<Record<string, number>>({
@@ -50,19 +57,53 @@ export default function ReviewPage({
   const [reviewText, setReviewText] = useState("");
   const [isPublic, setIsPublic] = useState(true);
 
+  useEffect(() => {
+    getOrderByIdClient(id).then(async (o) => {
+      if (o) {
+        setOrder(o);
+        const [svc, exp] = await Promise.all([
+          getServiceByIdClient(o.serviceId),
+          getExpertByIdClient(o.expertId),
+        ]);
+        setService(svc);
+        setExpert(exp);
+      }
+      setLoading(false);
+    });
+  }, [id]);
+
   const handleCategoryRating = (catId: string, rating: number) => {
     setCategoryRatings((prev) => ({ ...prev, [catId]: rating }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (overallRating === 0) {
       toast.error("별점을 선택해주세요");
       return;
     }
-    toast.success("리뷰가 등록되었습니다!", {
-      description: "소중한 리뷰 감사합니다.",
+    const sb = createClient();
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user || !order) return;
+
+    const res = await fetch("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: order.id,
+        serviceId: order.serviceId,
+        reviewerId: user.id,
+        reviewerName: user.user_metadata?.name || user.email?.split("@")[0] || "사용자",
+        rating: overallRating,
+        content: reviewText,
+      }),
     });
-    router.push("/mypage");
+
+    if (res.ok) {
+      toast.success("리뷰가 등록되었습니다!", { description: "소중한 리뷰 감사합니다." });
+      router.push("/mypage");
+    } else {
+      toast.error("리뷰 등록에 실패했습니다");
+    }
   };
 
   const StarRating = ({
@@ -130,12 +171,12 @@ export default function ReviewPage({
           <Card className="mb-6">
             <CardContent className="p-4 flex items-center gap-4">
               <Avatar className="h-12 w-12">
-                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=expert1" />
-                <AvatarFallback>김</AvatarFallback>
+                <AvatarImage src={expert?.profileImage} />
+                <AvatarFallback>{expert?.name?.[0] || "?"}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold text-sm">김영상 전문가</p>
-                <p className="text-xs text-muted-foreground">AI로 만드는 프리미엄 뮤직비디오 · 스탠다드 패키지</p>
+                <p className="font-semibold text-sm">{expert?.name || "전문가"}</p>
+                <p className="text-xs text-muted-foreground">{service?.title || "서비스"} · {order?.packageName || ""} 패키지</p>
               </div>
             </CardContent>
           </Card>

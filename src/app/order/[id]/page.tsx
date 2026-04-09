@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -13,10 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getServiceById } from "@/data/services";
-import { getExpertById } from "@/data/experts";
-import { getCategoryById } from "@/data/categories";
+import { getServiceByIdClient, getExpertByIdClient, getCategoryByIdClient } from "@/lib/db-client";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import type { Service, Expert, Category } from "@/types";
 
 type PaymentMethod = "card" | "kakao" | "naver" | "bank";
 
@@ -27,16 +27,42 @@ export default function OrderPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const service = getServiceById(id);
-  const expert = service ? getExpertById(service.expertId) : null;
-  const category = service ? getCategoryById(service.categoryId) : null;
 
+  const [service, setService] = useState<Service | null>(null);
+  const [expert, setExpert] = useState<Expert | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  useEffect(() => {
+    getServiceByIdClient(id).then(async (svc) => {
+      if (!svc) {
+        setLoading(false);
+        return;
+      }
+      setService(svc);
+      const [exp, cat] = await Promise.all([
+        getExpertByIdClient(svc.expertId),
+        getCategoryByIdClient(svc.categoryId),
+      ]);
+      setExpert(exp);
+      setCategory(cat);
+      setLoading(false);
+    });
+  }, [id]);
+
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ko-KR").format(price);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-muted-foreground">로딩중...</p>
+      </div>
+    );
+  }
 
   if (!service || !expert || !category) {
     return (
@@ -53,15 +79,92 @@ export default function OrderPage({
   const serviceFee = Math.round(pkg.price * 0.05);
   const totalPrice = pkg.price + serviceFee;
 
-  const handleOrder = () => {
+  const [ordering, setOrdering] = useState(false);
+
+  const handleOrder = async () => {
     if (!agreedToTerms) {
       toast.error("주문 전 이용약관에 동의해주세요");
       return;
     }
-    toast.success("주문이 완료되었습니다!", {
-      description: "전문가가 곧 작업을 시작합니다.",
-    });
-    router.push(`/order/${id}/tracking`);
+
+    setOrdering(true);
+    try {
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        toast.error("로그인이 필요합니다");
+        setOrdering(false);
+        return;
+      }
+
+      // 1. 주문 생성
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerId: user.id,
+          serviceId: service.id,
+          expertId: service.expertId,
+          packageName: pkg.name,
+          price: totalPrice,
+        }),
+      });
+
+      if (!orderRes.ok) {
+        toast.error("주문 생성에 실패했습니다");
+        setOrdering(false);
+        return;
+      }
+
+      const { data: newOrder } = await orderRes.json();
+
+      // 2. PortOne 결제 요청 (PortOne SDK가 로드된 경우)
+      if (typeof window !== "undefined" && (window as any).PortOne) {
+        const paymentResponse = await (window as any).PortOne.requestPayment({
+          storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
+          channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
+          paymentId: `payment-${newOrder.id}-${Date.now()}`,
+          orderName: service.title,
+          totalAmount: totalPrice,
+          currency: "KRW",
+          payMethod: paymentMethod === "card" ? "CARD" : paymentMethod === "kakao" ? "EASY_PAY" : paymentMethod === "naver" ? "EASY_PAY" : "VIRTUAL_ACCOUNT",
+          customer: { fullName: user.user_metadata?.name || "고객" },
+          customData: { orderId: newOrder.id },
+        });
+
+        if (paymentResponse?.code) {
+          toast.error(`결제 실패: ${paymentResponse.message}`);
+          setOrdering(false);
+          return;
+        }
+
+        // 3. 결제 확인
+        await fetch("/api/payment/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentId: paymentResponse.paymentId,
+            orderId: newOrder.id,
+          }),
+        });
+      } else {
+        // PortOne SDK 미로드 시 바로 paid 처리 (개발용)
+        await fetch(`/api/orders/${newOrder.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "paid" }),
+        });
+      }
+
+      toast.success("주문이 완료되었습니다!", {
+        description: "전문가가 곧 작업을 시작합니다.",
+      });
+      router.push(`/order/${newOrder.id}/tracking`);
+    } catch (err) {
+      toast.error("주문 처리 중 오류가 발생했습니다");
+    } finally {
+      setOrdering(false);
+    }
   };
 
   const paymentMethods: {
@@ -270,8 +373,9 @@ export default function OrderPage({
                     className="w-full h-12 text-base"
                     size="lg"
                     onClick={handleOrder}
+                    disabled={ordering}
                   >
-                    {formatPrice(totalPrice)}원 결제하기
+                    {ordering ? "처리 중..." : `${formatPrice(totalPrice)}원 결제하기`}
                   </Button>
 
                   <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">

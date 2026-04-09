@@ -1,10 +1,14 @@
 import type { MetadataRoute } from "next"
-import { categories } from "@/data/categories"
-import { services } from "@/data/services"
-import { experts } from "@/data/experts"
+import { getCategories, getServices, getExperts } from "@/lib/db-server"
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://ai-video-market.vercel.app"
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = "https://ttukddak.vercel.app"
+
+  const [categories, services, experts] = await Promise.all([
+    getCategories(),
+    getServices(),
+    getExperts(),
+  ])
 
   // 정적 페이지
   const staticPages: MetadataRoute.Sitemap = [

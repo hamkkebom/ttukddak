@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -29,30 +29,49 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ServiceCard } from "@/components/ServiceCard";
-import { getCategoryBySlug, categories, getSubcategories } from "@/data/categories";
-import { getServicesByCategory } from "@/data/services";
-import { getExpertById } from "@/data/experts";
+import { getExpertByIdClient } from "@/lib/db-client";
+import type { Category, Service, Expert } from "@/types";
 
 type SortOption = "popular" | "latest" | "price-low" | "price-high" | "rating";
 
-export default function CategoryPageClient({ slug }: { slug: string }) {
-  const category = getCategoryBySlug(slug);
+interface Props {
+  slug: string;
+  category: Category | null;
+  initialServices: Service[];
+  allCategories: Category[];
+}
 
+export default function CategoryPageClient({
+  slug,
+  category,
+  initialServices,
+  allCategories,
+}: Props) {
   const [sortBy, setSortBy] = useState<SortOption>("popular");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000]);
   const [showPrimeOnly, setShowPrimeOnly] = useState(false);
   const [showFastResponse, setShowFastResponse] = useState(false);
   const [showMasterOnly, setShowMasterOnly] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
 
-  const subs = category ? getSubcategories(category.id) : [];
-  const subIds = subs.map((s) => s.id);
-  const allServices = category ? getServicesByCategory(category.id, subIds) : [];
+  // Load experts for all services
+  useEffect(() => {
+    const expertIds = [...new Set(initialServices.map((s) => s.expertId))];
+    Promise.all(
+      expertIds.map((id) => getExpertByIdClient(id).then((e) => ({ id, expert: e })))
+    ).then((results) => {
+      const map: Record<string, Expert> = {};
+      for (const { id, expert } of results) {
+        if (expert) map[id] = expert;
+      }
+      setExpertMap(map);
+    });
+  }, [initialServices]);
 
   const filteredAndSortedServices = useMemo(() => {
-    let result = [...allServices];
+    let result = [...initialServices];
 
-    // Apply filters
     if (showPrimeOnly) {
       result = result.filter((s) => s.isPrime);
     }
@@ -61,7 +80,7 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
     }
     if (showMasterOnly) {
       result = result.filter((s) => {
-        const expert = getExpertById(s.expertId);
+        const expert = expertMap[s.expertId];
         return expert?.isMaster;
       });
     }
@@ -69,7 +88,6 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
       (s) => s.price >= priceRange[0] && s.price <= priceRange[1]
     );
 
-    // Apply sorting
     switch (sortBy) {
       case "popular":
         result.sort((a, b) => b.salesCount - a.salesCount);
@@ -92,15 +110,15 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
     }
 
     return result;
-  }, [allServices, sortBy, priceRange, showPrimeOnly, showFastResponse, showMasterOnly]);
+  }, [initialServices, sortBy, priceRange, showPrimeOnly, showFastResponse, showMasterOnly, expertMap]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ko-KR").format(price);
   };
 
-  const activeFiltersCount = [showPrimeOnly, showFastResponse, showMasterOnly].filter(
-    Boolean
-  ).length + (priceRange[0] > 0 || priceRange[1] < 500000 ? 1 : 0);
+  const activeFiltersCount =
+    [showPrimeOnly, showFastResponse, showMasterOnly].filter(Boolean).length +
+    (priceRange[0] > 0 || priceRange[1] < 500000 ? 1 : 0);
 
   const clearFilters = () => {
     setPriceRange([0, 500000]);
@@ -171,7 +189,9 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
           <label className="flex items-center gap-3 cursor-pointer">
             <Checkbox
               checked={showFastResponse}
-              onCheckedChange={(checked) => setShowFastResponse(checked as boolean)}
+              onCheckedChange={(checked) =>
+                setShowFastResponse(checked as boolean)
+              }
             />
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="gap-1">
@@ -220,10 +240,10 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
       <div className="border-b bg-background sticky top-16 z-40">
         <div className="container mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
-            {categories.map((cat) => (
+            {allCategories.map((cat) => (
               <Link key={cat.id} href={`/category/${cat.slug}`}>
                 <Badge
-                  variant={cat.id === category.id || cat.id === category.parentId ? "default" : "outline"}
+                  variant={cat.id === category.id ? "default" : "outline"}
                   className="cursor-pointer whitespace-nowrap"
                 >
                   {cat.name}
@@ -233,39 +253,6 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
-
-      {/* Subcategory Tabs */}
-      {(() => {
-        const parentId = category.parentId || category.id;
-        const subs = getSubcategories(parentId);
-        if (subs.length === 0) return null;
-        return (
-          <div className="border-b">
-            <div className="container mx-auto px-4">
-              <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
-                <Link href={`/category/${getCategoryBySlug(parentId)?.slug || parentId}`}>
-                  <Badge
-                    variant={!category.parentId ? "default" : "outline"}
-                    className="cursor-pointer whitespace-nowrap text-xs"
-                  >
-                    전체
-                  </Badge>
-                </Link>
-                {subs.map((sub) => (
-                  <Link key={sub.id} href={`/category/${sub.slug}`}>
-                    <Badge
-                      variant={sub.id === category.id ? "default" : "outline"}
-                      className="cursor-pointer whitespace-nowrap text-xs"
-                    >
-                      {sub.name}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       <div className="container mx-auto px-4 py-6">
         <div className="flex gap-8">
@@ -374,7 +361,7 @@ export default function CategoryPageClient({ slug }: { slug: string }) {
                   <ServiceCard
                     key={service.id}
                     service={service}
-                    expert={getExpertById(service.expertId)}
+                    expert={expertMap[service.expertId]}
                   />
                 ))}
               </div>

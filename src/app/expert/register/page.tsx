@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,8 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -21,7 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { categories } from "@/data/categories";
+import { getCategoriesClient, createExpertApplicationClient } from "@/lib/db-client";
+import { createClient } from "@/lib/supabase/client";
+import type { Category } from "@/types";
 
 const steps = [
   { id: 1, title: "기본 정보", icon: User },
@@ -41,6 +42,8 @@ const allSkills = [
 export default function ExpertRegisterPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     name: "",
@@ -54,6 +57,10 @@ export default function ExpertRegisterPage() {
     // Step 3: Portfolio
     portfolioLinks: [""],
   });
+
+  useEffect(() => {
+    getCategoriesClient().then(setCategories);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -119,9 +126,39 @@ export default function ExpertRegisterPage() {
     }
   };
 
-  const handleSubmit = () => {
-    toast.success("전문가 등록 신청이 완료되었습니다!", { description: "심사 결과는 마이페이지에서 확인할 수 있습니다." });
-    router.push("/mypage");
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const sb = createClient();
+    const { data: { user } } = await sb.auth.getUser();
+
+    if (!user) {
+      toast.error("로그인이 필요합니다");
+      router.push("/login");
+      setSubmitting(false);
+      return;
+    }
+
+    const categoryName = categories.find((c) => c.id === formData.category)?.name || formData.category;
+
+    const ok = await createExpertApplicationClient({
+      userId: user.id,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || undefined,
+      category: categoryName,
+      skills: formData.skills,
+      portfolioUrls: formData.portfolioLinks.filter((l) => l.trim()),
+      introduction: formData.introduction || undefined,
+    });
+
+    setSubmitting(false);
+
+    if (ok) {
+      toast.success("전문가 등록 신청이 완료되었습니다!", { description: "심사 결과는 마이페이지에서 확인할 수 있습니다." });
+      router.push("/mypage");
+    } else {
+      toast.error("등록에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   return (
@@ -425,8 +462,8 @@ export default function ExpertRegisterPage() {
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 ) : (
-                  <Button onClick={handleSubmit}>
-                    등록 신청
+                  <Button onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? "신청 중..." : "등록 신청"}
                     <Check className="h-4 w-4 ml-2" />
                   </Button>
                 )}

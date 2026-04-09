@@ -7,8 +7,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { categories } from "@/data/categories";
-import { getServicesByCategory } from "@/data/services";
+import { getCategories, getServicesByCategory } from "@/lib/db-server";
 
 export const metadata: Metadata = {
   title: "전체 카테고리 | 뚝딱",
@@ -56,7 +55,14 @@ const categoryGradients: Record<string, string> = {
   "education": "from-blue-500/90 to-indigo-600/90",
 };
 
-export default function CategoriesPage() {
+export default async function CategoriesPage() {
+  const categories = await getCategories();
+
+  // Fetch services for each category in parallel
+  const categoryServices = await Promise.all(
+    categories.map((cat) => getServicesByCategory(cat.id))
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Hero Header */}
@@ -65,7 +71,7 @@ export default function CategoriesPage() {
         <div className="absolute inset-0">
           <div className="absolute top-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-violet-500/20 rounded-full blur-[120px]" />
-          <div 
+          <div
             className="absolute inset-0 opacity-10"
             style={{
               backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
@@ -112,12 +118,12 @@ export default function CategoriesPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {categories.map((category, index) => {
               const Icon = iconMap[category.icon] || Sparkles;
-              const services = getServicesByCategory(category.id);
+              const services = categoryServices[index] || [];
               const avgRating = services.length > 0
                 ? (services.reduce((sum, s) => sum + s.rating, 0) / services.length).toFixed(1)
                 : "0.0";
-              const gradient = categoryGradients[category.id] || "from-gray-500/90 to-gray-700/90";
-              const image = categoryImages[category.id] || "https://picsum.photos/seed/default/600/400";
+              const gradient = categoryGradients[category.slug] || "from-gray-500/90 to-gray-700/90";
+              const image = categoryImages[category.slug] || "https://picsum.photos/seed/default/600/400";
 
               return (
                 <Link key={category.id} href={`/category/${category.slug}`}>
@@ -132,7 +138,7 @@ export default function CategoriesPage() {
                       />
                       {/* Gradient Overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                      
+
                       {/* Content Overlay */}
                       <div className="absolute inset-0 p-6 flex flex-col justify-between">
                         <div className="flex items-start justify-between">
@@ -198,14 +204,14 @@ export default function CategoriesPage() {
             모든 영상 제작 분야에 대응 가능합니다.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link 
+            <Link
               href="/search"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-full transition-colors"
             >
               <Sparkles className="h-4 w-4" />
               서비스 검색하기
             </Link>
-            <Link 
+            <Link
               href="/faq"
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors"
             >

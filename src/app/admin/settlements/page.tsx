@@ -1,21 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, DollarSign, CheckCircle, Clock, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const settlements = [
-  { id: "STL-301", expert: "김영상", bank: "신한 ****1234", amount: 270000, fee: 30000, total: 300000, status: "정산완료", date: "2024-03-18", paidDate: "2024-03-20" },
-  { id: "STL-300", expert: "이모션", bank: "국민 ****5678", amount: 180000, fee: 20000, total: 200000, status: "정산완료", date: "2024-03-17", paidDate: "2024-03-19" },
-  { id: "STL-299", expert: "정유튜", bank: "우리 ****9012", amount: 90000, fee: 10000, total: 100000, status: "정산예정", date: "2024-03-16", paidDate: "" },
-  { id: "STL-298", expert: "최삼디", bank: "하나 ****3456", amount: 450000, fee: 50000, total: 500000, status: "정산예정", date: "2024-03-15", paidDate: "" },
-  { id: "STL-297", expert: "김영상", bank: "신한 ****1234", amount: 630000, fee: 70000, total: 700000, status: "정산보류", date: "2024-03-14", paidDate: "" },
-  { id: "STL-296", expert: "한광고", bank: "기업 ****7890", amount: 360000, fee: 40000, total: 400000, status: "정산완료", date: "2024-03-12", paidDate: "2024-03-14" },
-];
+import { getOrdersClient } from "@/lib/db-client";
+import type { Order } from "@/types";
 
 const statusColors: Record<string, string> = {
   "정산완료": "bg-green-100 text-green-700",
@@ -23,13 +15,57 @@ const statusColors: Record<string, string> = {
   "정산보류": "bg-red-100 text-red-700",
 };
 
+interface Settlement {
+  id: string;
+  expert: string;
+  expertId: string;
+  total: number;
+  fee: number;
+  amount: number;
+  status: string;
+  date: string;
+  paidDate: string;
+}
+
 export default function AdminSettlementsPage() {
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const fmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
+
+  useEffect(() => {
+    getOrdersClient({ status: "completed" }).then((orders: Order[]) => {
+      const derived: Settlement[] = orders.map((o, idx) => {
+        const fee = Math.round(o.price * 0.1);
+        const net = o.price - fee;
+        return {
+          id: `STL-${String(idx + 1).padStart(3, "0")}`,
+          expert: o.expertName || o.expertId.slice(0, 8),
+          expertId: o.expertId,
+          total: o.price,
+          fee,
+          amount: net,
+          status: "정산완료",
+          date: o.createdAt?.split("T")[0] || "-",
+          paidDate: o.updatedAt?.split("T")[0] || "-",
+        };
+      });
+      setSettlements(derived);
+      setLoading(false);
+    });
+  }, []);
 
   const totalPaid = settlements.filter((s) => s.status === "정산완료").reduce((sum, s) => sum + s.amount, 0);
   const totalPending = settlements.filter((s) => s.status === "정산예정").reduce((sum, s) => sum + s.amount, 0);
   const totalFee = settlements.reduce((sum, s) => sum + s.fee, 0);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -62,9 +98,8 @@ export default function AdminSettlementsPage() {
             <thead><tr className="border-b bg-muted/50">
               <th className="text-left p-4 font-medium">정산번호</th>
               <th className="text-left p-4 font-medium">전문가</th>
-              <th className="text-left p-4 font-medium">계좌</th>
               <th className="text-right p-4 font-medium">거래액</th>
-              <th className="text-right p-4 font-medium">수수료</th>
+              <th className="text-right p-4 font-medium">수수료(10%)</th>
               <th className="text-right p-4 font-medium">정산액</th>
               <th className="text-center p-4 font-medium">상태</th>
               <th className="text-left p-4 font-medium">정산일</th>
@@ -74,7 +109,6 @@ export default function AdminSettlementsPage() {
                 <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="p-4 font-mono text-xs">{s.id}</td>
                   <td className="p-4 font-medium">{s.expert}</td>
-                  <td className="p-4 text-muted-foreground text-xs">{s.bank}</td>
                   <td className="p-4 text-right">{fmt(s.total)}</td>
                   <td className="p-4 text-right text-muted-foreground">{fmt(s.fee)}</td>
                   <td className="p-4 text-right font-medium">{fmt(s.amount)}</td>

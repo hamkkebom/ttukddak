@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// 관리자 이메일 화이트리스트
+const ADMIN_EMAILS = [
+  "hamkkebom12@gmail.com",
+];
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -25,8 +30,8 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 세션 갱신
-  await supabase.auth.getUser();
+  // 세션 갱신 + 유저 정보 한 번만 호출
+  const { data: { user } } = await supabase.auth.getUser();
 
   // 보호된 경로 체크
   const protectedPaths = ["/mypage", "/favorites", "/messages", "/notifications", "/settings", "/order", "/request", "/dashboard", "/history", "/expert/register"];
@@ -37,8 +42,6 @@ export async function middleware(request: NextRequest) {
   const isAdmin = adminPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected || isAdmin) {
-    const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
@@ -46,8 +49,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // 관리자 경로 추가 체크 (실제로는 DB에서 role 확인)
-    // if (isAdmin) { ... }
+    // 관리자 경로: 이메일 화이트리스트 체크
+    if (isAdmin) {
+      const userEmail = user.email || "";
+      if (!ADMIN_EMAILS.includes(userEmail)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;

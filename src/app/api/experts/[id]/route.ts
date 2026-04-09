@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getExpertById } from "@/data/experts";
+import { getExpertByIdDB } from "@/lib/db-server";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const expert = getExpertById(id);
+  const expert = await getExpertByIdDB(id);
 
   if (!expert) {
     return NextResponse.json(

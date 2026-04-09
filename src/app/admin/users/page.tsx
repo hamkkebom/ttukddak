@@ -1,23 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Filter, MoreVertical, UserCheck, UserX, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, MoreVertical, UserCheck, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const users = [
-  { id: "U001", name: "홍길동", email: "hong@email.com", type: "일반", status: "활성", joinDate: "2024-01-15", orders: 5, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=u1" },
-  { id: "U002", name: "김영상", email: "kim@email.com", type: "전문가", status: "활성", joinDate: "2023-03-15", orders: 234, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert1" },
-  { id: "U003", name: "이모션", email: "lee@email.com", type: "전문가", status: "활성", joinDate: "2023-05-20", orders: 189, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert2" },
-  { id: "U004", name: "박고객", email: "park@email.com", type: "일반", status: "활성", joinDate: "2024-02-10", orders: 3, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=u4" },
-  { id: "U005", name: "최스팸", email: "choi@email.com", type: "일반", status: "정지", joinDate: "2024-03-01", orders: 0, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=u5" },
-  { id: "U006", name: "정신규", email: "jung@email.com", type: "전문가", status: "승인대기", joinDate: "2024-03-18", orders: 0, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=u6" },
-  { id: "U007", name: "한재주", email: "han@email.com", type: "일반", status: "활성", joinDate: "2024-01-20", orders: 8, image: "https://api.dicebear.com/7.x/avataaars/svg?seed=u7" },
-];
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { getProfilesClient } from "@/lib/db-client";
+import type { Profile } from "@/types";
 
 const statusColors: Record<string, string> = {
   "활성": "bg-green-100 text-green-700",
@@ -28,24 +22,63 @@ const statusColors: Record<string, string> = {
 const typeColors: Record<string, string> = {
   "일반": "bg-slate-100 text-slate-700",
   "전문가": "bg-primary/10 text-primary",
+  "관리자": "bg-purple-100 text-purple-700",
+};
+
+const roleToType = (role: string) => {
+  if (role === "expert") return "전문가";
+  if (role === "admin") return "관리자";
+  return "일반";
 };
 
 export default function AdminUsersPage() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  const filtered = users.filter((u) => {
+  useEffect(() => {
+    getProfilesClient().then((data) => {
+      setProfiles(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleChangeRole = async (userId: string, newRole: Profile["role"]) => {
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: userId, role: newRole }),
+    });
+    if (res.ok) {
+      setProfiles((prev) => prev.map((p) => p.id === userId ? { ...p, role: newRole } : p));
+      toast.success(`회원 유형이 변경되었습니다`);
+    } else {
+      toast.error("변경에 실패했습니다");
+    }
+  };
+
+  const filtered = profiles.filter((u) => {
     const matchSearch = !search || u.name.includes(search) || u.email.includes(search);
-    const matchType = typeFilter === "all" || u.type === typeFilter;
+    const type = roleToType(u.role);
+    const matchType = typeFilter === "all" || type === typeFilter;
     return matchSearch && matchType;
   });
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">회원 관리</h1>
-          <p className="text-muted-foreground text-sm">총 {users.length}명</p>
+          <p className="text-muted-foreground text-sm">총 {profiles.length}명</p>
         </div>
       </div>
 
@@ -62,6 +95,7 @@ export default function AdminUsersPage() {
               <SelectItem value="all">전체</SelectItem>
               <SelectItem value="일반">일반</SelectItem>
               <SelectItem value="전문가">전문가</SelectItem>
+              <SelectItem value="관리자">관리자</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -78,39 +112,46 @@ export default function AdminUsersPage() {
                   <th className="text-left p-4 font-medium">유형</th>
                   <th className="text-left p-4 font-medium">상태</th>
                   <th className="text-left p-4 font-medium">가입일</th>
-                  <th className="text-right p-4 font-medium">거래수</th>
                   <th className="text-center p-4 font-medium">관리</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((user) => (
-                  <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={user.image} />
-                          <AvatarFallback>{user.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                {filtered.map((user) => {
+                  const type = roleToType(user.role);
+                  return (
+                    <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} />
+                            <AvatarFallback>{(user.name || "?")[0]}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.name || "(이름 없음)"}</p>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4"><Badge variant="secondary" className={typeColors[user.type]}>{user.type}</Badge></td>
-                    <td className="p-4"><Badge variant="secondary" className={statusColors[user.status]}>{user.status}</Badge></td>
-                    <td className="p-4 text-muted-foreground">{user.joinDate}</td>
-                    <td className="p-4 text-right font-medium">{user.orders}</td>
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {user.status === "승인대기" && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600"><UserCheck className="h-4 w-4" /></Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><MoreVertical className="h-4 w-4" /></Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-4"><Badge variant="secondary" className={typeColors[type] || ""}>{type}</Badge></td>
+                      <td className="p-4"><Badge variant="secondary" className={statusColors["활성"]}>활성</Badge></td>
+                      <td className="p-4 text-muted-foreground">{user.createdAt?.split("T")[0] || "-"}</td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><MoreVertical className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleChangeRole(user.id, "user")}>일반 회원으로 변경</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleChangeRole(user.id, "expert")}>전문가로 변경</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleChangeRole(user.id, "admin")}>관리자로 변경</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

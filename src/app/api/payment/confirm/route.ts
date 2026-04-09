@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { updateOrderStatus } from "@/lib/db-server";
 
 export async function POST(request: Request) {
   try {
@@ -31,9 +32,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: DB에 주문 상태 업데이트
-    // TODO: 전문가에게 알림 전송
-    // TODO: 에스크로 처리
+    // DB에 주문 상태 업데이트: pending → paid
+    const updated = await updateOrderStatus(orderId, "paid");
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: "주문 상태 업데이트에 실패했습니다" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

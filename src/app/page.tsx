@@ -8,9 +8,7 @@ import {
   Smartphone, Share2, ShoppingCart, Building2, Sparkle,
   Gamepad2, Brush, LayoutGrid, FileText, Volume2, ImageIcon
 } from "lucide-react";
-import { categories } from "@/data/categories";
-import { services } from "@/data/services";
-import { getExpertById } from "@/data/experts";
+import { getCategories, getServices, getExperts } from "@/lib/db-server";
 import { ServiceCard } from "@/components/ServiceCard";
 import { HorizontalScrollRow } from "@/components/HorizontalScrollRow";
 
@@ -27,59 +25,63 @@ const popularSearches = [
   "제품 광고", "AI 아바타", "3D 렌더링",
 ];
 
-// 추천 전문가 데이터 (실제 프리랜서 + 실제 썸네일)
+// 추천 전문가 데이터 (실제 프리랜서 + 로컬 썸네일)
 const featuredExperts = [
-  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/a30c6320-2037-4536-bb0a-89273700e17d.jpeg", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/87c2692d-b67a-4741-a098-3156453f5463.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkp2a00fqsgtx0j5dsi0a.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/44eb8e10-6b93-4b40-8edc-afa32b2ea9a2.png"], badge: "TOP" },
-  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmn2xnaz8000004l88s3jqsbc.jpg", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkq7300j9sgtxbb83ma0s.jpeg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png"], badge: "HOT" },
-  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkpvc00i8sgtx6gv5s9w9.jpg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhe5000ysgtxvvmcrpex/17edcf60-e416-4e13-8e95-5df493b28705.jpeg", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhe5000ysgtxvvmcrpex/f7881fd0-ec75-4aa4-b505-d6673c5ed9f3.jpeg"], badge: "FAST" },
-  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr7800mesgtxh89tldij.png", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["https://pub-r2.hamkkebom.com/thumbnails/cmlegkr0z00lusgtxrefvjlud.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpbp00gjsgtxgi852aeb.png", "https://pub-r2.hamkkebom.com/thumbnails/cmlegkh7g000nsgtxni39gt98/446c3fc3-b4b3-4e30-b53f-4f16875cc4e7.png"], badge: "PRO" },
+  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "/thumbnails/expert-saeron.jpg", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["/thumbnails/expert-saeron-p1.jpg", "/thumbnails/expert-saeron-p2.jpg", "/thumbnails/expert-saeron-p3.jpg"], badge: "TOP" },
+  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "/thumbnails/expert-beodeul.jpg", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["/thumbnails/expert-beodeul-p1.jpg", "/thumbnails/expert-beodeul-p2.jpg", "/thumbnails/expert-beodeul-p3.jpg"], badge: "HOT" },
+  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "/thumbnails/expert-ai.jpg", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["/thumbnails/expert-ai-p1.jpg", "/thumbnails/expert-ai-p2.jpg", "/thumbnails/expert-ai-p3.jpg"], badge: "FAST" },
+  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "/thumbnails/expert-sandara.jpg", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["/thumbnails/expert-sandara-p1.jpg", "/thumbnails/expert-sandara-p2.jpg", "/thumbnails/expert-sandara-p3.jpg"], badge: "PRO" },
 ];
 
-// 크리에이터 작품 데이터 (실제 프리랜서 영상)
+// 크리에이터 작품 데이터 (실제 프리랜서 영상 + 로컬 썸네일)
 const contestEntries = [
-  { id: 1, title: "콕콕상담 소개 영상", author: "새론", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkhdj000xsgtxrvebcqgb/a30c6320-2037-4536-bb0a-89273700e17d.jpeg", category: "콕콕상담" },
-  { id: 2, title: "상담사 소개홍보 영상", author: "박건우", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkq7300j9sgtxbb83ma0s.jpeg", category: "소개영상" },
-  { id: 3, title: "타로 상담송", author: "여울", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png", category: "타로코너" },
-  { id: 4, title: "콕콕상담 소개", author: "아이", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegknjk00b2sgtxo19n80kh.png", category: "콕콕상담" },
-  { id: 5, title: "상담사 기도문 영상", author: "버들", image: "https://pub-r2.hamkkebom.com/thumbnails/cmn2xnaz8000004l88s3jqsbc.jpg", category: "기도영상" },
-  { id: 6, title: "단골상담 소개", author: "샛별", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkh7g000nsgtxni39gt98/446c3fc3-b4b3-4e30-b53f-4f16875cc4e7.png", category: "단골상담" },
-  { id: 7, title: "자기소개 영상", author: "산다라", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr7800mesgtxh89tldij.png", category: "소개영상" },
-  { id: 8, title: "콕콕상담 홍보", author: "해솔", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkr0z00lusgtxrefvjlud.png", category: "콕콕상담" },
-  { id: 9, title: "오늘의 운세", author: "꿈돌", image: "https://pub-r2.hamkkebom.com/thumbnails/cmlegkpbp00gjsgtxgi852aeb.png", category: "콕콕상담" },
+  { id: 1, title: "콕콕상담 소개 영상", author: "새론", image: "/thumbnails/contest-1.jpg", category: "콕콕상담" },
+  { id: 2, title: "상담사 소개홍보 영상", author: "박건우", image: "/thumbnails/contest-2.jpg", category: "소개영상" },
+  { id: 3, title: "타로 상담송", author: "여울", image: "/thumbnails/contest-3.jpg", category: "타로코너" },
+  { id: 4, title: "영상 상담사 소개", author: "아이", image: "/thumbnails/contest-4.jpg", category: "콕콕상담" },
+  { id: 5, title: "상담사 기도문 영상", author: "버들", image: "/thumbnails/contest-5.jpg", category: "기도영상" },
+  { id: 6, title: "단골상담 소개", author: "샛별", image: "/thumbnails/contest-6.jpg", category: "단골상담" },
+  { id: 7, title: "자기소개 영상", author: "산다라", image: "/thumbnails/contest-7.jpg", category: "소개영상" },
+  { id: 8, title: "콕콕상담 홍보", author: "해솔", image: "/thumbnails/contest-8.jpg", category: "콕콕상담" },
+  { id: 9, title: "오늘의 운세", author: "꿈돌", image: "/thumbnails/contest-9.jpg", category: "콕콕상담" },
 ];
 
 
-export default function HomePage() {
-  const popularServices = [...services]
+export default async function HomePage() {
+  const [categories, allServices, experts] = await Promise.all([
+    getCategories(),
+    getServices(),
+    getExperts(),
+  ]);
+
+  const popularServices = [...allServices]
     .sort((a, b) => b.salesCount - a.salesCount)
     .slice(0, 5);
 
-  const topRatedServices = [...services]
+  const topRatedServices = [...allServices]
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 5);
 
-  const latestServices = [...services]
+  const latestServices = [...allServices]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ===== HERO — 배경 영상 + 크몽 검색 ===== */}
+      {/* ===== HERO — 애니메이션 배경 + 크몽 검색 ===== */}
       <section className="relative h-[480px] md:h-[520px] overflow-hidden">
-        {/* 배경 영상 (Cloudflare Stream) */}
-        <div className="absolute inset-0">
-          <iframe
-            src="https://customer-2cdfhb1r3hh6t0pj.cloudflarestream.com/a22ed2808d0a0439e5a2f77a55eff85f/iframe?muted=true&autoplay=true&loop=true&controls=false&poster=https%3A%2F%2Fpub-r2.hamkkebom.com%2Fthumbnails%2Fcmlegkhdj000xsgtxrvebcqgb%2Fa30c6320-2037-4536-bb0a-89273700e17d.jpeg"
-            className="absolute inset-0 w-full h-full border-0 pointer-events-none"
-            style={{ transform: "scale(1.5)", transformOrigin: "center center" }}
-            allow="autoplay; encrypted-media"
-            title="Hero background video"
-          />
-          {/* 왼쪽 진한 그라데이션 → 오른쪽 투명 (텍스트 보호) */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
-        </div>
+        {/* 애니메이션 그라데이션 배경 */}
+        <div className="absolute inset-0 animate-gradient-shift" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 20%, #312e81 40%, #4c1d95 60%, #581c87 80%, #0f172a 100%)", backgroundSize: "400% 400%" }} />
+        {/* 떠다니는 빛 효과 */}
+        <div className="absolute top-[20%] right-[15%] w-[500px] h-[500px] rounded-full bg-purple-500/15 blur-[120px] animate-hero-float" />
+        <div className="absolute bottom-[10%] left-[20%] w-[400px] h-[400px] rounded-full bg-blue-500/10 blur-[100px] animate-hero-float-reverse" />
+        <div className="absolute top-[40%] right-[40%] w-[300px] h-[300px] rounded-full bg-pink-500/10 blur-[80px] animate-hero-float-slow" />
+        {/* 격자 패턴 */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        {/* 텍스트 보호 그라데이션 */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
         <div className="container mx-auto px-4 relative h-full flex flex-col justify-center">
           <div className="max-w-2xl">
@@ -156,7 +158,7 @@ export default function HomePage() {
               <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                 <ServiceCard
                   service={service}
-                  expert={getExpertById(service.expertId)}
+                  expert={experts.find(e => e.id === service.expertId)}
                 />
               </div>
             ))}
@@ -435,7 +437,7 @@ export default function HomePage() {
           </div>
 
           <HorizontalScrollRow>
-            {[...services]
+            {[...allServices]
               .filter((s) => s.tags.some((t) => ["유튜브", "편집", "숏폼", "썸네일", "인트로"].includes(t)))
               .sort((a, b) => b.salesCount - a.salesCount)
               .slice(0, 8)
@@ -443,18 +445,18 @@ export default function HomePage() {
                 <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                   <ServiceCard
                     service={service}
-                    expert={getExpertById(service.expertId)}
+                    expert={experts.find(e => e.id === service.expertId)}
                   />
                 </div>
               ))}
             {/* 데이터 부족 시 인기 서비스로 채움 */}
-            {[...services]
+            {[...allServices]
               .filter((s) => s.tags.some((t) => ["유튜브", "편집", "숏폼", "썸네일", "인트로"].includes(t)))
               .length < 5 && popularServices.map((service) => (
                 <div key={`yt-${service.id}`} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                   <ServiceCard
                     service={service}
-                    expert={getExpertById(service.expertId)}
+                    expert={experts.find(e => e.id === service.expertId)}
                   />
                 </div>
               ))}
@@ -481,7 +483,7 @@ export default function HomePage() {
           </div>
 
           <HorizontalScrollRow>
-            {[...services]
+            {[...allServices]
               .filter((s) => s.tags.some((t) => ["광고", "홍보", "제품", "마케팅", "브랜드", "SNS"].includes(t)))
               .sort((a, b) => b.salesCount - a.salesCount)
               .slice(0, 8)
@@ -489,17 +491,17 @@ export default function HomePage() {
                 <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                   <ServiceCard
                     service={service}
-                    expert={getExpertById(service.expertId)}
+                    expert={experts.find(e => e.id === service.expertId)}
                   />
                 </div>
               ))}
-            {[...services]
+            {[...allServices]
               .filter((s) => s.tags.some((t) => ["광고", "홍보", "제품", "마케팅", "브랜드", "SNS"].includes(t)))
               .length < 5 && topRatedServices.map((service) => (
                 <div key={`mk-${service.id}`} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                   <ServiceCard
                     service={service}
-                    expert={getExpertById(service.expertId)}
+                    expert={experts.find(e => e.id === service.expertId)}
                   />
                 </div>
               ))}
@@ -527,7 +529,7 @@ export default function HomePage() {
               <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                 <ServiceCard
                   service={service}
-                  expert={getExpertById(service.expertId)}
+                  expert={experts.find(e => e.id === service.expertId)}
                 />
               </div>
             ))}
@@ -555,7 +557,7 @@ export default function HomePage() {
               <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                 <ServiceCard
                   service={service}
-                  expert={getExpertById(service.expertId)}
+                  expert={experts.find(e => e.id === service.expertId)}
                 />
               </div>
             ))}
@@ -568,7 +570,7 @@ export default function HomePage() {
       <section className="relative py-20 md:py-28 overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="https://pub-r2.hamkkebom.com/thumbnails/cmlegkpzh00ilsgtxqfzy9rh6.png"
+            src="/thumbnails/cta-bg.jpg"
             alt="CTA background"
             fill
             className="object-cover"

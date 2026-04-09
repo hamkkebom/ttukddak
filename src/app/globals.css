@@ -82,6 +82,29 @@ body {
   font-feature-settings: 'tnum' on, 'lnum' on;
 }
 
+/* Hero animations */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -30px); }
+}
+.animate-gradient-shift {
+  animation: gradientShift 8s ease infinite;
+}
+.animate-hero-float {
+  animation: heroFloat 6s ease-in-out infinite;
+}
+.animate-hero-float-reverse {
+  animation: heroFloat 8s ease-in-out infinite reverse;
+}
+.animate-hero-float-slow {
+  animation: heroFloat 10s ease-in-out infinite;
+}
+
 /* Scrollbar hide utility */
 .scrollbar-hide {
   -ms-overflow-style: none;

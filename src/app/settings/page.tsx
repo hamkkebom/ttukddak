@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -10,19 +10,44 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { updateProfileClient } from "@/lib/db-client";
+
+const NOTIF_STORAGE_KEY = "ttukddak_notif_settings";
 
 type SettingsTab = "profile" | "password" | "notifications" | "privacy";
 
+const defaultNotifSettings = {
+  orderEmail: true,
+  orderPush: true,
+  messageEmail: true,
+  messagePush: true,
+  reviewEmail: false,
+  reviewPush: true,
+  promoEmail: false,
+  promoPush: false,
+  marketingEmail: false,
+};
+
+function loadNotifSettings() {
+  try {
+    const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+    if (raw) return { ...defaultNotifSettings, ...JSON.parse(raw) };
+  } catch {}
+  return defaultNotifSettings;
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState({
-    name: "홍길동",
-    email: "hong@email.com",
-    phone: "010-1234-5678",
+    name: "",
+    email: "",
+    phone: "",
     bio: "",
   });
   const [passwordData, setPasswordData] = useState({
@@ -31,17 +56,28 @@ export default function SettingsPage() {
     confirm: "",
   });
   const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
-  const [notifSettings, setNotifSettings] = useState({
-    orderEmail: true,
-    orderPush: true,
-    messageEmail: true,
-    messagePush: true,
-    reviewEmail: false,
-    reviewPush: true,
-    promoEmail: false,
-    promoPush: false,
-    marketingEmail: false,
-  });
+  const [notifSettings, setNotifSettings] = useState(defaultNotifSettings);
+
+  useEffect(() => {
+    const init = async () => {
+      const notif = loadNotifSettings();
+      setNotifSettings(notif);
+
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        setProfileData({
+          name: user.user_metadata?.name || user.email?.split("@")[0] || "",
+          email: user.email || "",
+          phone: user.user_metadata?.phone || "",
+          bio: user.user_metadata?.bio || "",
+        });
+      }
+      setLoading(false);
+    };
+    init();
+  }, []);
 
   const tabs = [
     { id: "profile" as SettingsTab, icon: User, label: "프로필 수정" },
@@ -50,12 +86,59 @@ export default function SettingsPage() {
     { id: "privacy" as SettingsTab, icon: Shield, label: "개인정보 및 탈퇴" },
   ];
 
-  const handleProfileSave = () => toast.success("프로필이 저장되었습니다");
-  const handlePasswordSave = () => {
-    toast.success("비밀번호가 변경되었습니다");
-    setPasswordData({ current: "", newPw: "", confirm: "" });
+  const handleProfileSave = async () => {
+    if (!userId) return;
+    const sb = createClient();
+    const ok = await updateProfileClient(userId, { name: profileData.name, phone: profileData.phone, bio: profileData.bio });
+    if (ok) {
+      await sb.auth.updateUser({ data: { name: profileData.name } });
+      toast.success("프로필이 저장되었습니다");
+    } else {
+      toast.error("저장에 실패했습니다");
+    }
   };
-  const handleNotifSave = () => toast.success("알림 설정이 저장되었습니다");
+
+  const handlePasswordSave = async () => {
+    if (passwordData.newPw !== passwordData.confirm) {
+      toast.error("새 비밀번호가 일치하지 않습니다");
+      return;
+    }
+    if (passwordData.newPw.length < 6) {
+      toast.error("비밀번호는 6자 이상이어야 합니다");
+      return;
+    }
+    const sb = createClient();
+    const { error } = await sb.auth.updateUser({ password: passwordData.newPw });
+    if (error) {
+      toast.error("비밀번호 변경에 실패했습니다");
+    } else {
+      toast.success("비밀번호가 변경되었습니다");
+      setPasswordData({ current: "", newPw: "", confirm: "" });
+    }
+  };
+
+  const handleNotifSave = () => {
+    try {
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifSettings));
+      toast.success("알림 설정이 저장되었습니다");
+    } catch {
+      toast.error("저장에 실패했습니다");
+    }
+  };
+
+  const handleWithdraw = () => {
+    toast.info("고객센터에 문의해주세요");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
+
+  const avatarInitial = profileData.name?.[0] || "?";
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -99,7 +182,7 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground">
-                      홍
+                      {avatarInitial}
                     </div>
                     <div>
                       <Button variant="outline" size="sm">사진 변경</Button>
@@ -249,7 +332,7 @@ export default function SettingsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button variant="destructive" size="sm">회원 탈퇴</Button>
+                    <Button variant="destructive" size="sm" onClick={handleWithdraw}>회원 탈퇴</Button>
                   </CardContent>
                 </Card>
               </div>

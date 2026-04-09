@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCategoryBySlug } from "@/data/categories";
+import { getCategoryBySlugDB, getServicesByCategory, getCategories } from "@/lib/db-server";
 import CategoryPageClient from "./CategoryPageClient";
 
 type CategoryPageParams = {
@@ -12,7 +12,7 @@ export async function generateMetadata({
   params: Promise<CategoryPageParams>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const category = getCategoryBySlug(slug);
+  const category = await getCategoryBySlugDB(slug);
 
   return {
     title: `${category?.name || "카테고리"} | 뚝딱`,
@@ -26,5 +26,18 @@ export default async function CategoryPage({
   params: Promise<CategoryPageParams>;
 }) {
   const { slug } = await params;
-  return <CategoryPageClient slug={slug} />;
+  const [category, allCategories] = await Promise.all([
+    getCategoryBySlugDB(slug),
+    getCategories(),
+  ]);
+  const initialServices = category ? await getServicesByCategory(category.id) : [];
+
+  return (
+    <CategoryPageClient
+      slug={slug}
+      category={category}
+      initialServices={initialServices}
+      allCategories={allCategories}
+    />
+  );
 }

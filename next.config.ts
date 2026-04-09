@@ -2,24 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
+    ignoreBuildErrors: false,
   },
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "pub-r2.hamkkebom.com",
-      },
       {
         protocol: "https",
         hostname: "api.dicebear.com",
       },
       {
         protocol: "https",
-        hostname: "customer-2cdfhb1r3hh6t0pj.cloudflarestream.com",
+        hostname: "customer-6q1yzz06ggg2ef4g.cloudflarestream.com",
       },
       {
         protocol: "https",

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -12,63 +13,162 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getOrdersClient,
+  getServicesByExpertClient,
+  getReviewsClient,
+} from "@/lib/db-client";
+import type { Order, Service, Review } from "@/types";
 
-const stats = [
-  { label: "이번 달 수익", value: "1,250,000원", change: "+12.5%", up: true, icon: DollarSign },
-  { label: "진행중 주문", value: "3건", change: "+1", up: true, icon: Package },
-  { label: "총 조회수", value: "2,847", change: "+23.1%", up: true, icon: Eye },
-  { label: "평균 평점", value: "4.9", change: "0.0", up: true, icon: Star },
-];
+const STATUS_LABEL: Record<string, string> = {
+  pending: "요구사항 확인",
+  paid: "요구사항 확인",
+  in_progress: "작업중",
+  review: "검수 대기",
+  completed: "완료",
+  cancelled: "취소",
+  refunded: "환불",
+};
 
-const activeOrders = [
-  {
-    id: "ord-101",
-    clientName: "김의뢰",
-    serviceName: "AI 프리미엄 뮤직비디오",
-    package: "스탠다드",
-    price: 300000,
-    status: "작업중",
-    statusColor: "bg-blue-100 text-blue-700",
-    deadline: "2024-03-25",
-    progress: 60,
-  },
-  {
-    id: "ord-102",
-    clientName: "박고객",
-    serviceName: "Runway 시네마틱 영상",
-    package: "프리미엄",
-    price: 700000,
-    status: "검수 대기",
-    statusColor: "bg-amber-100 text-amber-700",
-    deadline: "2024-03-20",
-    progress: 90,
-  },
-  {
-    id: "ord-103",
-    clientName: "최신규",
-    serviceName: "AI 프리미엄 뮤직비디오",
-    package: "베이직",
-    price: 150000,
-    status: "요구사항 확인",
-    statusColor: "bg-purple-100 text-purple-700",
-    deadline: "2024-03-30",
-    progress: 10,
-  },
-];
+const STATUS_COLOR: Record<string, string> = {
+  pending: "bg-purple-100 text-purple-700",
+  paid: "bg-purple-100 text-purple-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  review: "bg-amber-100 text-amber-700",
+  completed: "bg-green-100 text-green-700",
+  cancelled: "bg-slate-100 text-slate-700",
+  refunded: "bg-red-100 text-red-700",
+};
 
-const recentReviews = [
-  { client: "이만족", rating: 5, text: "퀄리티가 기대 이상이었습니다!", date: "2일 전" },
-  { client: "정감사", rating: 5, text: "소통이 정말 빠르고 친절해요.", date: "5일 전" },
-  { client: "한재주", rating: 4, text: "좋았지만 색감 조정이 아쉬웠습니다.", date: "1주 전" },
-];
-
-const myServices = [
-  { id: "svc-1", title: "AI로 만드는 프리미엄 뮤직비디오 & 광고 영상", views: 1245, orders: 234, rating: 4.9, active: true },
-  { id: "svc-2", title: "Runway Gen-3 활용 시네마틱 AI 영상 제작", views: 892, orders: 178, rating: 4.85, active: true },
-];
+const PROGRESS_BY_STATUS: Record<string, number> = {
+  pending: 10, paid: 15, in_progress: 60, review: 90, completed: 100, cancelled: 0, refunded: 0,
+};
 
 export default function DashboardPage() {
   const formatPrice = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
+
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("전문가");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const sb = createClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) return;
+
+        const displayName =
+          user.user_metadata?.name ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "전문가";
+        setUserName(displayName);
+
+        const [fetchedOrders, fetchedServices] = await Promise.all([
+          getOrdersClient({ expertId: user.id }),
+          getServicesByExpertClient(user.id),
+        ]);
+        setOrders(fetchedOrders);
+        setServices(fetchedServices);
+
+        if (fetchedServices.length > 0) {
+          const reviewPromises = fetchedServices.map((s) =>
+            getReviewsClient({ serviceId: s.id })
+          );
+          const allReviews = (await Promise.all(reviewPromises)).flat();
+          setReviews(allReviews);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  // Calculate stats
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonthRevenue = orders
+    .filter((o) => o.status === "completed" && o.createdAt.startsWith(thisMonth))
+    .reduce((s, o) => s + o.price, 0);
+
+  const activeOrders = orders.filter(
+    (o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "refunded"
+  );
+
+  const avgRating =
+    reviews.length > 0
+      ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+      : "0.0";
+
+  // Monthly earnings for chart (last 3 months)
+  const now = new Date();
+  const last3Months = Array.from({ length: 3 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
+    return {
+      label: `${d.getMonth() + 1}월`,
+      key: d.toISOString().slice(0, 7),
+    };
+  });
+
+  const monthlyValues = last3Months.map((m) =>
+    orders
+      .filter((o) => o.status === "completed" && o.createdAt.startsWith(m.key))
+      .reduce((s, o) => s + o.price, 0)
+  );
+  const maxMonthly = Math.max(...monthlyValues, 1);
+
+  const totalRevenue = orders
+    .filter((o) => o.status === "completed")
+    .reduce((s, o) => s + o.price, 0);
+
+  const recentReviews = reviews.slice(0, 3);
+
+  const stats = [
+    {
+      label: "이번 달 수익",
+      value: `${formatPrice(thisMonthRevenue)}원`,
+      change: "+0%",
+      up: true,
+      icon: DollarSign,
+    },
+    {
+      label: "진행중 주문",
+      value: `${activeOrders.length}건`,
+      change: "+0",
+      up: true,
+      icon: Package,
+    },
+    {
+      label: "총 조회수",
+      value: String(services.reduce((s, sv) => s + (sv.salesCount * 5), 0)),
+      change: "+0%",
+      up: true,
+      icon: Eye,
+    },
+    {
+      label: "평균 평점",
+      value: avgRating,
+      change: "0.0",
+      up: true,
+      icon: Star,
+    },
+  ];
+
+  const getRelativeDate = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86400000);
+    if (days === 0) return "오늘";
+    if (days === 1) return "1일 전";
+    if (days < 7) return `${days}일 전`;
+    if (days < 14) return "1주 전";
+    return `${Math.floor(days / 7)}주 전`;
+  };
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -77,7 +177,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold">전문가 대시보드</h1>
-            <p className="text-muted-foreground">안녕하세요, 김영상 전문가님!</p>
+            <p className="text-muted-foreground">안녕하세요, {userName} 전문가님!</p>
           </div>
           <Button asChild>
             <Link href="/dashboard/services/new">
@@ -100,7 +200,7 @@ export default function DashboardPage() {
                     {stat.change}
                   </div>
                 </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-2xl font-bold">{loading ? "..." : stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
               </CardContent>
             </Card>
@@ -119,34 +219,46 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {activeOrders.map((order) => (
-                  <Link key={order.id} href="/dashboard/orders" className="block p-4 rounded-lg border hover:bg-muted/50 transition-colors">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className={order.statusColor}>{order.status}</Badge>
-                          <span className="text-xs text-muted-foreground">{order.id}</span>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">불러오는 중...</p>
+                ) : activeOrders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">진행중인 주문이 없습니다</p>
+                ) : (
+                  activeOrders.slice(0, 5).map((order) => {
+                    const statusLabel = STATUS_LABEL[order.status] || order.status;
+                    const statusColor = STATUS_COLOR[order.status] || "bg-gray-100 text-gray-700";
+                    const progress = PROGRESS_BY_STATUS[order.status] || 0;
+                    const deadline = order.createdAt.split("T")[0];
+                    return (
+                      <Link key={order.id} href="/dashboard/orders" className="block p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="secondary" className={statusColor}>{statusLabel}</Badge>
+                              <span className="text-xs text-muted-foreground">{order.id.slice(0, 8)}</span>
+                            </div>
+                            <p className="font-medium text-sm">{order.serviceName || "서비스"}</p>
+                            <p className="text-xs text-muted-foreground">{order.buyerName || "의뢰인"} · {order.packageName} 패키지</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-sm">{formatPrice(order.price)}원</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                              <Calendar className="h-3 w-3" /> {deadline}
+                            </p>
+                          </div>
                         </div>
-                        <p className="font-medium text-sm">{order.serviceName}</p>
-                        <p className="text-xs text-muted-foreground">{order.clientName} · {order.package} 패키지</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm">{formatPrice(order.price)}원</p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                          <Calendar className="h-3 w-3" /> {order.deadline}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="bg-primary rounded-full h-2 transition-all"
-                        style={{ width: `${order.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 text-right">{order.progress}% 완료</p>
-                  </Link>
-                ))}
+                        {/* Progress Bar */}
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-primary rounded-full h-2 transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 text-right">{progress}% 완료</p>
+                      </Link>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
 
@@ -163,31 +275,37 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {myServices.map((svc) => (
-                  <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm truncate">{svc.title}</p>
-                        <Badge variant={svc.active ? "default" : "secondary"} className="text-xs shrink-0">
-                          {svc.active ? "활성" : "비활성"}
-                        </Badge>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">불러오는 중...</p>
+                ) : services.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">등록된 서비스가 없습니다</p>
+                ) : (
+                  services.map((svc) => (
+                    <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm truncate">{svc.title}</p>
+                          <Badge variant="default" className="text-xs shrink-0">활성</Badge>
+                        </div>
+                        <div className="flex gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{svc.salesCount * 5}</span>
+                          <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{svc.salesCount}건</span>
+                          <span className="flex items-center gap-1"><Star className="h-3 w-3" />{svc.rating.toFixed(1)}</span>
+                        </div>
                       </div>
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{svc.views}</span>
-                        <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{svc.orders}건</span>
-                        <span className="flex items-center gap-1"><Star className="h-3 w-3" />{svc.rating}</span>
-                      </div>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/dashboard/services/${svc.id}/edit`}>관리 <ChevronRight className="h-3 w-3 ml-1" /></Link>
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" asChild><Link href={`/dashboard/services/${svc.id}/edit`}>관리 <ChevronRight className="h-3 w-3 ml-1" /></Link></Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
 
           {/* Right: Sidebar */}
           <div className="space-y-6">
-            {/* Monthly Earnings Chart Placeholder */}
+            {/* Monthly Earnings Chart */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -196,29 +314,25 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {["1월", "2월", "3월"].map((month, i) => {
-                    const values = [850000, 1100000, 1250000];
-                    const maxVal = 1500000;
-                    return (
-                      <div key={month} className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground w-8">{month}</span>
-                        <div className="flex-1 bg-muted rounded-full h-3">
-                          <div
-                            className="bg-primary rounded-full h-3 transition-all"
-                            style={{ width: `${(values[i] / maxVal) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium w-20 text-right">
-                          {formatPrice(values[i])}
-                        </span>
+                  {last3Months.map((m, i) => (
+                    <div key={m.label} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-8">{m.label}</span>
+                      <div className="flex-1 bg-muted rounded-full h-3">
+                        <div
+                          className="bg-primary rounded-full h-3 transition-all"
+                          style={{ width: loading ? "0%" : `${(monthlyValues[i] / maxMonthly) * 100}%` }}
+                        />
                       </div>
-                    );
-                  })}
+                      <span className="text-xs font-medium w-20 text-right">
+                        {loading ? "..." : formatPrice(monthlyValues[i])}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <Separator className="my-4" />
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">누적 수익</span>
-                  <span className="font-bold">3,200,000원</span>
+                  <span className="font-bold">{loading ? "..." : `${formatPrice(totalRevenue)}원`}</span>
                 </div>
               </CardContent>
             </Card>
@@ -229,35 +343,43 @@ export default function DashboardPage() {
                 <CardTitle className="text-base">최근 리뷰</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {recentReviews.map((review, i) => (
-                  <div key={i} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{review.client}</span>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: review.rating }).map((_, j) => (
-                          <Star key={j} className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        ))}
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">불러오는 중...</p>
+                ) : recentReviews.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">아직 리뷰가 없습니다</p>
+                ) : (
+                  recentReviews.map((review, i) => (
+                    <div key={review.id} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{review.userName}</span>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: review.rating }).map((_, j) => (
+                            <Star key={j} className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          ))}
+                        </div>
                       </div>
+                      <p className="text-xs text-muted-foreground">{review.content}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-muted-foreground">{getRelativeDate(review.createdAt)}</p>
+                        <button className="text-[10px] text-primary hover:underline" onClick={() => toast.success("답글 기능은 준비 중입니다")}>답글 달기</button>
+                      </div>
+                      {i < recentReviews.length - 1 && <Separator className="mt-3" />}
                     </div>
-                    <p className="text-xs text-muted-foreground">{review.text}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground">{review.date}</p>
-                      <button className="text-[10px] text-primary hover:underline" onClick={() => toast.success("답글 기능은 준비 중입니다")}>답글 달기</button>
-                    </div>
-                    {i < recentReviews.length - 1 && <Separator className="mt-3" />}
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
 
             {/* Quick Links */}
             <Card>
               <CardContent className="p-4 space-y-2">
-                {[
-                  { icon: MessageCircle, label: "메시지", href: "/messages", badge: "2" },
-                  { icon: Users, label: "견적 요청 확인", href: "/dashboard/quotes", badge: "3" },
-                  { icon: Clock, label: "정산 내역", href: "/dashboard/earnings" },
-                ].map((link) => (
+                {(
+                  [
+                    { icon: MessageCircle, label: "메시지", href: "/messages", badge: null as string | null },
+                    { icon: Users, label: "견적 요청 확인", href: "/dashboard/quotes", badge: null as string | null },
+                    { icon: Clock, label: "정산 내역", href: "/dashboard/earnings", badge: null as string | null },
+                  ] as { icon: React.ElementType; label: string; href: string; badge: string | null }[]
+                ).map((link) => (
                   <Link
                     key={link.label}
                     href={link.href}

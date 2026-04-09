@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getExpertById } from "@/data/experts";
+import { notFound } from "next/navigation";
+import { getExpertByIdDB, getServicesByExpertDB, getCategoryByIdDB } from "@/lib/db-server";
 import ExpertProfilePageClient from "./ExpertProfilePageClient";
 
 type ExpertPageParams = {
@@ -12,7 +13,7 @@ export async function generateMetadata({
   params: Promise<ExpertPageParams>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const expert = getExpertById(id);
+  const expert = await getExpertByIdDB(id);
 
   return {
     title: `${expert?.name || "전문가"} | 뚝딱`,
@@ -26,5 +27,22 @@ export default async function ExpertProfilePage({
   params: Promise<ExpertPageParams>;
 }) {
   const { id } = await params;
-  return <ExpertProfilePageClient id={id} />;
+
+  const expert = await getExpertByIdDB(id);
+  if (!expert) notFound();
+
+  const [services, category] = await Promise.all([
+    getServicesByExpertDB(expert.id),
+    getCategoryByIdDB(expert.categoryId),
+  ]);
+
+  if (!category) notFound();
+
+  return (
+    <ExpertProfilePageClient
+      expert={expert}
+      services={services}
+      category={category}
+    />
+  );
 }

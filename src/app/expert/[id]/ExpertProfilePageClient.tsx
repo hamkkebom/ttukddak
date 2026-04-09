@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { 
+import {
   Star, Clock, CheckCircle, Award, Zap, Calendar,
-  MessageCircle, ChevronRight 
+  MessageCircle, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,29 +11,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ServiceCard } from "@/components/ServiceCard";
-import { getExpertById } from "@/data/experts";
-import { getServicesByExpert } from "@/data/services";
-import { getCategoryById } from "@/data/categories";
+import type { Expert, Service, Category } from "@/types";
 import { cn } from "@/lib/utils";
 
-export default function ExpertProfilePageClient({ id }: { id: string }) {
-  const expertId = id;
+interface ExpertProfilePageClientProps {
+  expert: Expert;
+  services: Service[];
+  category: Category;
+}
 
-  const expert = getExpertById(expertId);
-  const services = expert ? getServicesByExpert(expert.id) : [];
-  const category = expert ? getCategoryById(expert.categoryId) : null;
-
-  if (!expert || !category) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">전문가를 찾을 수 없습니다</h1>
-        <Button asChild>
-          <Link href="/">홈으로 돌아가기</Link>
-        </Button>
-      </div>
-    );
-  }
-
+export default function ExpertProfilePageClient({ expert, services, category }: ExpertProfilePageClientProps) {
   const joinDate = new Date(expert.joinedAt);
   const joinYear = joinDate.getFullYear();
   const joinMonth = joinDate.getMonth() + 1;

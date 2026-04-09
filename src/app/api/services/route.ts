@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { services, getServicesByCategory, searchServices } from "@/data/services";
+import { NextRequest, NextResponse } from "next/server";
+import { getServices, getServicesByCategory, searchServicesDB, createService } from "@/lib/db-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,9 +8,14 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
 
-  let result = services;
-  if (category) result = getServicesByCategory(category);
-  if (query) result = searchServices(query);
+  let result;
+  if (category) {
+    result = await getServicesByCategory(category);
+  } else if (query) {
+    result = await searchServicesDB(query);
+  } else {
+    result = await getServices();
+  }
 
   const start = (page - 1) * limit;
   const end = start + limit;
@@ -26,4 +31,11 @@ export async function GET(request: Request) {
       totalPages: Math.ceil(result.length / limit),
     },
   });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const id = await createService(body);
+  if (!id) return NextResponse.json({ error: "Failed to create service" }, { status: 500 });
+  return NextResponse.json({ success: true, id }, { status: 201 });
 }

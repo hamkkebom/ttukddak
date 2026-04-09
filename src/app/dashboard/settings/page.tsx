@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -13,31 +13,121 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { updateProfileClient } from "@/lib/db-client";
 
 type Tab = "profile" | "bank" | "notifications";
 
+const BANK_STORAGE_KEY = "dashboard_bank_settings";
+const NOTIF_STORAGE_KEY = "dashboard_notif_settings";
+
+const defaultNotif: Record<string, Record<string, boolean>> = {
+  "새 주문 알림": { "이메일": true, "푸시 알림": true, "카카오톡": true },
+  "메시지 알림": { "이메일": true, "푸시 알림": true },
+  "견적 요청 알림": { "이메일": true, "푸시 알림": true },
+  "정산 알림": { "이메일": true },
+};
+
 export default function DashboardSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState({
-    name: "김영상",
-    email: "kim@email.com",
-    phone: "010-9876-5432",
-    title: "AI 영상 크리에이터",
-    introduction: "5년차 영상 크리에이터입니다.",
+    name: "",
+    email: "",
+    phone: "",
+    title: "",
+    introduction: "",
   });
   const [bank, setBank] = useState({
-    bankName: "신한은행",
-    accountNumber: "110-***-***234",
-    accountHolder: "김영상",
+    bankName: "",
+    accountNumber: "",
+    accountHolder: "",
     taxType: "개인사업자",
-    businessNumber: "123-45-67890",
+    businessNumber: "",
   });
+  const [notifSettings, setNotifSettings] = useState(defaultNotif);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const sb = createClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) return;
+        setUserId(user.id);
+        setProfile({
+          name: user.user_metadata?.name || user.user_metadata?.full_name || "",
+          email: user.email || "",
+          phone: user.user_metadata?.phone || "",
+          title: user.user_metadata?.title || "",
+          introduction: user.user_metadata?.introduction || "",
+        });
+
+        // Load bank from localStorage
+        const savedBank = localStorage.getItem(BANK_STORAGE_KEY);
+        if (savedBank) setBank(JSON.parse(savedBank));
+
+        // Load notifications from localStorage
+        const savedNotif = localStorage.getItem(NOTIF_STORAGE_KEY);
+        if (savedNotif) setNotifSettings(JSON.parse(savedNotif));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleProfileSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      const sb = createClient();
+      await Promise.all([
+        updateProfileClient(userId, { name: profile.name }),
+        sb.auth.updateUser({
+          data: {
+            name: profile.name,
+            phone: profile.phone,
+            title: profile.title,
+            introduction: profile.introduction,
+          },
+        }),
+      ]);
+      toast.success("저장되었습니다");
+    } catch {
+      toast.error("저장에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBankSave = () => {
+    localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(bank));
+    toast.success("저장되었습니다");
+  };
+
+  const handleNotifSave = () => {
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifSettings));
+    toast.success("저장되었습니다");
+  };
+
+  const toggleNotif = (group: string, item: string) => {
+    setNotifSettings((prev) => ({
+      ...prev,
+      [group]: { ...prev[group], [item]: !prev[group][item] },
+    }));
+  };
 
   const tabs = [
     { id: "profile" as Tab, icon: User, label: "프로필 관리" },
     { id: "bank" as Tab, icon: CreditCard, label: "정산 계좌" },
     { id: "notifications" as Tab, icon: Bell, label: "알림 설정" },
   ];
+
+  const avatarLetter = profile.name ? profile.name[0] : "?";
 
   return (
     <div className="p-8">
@@ -76,7 +166,7 @@ export default function DashboardSettingsPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-2xl font-bold text-white">
-                    김
+                    {loading ? "..." : avatarLetter}
                   </div>
                   <div>
                     <Button variant="outline" size="sm">사진 변경</Button>
@@ -86,11 +176,19 @@ export default function DashboardSettingsPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium mb-1.5 block">활동명</label>
-                    <Input value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} />
+                    <Input
+                      value={profile.name}
+                      onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                      disabled={loading}
+                    />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-1.5 block">직함</label>
-                    <Input value={profile.title} onChange={(e) => setProfile((p) => ({ ...p, title: e.target.value }))} />
+                    <Input
+                      value={profile.title}
+                      onChange={(e) => setProfile((p) => ({ ...p, title: e.target.value }))}
+                      disabled={loading}
+                    />
                   </div>
                 </div>
                 <div>
@@ -99,7 +197,11 @@ export default function DashboardSettingsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">연락처</label>
-                  <Input value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
+                  <Input
+                    value={profile.phone}
+                    onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+                    disabled={loading}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">소개</label>
@@ -107,11 +209,14 @@ export default function DashboardSettingsPage() {
                     value={profile.introduction}
                     onChange={(e) => setProfile((p) => ({ ...p, introduction: e.target.value }))}
                     rows={4}
+                    disabled={loading}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={() => toast.success("저장되었습니다")}>저장</Button>
+                  <Button onClick={handleProfileSave} disabled={saving || loading}>
+                    {saving ? "저장 중..." : "저장"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -125,18 +230,53 @@ export default function DashboardSettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="p-4 rounded-lg bg-muted/50 space-y-3 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">은행</span><span className="font-medium">{bank.bankName}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">계좌번호</span><span className="font-medium">{bank.accountNumber}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">예금주</span><span className="font-medium">{bank.accountHolder}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">은행</span>
+                    <Input
+                      value={bank.bankName}
+                      onChange={(e) => setBank((b) => ({ ...b, bankName: e.target.value }))}
+                      placeholder="신한은행"
+                      className="w-40 h-6 text-right text-sm border-none bg-transparent p-0 focus-visible:ring-0"
+                    />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">계좌번호</span>
+                    <Input
+                      value={bank.accountNumber}
+                      onChange={(e) => setBank((b) => ({ ...b, accountNumber: e.target.value }))}
+                      placeholder="000-000-000000"
+                      className="w-40 h-6 text-right text-sm border-none bg-transparent p-0 focus-visible:ring-0"
+                    />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">예금주</span>
+                    <Input
+                      value={bank.accountHolder}
+                      onChange={(e) => setBank((b) => ({ ...b, accountHolder: e.target.value }))}
+                      placeholder="홍길동"
+                      className="w-40 h-6 text-right text-sm border-none bg-transparent p-0 focus-visible:ring-0"
+                    />
+                  </div>
                 </div>
-                <Button variant="outline">계좌 변경</Button>
+                <Button variant="outline" onClick={handleBankSave}>계좌 저장</Button>
                 <Separator />
                 <h3 className="font-semibold flex items-center gap-2"><Building2 className="h-4 w-4" /> 사업자 정보</h3>
                 <div className="p-4 rounded-lg bg-muted/50 space-y-3 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">사업자 유형</span><Badge variant="secondary">{bank.taxType}</Badge></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">사업자번호</span><span className="font-medium">{bank.businessNumber}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">사업자 유형</span>
+                    <Badge variant="secondary">{bank.taxType}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">사업자번호</span>
+                    <Input
+                      value={bank.businessNumber}
+                      onChange={(e) => setBank((b) => ({ ...b, businessNumber: e.target.value }))}
+                      placeholder="000-00-00000"
+                      className="w-40 h-6 text-right text-sm border-none bg-transparent p-0 focus-visible:ring-0"
+                    />
+                  </div>
                 </div>
-                <Button variant="outline">사업자 정보 변경</Button>
+                <Button variant="outline" onClick={handleBankSave}>사업자 정보 저장</Button>
               </CardContent>
             </Card>
           )}
@@ -148,26 +288,26 @@ export default function DashboardSettingsPage() {
                 <CardDescription>전문가 활동 관련 알림을 설정합니다</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {[
-                  { group: "새 주문 알림", items: ["이메일", "푸시 알림", "카카오톡"] },
-                  { group: "메시지 알림", items: ["이메일", "푸시 알림"] },
-                  { group: "견적 요청 알림", items: ["이메일", "푸시 알림"] },
-                  { group: "정산 알림", items: ["이메일"] },
-                ].map((section) => (
-                  <div key={section.group}>
-                    <h3 className="text-sm font-semibold mb-3">{section.group}</h3>
+                {Object.entries(notifSettings).map(([group, items]) => (
+                  <div key={group}>
+                    <h3 className="text-sm font-semibold mb-3">{group}</h3>
                     <div className="space-y-3">
-                      {section.items.map((item) => (
+                      {Object.entries(items).map(([item, checked]) => (
                         <label key={item} className="flex items-center justify-between cursor-pointer">
                           <span className="text-sm">{item}</span>
-                          <Checkbox checked={true} onCheckedChange={() => {}} />
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleNotif(group, item)}
+                          />
                         </label>
                       ))}
                     </div>
                     <Separator className="mt-4" />
                   </div>
                 ))}
-                <div className="flex justify-end"><Button onClick={() => toast.success("저장되었습니다")}>저장</Button></div>
+                <div className="flex justify-end">
+                  <Button onClick={handleNotifSave}>저장</Button>
+                </div>
               </CardContent>
             </Card>
           )}

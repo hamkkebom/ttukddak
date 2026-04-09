@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Bell, MessageCircle, ShoppingBag, Star, CreditCard,
-  Megaphone, Check, CheckCheck, Trash2, Settings
+  Megaphone, CheckCheck, Trash2, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,48 +25,50 @@ interface Notification {
   link?: string;
 }
 
-const initialNotifications: Notification[] = [
+const STORAGE_KEY = "ttukddak_notifications";
+
+const baseNotifications: Omit<Notification, "read">[] = [
   {
     id: "n1", category: "order", icon: ShoppingBag, iconColor: "text-blue-600 bg-blue-100",
     title: "새 주문이 접수되었습니다",
     description: "김의뢰님이 'AI 프리미엄 뮤직비디오' 스탠다드 패키지를 주문했습니다.",
-    time: "10분 전", read: false, link: "/dashboard",
+    time: "10분 전", link: "/dashboard",
   },
   {
     id: "n2", category: "message", icon: MessageCircle, iconColor: "text-green-600 bg-green-100",
     title: "새 메시지가 도착했습니다",
     description: "박고객님: '중간 시안 확인했습니다. 색감을 조금 더 따뜻하게...'",
-    time: "30분 전", read: false, link: "/messages",
+    time: "30분 전", link: "/messages",
   },
   {
     id: "n3", category: "review", icon: Star, iconColor: "text-amber-600 bg-amber-100",
     title: "새 리뷰가 등록되었습니다",
     description: "이만족님이 별점 5점 리뷰를 남겼습니다: '퀄리티가 기대 이상이었습니다!'",
-    time: "2시간 전", read: false, link: "/dashboard",
+    time: "2시간 전", link: "/dashboard",
   },
   {
     id: "n4", category: "payment", icon: CreditCard, iconColor: "text-purple-600 bg-purple-100",
     title: "정산이 완료되었습니다",
     description: "300,000원이 등록된 계좌로 입금되었습니다.",
-    time: "어제", read: true,
+    time: "어제",
   },
   {
     id: "n5", category: "order", icon: ShoppingBag, iconColor: "text-blue-600 bg-blue-100",
     title: "주문 상태가 변경되었습니다",
     description: "'Runway 시네마틱 영상' 주문이 검수 대기 상태로 변경되었습니다.",
-    time: "어제", read: true, link: "/dashboard",
+    time: "어제", link: "/dashboard",
   },
   {
     id: "n6", category: "promo", icon: Megaphone, iconColor: "text-primary bg-primary/10",
     title: "봄맞이 프로모션 안내",
     description: "신규 서비스 등록 시 수수료 50% 할인 이벤트를 진행합니다!",
-    time: "3일 전", read: true, link: "/event",
+    time: "3일 전", link: "/event",
   },
   {
     id: "n7", category: "message", icon: MessageCircle, iconColor: "text-green-600 bg-green-100",
     title: "견적 요청이 도착했습니다",
     description: "최신규님이 'AI 영상 생성' 카테고리에서 견적을 요청했습니다.",
-    time: "3일 전", read: true, link: "/request",
+    time: "3일 전", link: "/request",
   },
 ];
 
@@ -79,9 +81,36 @@ const filterTabs: { value: NotifCategory; label: string }[] = [
   { value: "promo", label: "프로모션" },
 ];
 
+function loadFromStorage(): { readIds: string[]; deletedIds: string[] } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { readIds: [], deletedIds: [] };
+}
+
+function saveToStorage(readIds: string[], deletedIds: string[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ readIds, deletedIds }));
+  } catch {}
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<NotifCategory>("all");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const { readIds: r, deletedIds: d } = loadFromStorage();
+    setReadIds(r);
+    setDeletedIds(d);
+    setMounted(true);
+  }, []);
+
+  const notifications: Notification[] = baseNotifications
+    .filter((n) => !deletedIds.includes(n.id))
+    .map((n) => ({ ...n, read: readIds.includes(n.id) }));
 
   const filtered = notifications.filter(
     (n) => activeFilter === "all" || n.category === activeFilter
@@ -89,16 +118,32 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const allIds = notifications.map((n) => n.id);
+    const next = [...new Set([...readIds, ...allIds])];
+    setReadIds(next);
+    saveToStorage(next, deletedIds);
   };
 
   const markRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    if (readIds.includes(id)) return;
+    const next = [...readIds, id];
+    setReadIds(next);
+    saveToStorage(next, deletedIds);
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    const next = [...deletedIds, id];
+    setDeletedIds(next);
+    saveToStorage(readIds, next);
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/20">

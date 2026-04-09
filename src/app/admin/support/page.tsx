@@ -1,16 +1,18 @@
 "use client";
 
+// TODO: Create support_tickets table for dynamic data
+
 import { useState } from "react";
-import { Search, MessageCircle, CheckCircle, Clock, AlertCircle, Send } from "lucide-react";
+import { Search, MessageCircle, CheckCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
-const tickets = [
+const initialTickets: Ticket[] = [
   { id: "TK-501", user: "김의뢰", userImg: "https://api.dicebear.com/7.x/avataaars/svg?seed=tk1", subject: "결제 후 서비스가 시작되지 않습니다", category: "주문", status: "대기", priority: "높음", date: "2024-03-18 14:30", messages: 2 },
   { id: "TK-500", user: "박고객", userImg: "https://api.dicebear.com/7.x/avataaars/svg?seed=tk2", subject: "환불 절차가 궁금합니다", category: "환불", status: "대기", priority: "보통", date: "2024-03-18 11:20", messages: 1 },
   { id: "TK-499", user: "이모션", userImg: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert2", subject: "정산 지연 관련 문의", category: "정산", status: "처리중", priority: "높음", date: "2024-03-17 16:45", messages: 4 },
@@ -19,20 +21,35 @@ const tickets = [
   { id: "TK-496", user: "정감사", userImg: "https://api.dicebear.com/7.x/avataaars/svg?seed=tk6", subject: "세금계산서 발행 요청", category: "결제", status: "완료", priority: "보통", date: "2024-03-15 14:00", messages: 2 },
 ];
 
+type Ticket = { id: string; user: string; userImg: string; subject: string; category: string; status: string; priority: string; date: string; messages: number };
+
 const statusColors: Record<string, string> = { "대기": "bg-red-100 text-red-700", "처리중": "bg-amber-100 text-amber-700", "완료": "bg-green-100 text-green-700" };
 const priorityColors: Record<string, string> = { "높음": "text-red-600", "보통": "text-amber-600", "낮음": "text-slate-500" };
 
 export default function AdminSupportPage() {
+  const [ticketList, setTicketList] = useState<Ticket[]>(initialTickets);
   const [selectedTicket, setSelectedTicket] = useState<string | null>("TK-501");
   const [reply, setReply] = useState("");
-  const selected = tickets.find((t) => t.id === selectedTicket);
+  const selected = ticketList.find((t) => t.id === selectedTicket);
+
+  const handleComplete = (ticketId: string) => {
+    setTicketList((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: "완료" } : t));
+    toast.success("문의가 완료 처리되었습니다");
+  };
+
+  const handleSendReply = () => {
+    if (!reply.trim() || !selectedTicket) return;
+    setTicketList((prev) => prev.map((t) => t.id === selectedTicket ? { ...t, status: "처리중", messages: t.messages + 1 } : t));
+    setReply("");
+    toast.success("답변이 전송되었습니다");
+  };
 
   return (
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold">고객문의 관리</h1>
         <p className="text-muted-foreground text-sm">
-          미답변 {tickets.filter((t) => t.status === "대기").length}건
+          미답변 {ticketList.filter((t) => t.status === "대기").length}건
         </p>
       </div>
 
@@ -46,7 +63,7 @@ export default function AdminSupportPage() {
             </div>
           </CardContent>
           <div className="flex-1 overflow-y-auto">
-            {tickets.map((ticket) => (
+            {ticketList.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket.id)}
@@ -87,7 +104,7 @@ export default function AdminSupportPage() {
                     <CardTitle className="text-base">{selected.subject}</CardTitle>
                   </div>
                   {selected.status !== "완료" && (
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleComplete(selected.id)}>
                       <CheckCircle className="h-4 w-4 mr-1" /> 완료 처리
                     </Button>
                   )}
@@ -137,7 +154,7 @@ export default function AdminSupportPage() {
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
                   />
-                  <Button><Send className="h-4 w-4" /></Button>
+                  <Button onClick={handleSendReply}><Send className="h-4 w-4" /></Button>
                 </div>
               </div>
             </>

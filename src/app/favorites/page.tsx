@@ -1,19 +1,40 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Heart, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceCard } from "@/components/ServiceCard";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { getServiceById } from "@/data/services";
-import { getExpertById } from "@/data/experts";
+import { getServiceByIdClient, getExpertByIdClient } from "@/lib/db-client";
+import type { Service, Expert } from "@/types";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
+  const [favoriteServices, setFavoriteServices] = useState<Service[]>([]);
+  const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
 
-  const favoriteServices = favorites
-    .map((id) => getServiceById(id))
-    .filter(Boolean);
+  useEffect(() => {
+    if (favorites.length === 0) {
+      setFavoriteServices([]);
+      return;
+    }
+    Promise.all(favorites.map((id) => getServiceByIdClient(id))).then((results) => {
+      const svcs = results.filter((s): s is Service => s !== null);
+      setFavoriteServices(svcs);
+
+      const expertIds = [...new Set(svcs.map((s) => s.expertId))];
+      Promise.all(expertIds.map((id) => getExpertByIdClient(id).then((e) => ({ id, expert: e })))).then(
+        (expertResults) => {
+          const map: Record<string, Expert> = {};
+          for (const { id, expert } of expertResults) {
+            if (expert) map[id] = expert;
+          }
+          setExpertMap(map);
+        }
+      );
+    });
+  }, [favorites]);
 
   return (
     <div className="min-h-screen">
@@ -37,16 +58,13 @@ export default function FavoritesPage() {
       <div className="container mx-auto px-4 py-8">
         {favoriteServices.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {favoriteServices.map(
-              (service) =>
-                service && (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    expert={getExpertById(service.expertId)}
-                  />
-                )
-            )}
+            {favoriteServices.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                expert={expertMap[service.expertId]}
+              />
+            ))}
           </div>
         ) : (
           <div className="text-center py-20">

@@ -1,115 +1,43 @@
-import { NextResponse } from "next/server";
-import { getServiceById } from "@/data/services";
-import { Review } from "@/types";
+import { NextRequest, NextResponse } from "next/server";
+import { getReviews, createReview, deleteReview } from "@/lib/db-server";
 
-const reviewContents = [
-  "Excellent communication and fast delivery.",
-  "Great quality work, exceeded expectations.",
-  "Very professional and easy to work with.",
-  "Quick turnaround and high-quality output.",
-  "Would definitely order again.",
-  "Clear updates throughout the project.",
-  "Fantastic attention to detail.",
-  "The final result matched the brief perfectly.",
-];
-
-const reviewerNames = [
-  "Alex",
-  "Jordan",
-  "Taylor",
-  "Morgan",
-  "Casey",
-  "Riley",
-  "Avery",
-  "Cameron",
-];
-
-function buildMockReviews(serviceId: string, count: number): Review[] {
-  return Array.from({ length: count }, (_, index) => {
-    const content = reviewContents[index % reviewContents.length];
-    const userName = reviewerNames[index % reviewerNames.length];
-    const rating = 4 + ((index + 1) % 2);
-    const createdAt = new Date(
-      Date.now() - (index + 1) * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    return {
-      id: `review-${serviceId}-${index + 1}`,
-      serviceId,
-      userId: `user-${index + 1}`,
-      userName,
-      rating,
-      content,
-      createdAt,
-    };
-  });
-}
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const serviceId = searchParams.get("serviceId");
-
-  if (!serviceId) {
-    return NextResponse.json(
-      {
-        success: false,
-        data: [],
-        error: "serviceId is required",
-      },
-      { status: 400 }
-    );
-  }
-
-  const service = getServiceById(serviceId);
-  if (!service) {
-    return NextResponse.json(
-      {
-        success: false,
-        data: [],
-        error: "Service not found",
-      },
-      { status: 404 }
-    );
-  }
-
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const serviceId = searchParams.get("serviceId") || undefined;
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "5", 10);
-  const total = Math.min(service.reviewCount || 0, 24);
-  const allReviews = buildMockReviews(serviceId, total);
 
+  const allReviews = await getReviews({ serviceId });
+  const total = allReviews.length;
   const start = (page - 1) * limit;
-  const end = start + limit;
-  const paginatedData = allReviews.slice(start, end);
+  const paginatedData = allReviews.slice(start, start + limit);
 
   return NextResponse.json({
     success: true,
     data: paginatedData,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const payload = await request.json();
-    console.log("Mock review submitted", payload);
+    const body = await req.json();
+    const ok = await createReview(body);
+    if (!ok) return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid body" }, { status: 400 });
+  }
+}
 
-    return NextResponse.json({
-      success: true,
-      data: payload,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        data: null,
-        error: "Invalid JSON body",
-      },
-      { status: 400 }
-    );
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json();
+    if (!id) return NextResponse.json({ success: false, error: "Missing id" }, { status: 400 });
+    const ok = await deleteReview(id);
+    if (!ok) return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid body" }, { status: 400 });
   }
 }

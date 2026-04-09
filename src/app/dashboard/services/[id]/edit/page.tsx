@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,8 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { categories } from "@/data/categories";
-import { getServiceById } from "@/data/services";
+import { getServiceByIdClient, getCategoriesClient } from "@/lib/db-client";
+import type { Category } from "@/types";
 
 export default function EditServicePage({
   params,
@@ -26,27 +26,64 @@ export default function EditServicePage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const service = getServiceById(id);
+
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: service?.title || "",
-    category: service?.categoryId || "",
-    description: service?.description || "",
-    tags: service?.tags || [],
-    active: true,
+    title: "",
+    category: "",
+    description: "",
+    tags: [] as string[],
+    salesCount: 0,
+    rating: 0,
   });
 
-  const [packages, setPackages] = useState(
-    service?.packages.map((p) => ({
-      name: p.name,
-      price: String(p.price),
-      deliveryDays: String(p.deliveryDays),
-      revisions: String(p.revisions),
-      features: p.features,
-    })) || []
-  );
+  const [packages, setPackages] = useState<{ name: string; price: string; deliveryDays: string; revisions: string; features: string[] }[]>([]);
 
-  if (!service) {
+  useEffect(() => {
+    async function load() {
+      try {
+        const [service, cats] = await Promise.all([
+          getServiceByIdClient(id),
+          getCategoriesClient(),
+        ]);
+        setCategories(cats);
+        if (!service) { setNotFound(true); return; }
+        setFormData({
+          title: service.title,
+          category: service.categoryId,
+          description: service.description,
+          tags: service.tags,
+          salesCount: service.salesCount,
+          rating: service.rating,
+        });
+        setPackages(
+          service.packages.map((p) => ({
+            name: p.name,
+            price: String(p.price),
+            deliveryDays: String(p.deliveryDays),
+            revisions: String(p.revisions),
+            features: p.features,
+          }))
+        );
+      } catch (err) {
+        console.error(err);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [id]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-muted-foreground">불러오는 중...</div>;
+  }
+
+  if (notFound) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">서비스를 찾을 수 없습니다</h1>
@@ -79,9 +116,28 @@ export default function EditServicePage({
     ));
   };
 
-  const handleSave = () => {
-    toast.success("서비스가 수정되었습니다");
-    router.push("/dashboard");
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/services/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          categoryId: formData.category,
+          tags: formData.tags,
+          price: parseInt(packages[0]?.price || "0", 10),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("서비스가 수정되었습니다");
+      router.push("/dashboard");
+    } catch {
+      toast.error("저장에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -95,12 +151,12 @@ export default function EditServicePage({
             </Button>
             <div>
               <h1 className="text-2xl font-bold">서비스 수정</h1>
-              <p className="text-muted-foreground text-sm">{service.id}</p>
+              <p className="text-muted-foreground text-sm">{id}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/service/${service.id}`}><Eye className="h-4 w-4 mr-2" /> 미리보기</Link>
+              <Link href={`/service/${id}`}><Eye className="h-4 w-4 mr-2" /> 미리보기</Link>
             </Button>
             <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
           </div>
@@ -115,9 +171,9 @@ export default function EditServicePage({
                 <Badge variant="secondary" className="bg-green-100 text-green-700">활성</Badge>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>조회 {service.salesCount * 5}</span>
-                <span>판매 {service.salesCount}건</span>
-                <span>평점 {service.rating}</span>
+                <span>조회 {formData.salesCount * 5}</span>
+                <span>판매 {formData.salesCount}건</span>
+                <span>평점 {formData.rating}</span>
               </div>
             </CardContent>
           </Card>
@@ -223,7 +279,9 @@ export default function EditServicePage({
             <Button variant="outline" asChild>
               <Link href="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" /> 취소</Link>
             </Button>
-            <Button onClick={handleSave}><Save className="h-4 w-4 mr-2" /> 저장</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              <Save className="h-4 w-4 mr-2" /> {saving ? "저장 중..." : "저장"}
+            </Button>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search, Sparkles, Menu, User, ChevronDown, ChevronRight,
   Heart, Bell, MessageCircle, LayoutDashboard, Settings, LogOut, ShoppingBag
@@ -19,10 +19,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { categories } from "@/data/categories";
+import { getCategoriesClient } from "@/lib/db-client";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import type { Category } from "@/types";
 
 export function Header() {
   const router = useRouter();
@@ -31,6 +31,11 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string; image: string } | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    getCategoriesClient().then(setCategories);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -84,15 +89,15 @@ export function Header() {
   };
 
   return (
-    <header 
+    <header
       className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm"
       role="banner"
     >
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="flex items-center gap-2.5 group"
             aria-label="뚝딱 홈으로 이동"
           >
@@ -105,7 +110,7 @@ export function Header() {
           </Link>
 
           {/* Search Bar - Desktop */}
-          <form 
+          <form
             onSubmit={handleSearch}
             className="hidden flex-1 max-w-xl md:flex items-center gap-2"
             role="search"
@@ -140,8 +145,8 @@ export function Header() {
             {/* Categories Dropdown - 전체 카테고리 표시 */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="gap-1 text-slate-700"
                   aria-haspopup="true"
                   aria-label="카테고리 메뉴 열기"
@@ -277,10 +282,10 @@ export function Header() {
 
           {/* Mobile Menu */}
           <div className="flex items-center gap-2 md:hidden">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              asChild 
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
               className="text-slate-600"
               aria-label="검색 페이지로 이동"
             >
@@ -290,9 +295,9 @@ export function Header() {
             </Button>
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="text-slate-600"
                   aria-label="메뉴 열기"
                 >
@@ -345,7 +350,7 @@ export function Header() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Mobile Navigation */}
                   <nav className="flex-1 overflow-y-auto p-4" aria-label="모바일 네비게이션">
                     <div className="flex flex-col gap-1">
@@ -367,7 +372,7 @@ export function Header() {
                             className="justify-start h-10 text-sm font-normal text-slate-700"
                             asChild
                           >
-                            <Link 
+                            <Link
                               href={`/category/${category.slug}`}
                               onClick={() => setIsOpen(false)}
                             >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   MessageCircle, Send, Search, ArrowLeft, Paperclip,
@@ -11,120 +11,122 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { getConversationsClient, getMessagesClient, sendMessageClient } from "@/lib/db-client";
+import type { Conversation, Message } from "@/types";
 
-interface Conversation {
+interface ConvDisplay {
   id: string;
-  expertName: string;
-  expertImage: string;
+  otherUserId: string;
+  otherName: string;
+  otherAvatar: string;
   lastMessage: string;
   lastTime: string;
   unread: number;
-  serviceName: string;
 }
 
-interface Message {
-  id: string;
-  sender: "me" | "expert";
-  content: string;
-  time: string;
+function formatRelativeTime(iso?: string): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "방금";
+  if (mins < 60) return `${mins}분 전`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `오늘`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "어제";
+  return `${days}일 전`;
 }
-
-const conversations: Conversation[] = [
-  {
-    id: "conv-1",
-    expertName: "김영상",
-    expertImage: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert1",
-    lastMessage: "네, 말씀하신 방향으로 수정 진행하겠습니다!",
-    lastTime: "오후 2:30",
-    unread: 2,
-    serviceName: "AI로 만드는 프리미엄 뮤직비디오",
-  },
-  {
-    id: "conv-2",
-    expertName: "정유튜",
-    expertImage: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert5",
-    lastMessage: "편집본 보내드렸습니다. 확인 부탁드립니다.",
-    lastTime: "어제",
-    unread: 0,
-    serviceName: "유튜브 영상 편집",
-  },
-  {
-    id: "conv-3",
-    expertName: "이모션",
-    expertImage: "https://api.dicebear.com/7.x/avataaars/svg?seed=expert2",
-    lastMessage: "안녕하세요! 프로젝트 관련 문의 감사합니다.",
-    lastTime: "3일 전",
-    unread: 0,
-    serviceName: "브랜드 인트로 모션그래픽",
-  },
-];
-
-const sampleMessages: Message[] = [
-  {
-    id: "msg-1",
-    sender: "me",
-    content: "안녕하세요! AI 영상 제작 의뢰드리고 싶습니다.",
-    time: "오후 1:00",
-  },
-  {
-    id: "msg-2",
-    sender: "expert",
-    content:
-      "안녕하세요! 문의 감사합니다. 어떤 종류의 영상을 원하시나요? 구체적인 요구사항을 말씀해주시면 더 정확한 견적을 드릴 수 있습니다.",
-    time: "오후 1:15",
-  },
-  {
-    id: "msg-3",
-    sender: "me",
-    content:
-      "30초 정도의 제품 소개 영상인데요, AI 영상 생성 도구를 활용해서 시네마틱한 느낌으로 만들고 싶어요.",
-    time: "오후 1:20",
-  },
-  {
-    id: "msg-4",
-    sender: "expert",
-    content:
-      "충분히 가능합니다! Sora와 Runway를 조합해서 작업하면 좋을 것 같습니다. 스탠다드 패키지로 진행하면 4K 화질에 사운드 디자인까지 포함됩니다.",
-    time: "오후 1:35",
-  },
-  {
-    id: "msg-5",
-    sender: "me",
-    content: "좋아요! 중간에 색감을 좀 더 따뜻하게 수정해주실 수 있나요?",
-    time: "오후 2:00",
-  },
-  {
-    id: "msg-6",
-    sender: "expert",
-    content: "네, 말씀하신 방향으로 수정 진행하겠습니다!",
-    time: "오후 2:30",
-  },
-];
 
 export default function MessagesPage() {
-  const [selectedConv, setSelectedConv] = useState<string | null>("conv-1");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConvDisplay[]>([]);
+  const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [messages, setMessages] = useState(sampleMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
-  const selectedConversation = conversations.find(
-    (c) => c.id === selectedConv
+  useEffect(() => {
+    const init = async () => {
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      setCurrentUserId(user.id);
+
+      const convs = await getConversationsClient(user.id);
+
+      // Fetch other participant profiles
+      const convDisplays: ConvDisplay[] = await Promise.all(
+        convs.map(async (c) => {
+          const otherId = c.participant1 === user.id ? c.participant2 : c.participant1;
+          const { data: profile } = await sb.from("profiles").select("name, avatar_url").eq("id", otherId).maybeSingle();
+          return {
+            id: c.id,
+            otherUserId: otherId,
+            otherName: profile?.name || "사용자",
+            otherAvatar: profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherId}`,
+            lastMessage: c.lastMessage || "",
+            lastTime: formatRelativeTime(c.lastMessageAt),
+            unread: 0,
+          };
+        })
+      );
+
+      setConversations(convDisplays);
+      setLoading(false);
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedConv) return;
+    setMessagesLoading(true);
+    getMessagesClient(selectedConv).then((msgs) => {
+      setMessages(msgs);
+      setMessagesLoading(false);
+    });
+  }, [selectedConv]);
+
+  const selectedConversation = conversations.find((c) => c.id === selectedConv);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedConv || !currentUserId) return;
+    const content = newMessage;
+    setNewMessage("");
+    const msg = await sendMessageClient(selectedConv, currentUserId, content);
+    if (msg) {
+      setMessages((prev) => [...prev, msg]);
+      setConversations((prev) =>
+        prev.map((c) => c.id === selectedConv ? { ...c, lastMessage: content, lastTime: "방금" } : c)
+      );
+    }
+  };
+
+  const filteredConvs = conversations.filter((c) =>
+    !searchQuery || c.otherName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `msg-${Date.now()}`,
-        sender: "me",
-        content: newMessage,
-        time: "방금",
-      },
-    ]);
-    setNewMessage("");
-  };
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-64px)] flex items-center justify-center">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (!currentUserId) {
+    return (
+      <div className="h-[calc(100vh-64px)] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">로그인이 필요합니다</p>
+          <Button asChild><Link href="/login">로그인</Link></Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-64px)] flex">
@@ -149,44 +151,39 @@ export default function MessagesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {conversations.map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => setSelectedConv(conv.id)}
-              className={cn(
-                "w-full flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors text-left border-b",
-                selectedConv === conv.id && "bg-muted/50"
-              )}
-            >
-              <Avatar className="h-12 w-12 shrink-0">
-                <AvatarImage src={conv.expertImage} alt={conv.expertName} />
-                <AvatarFallback>{conv.expertName[0]}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-semibold text-sm">
-                    {conv.expertName}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {conv.lastTime}
-                  </span>
+          {filteredConvs.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground text-sm">아직 대화가 없습니다</p>
+            </div>
+          ) : (
+            filteredConvs.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => setSelectedConv(conv.id)}
+                className={cn(
+                  "w-full flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors text-left border-b",
+                  selectedConv === conv.id && "bg-muted/50"
+                )}
+              >
+                <Avatar className="h-12 w-12 shrink-0">
+                  <AvatarImage src={conv.otherAvatar} alt={conv.otherName} />
+                  <AvatarFallback>{conv.otherName[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-sm">{conv.otherName}</span>
+                    <span className="text-xs text-muted-foreground">{conv.lastTime}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground truncate">{conv.lastMessage}</p>
+                    {conv.unread > 0 && (
+                      <Badge className="h-5 min-w-5 px-1.5 text-xs ml-2 shrink-0">{conv.unread}</Badge>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mb-1 truncate">
-                  {conv.serviceName}
-                </p>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground truncate">
-                    {conv.lastMessage}
-                  </p>
-                  {conv.unread > 0 && (
-                    <Badge className="h-5 min-w-5 px-1.5 text-xs ml-2 shrink-0">
-                      {conv.unread}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -205,21 +202,11 @@ export default function MessagesPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <Avatar className="h-9 w-9">
-                <AvatarImage
-                  src={selectedConversation.expertImage}
-                  alt={selectedConversation.expertName}
-                />
-                <AvatarFallback>
-                  {selectedConversation.expertName[0]}
-                </AvatarFallback>
+                <AvatarImage src={selectedConversation.otherAvatar} alt={selectedConversation.otherName} />
+                <AvatarFallback>{selectedConversation.otherName[0]}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold text-sm">
-                  {selectedConversation.expertName}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedConversation.serviceName}
-                </p>
+                <p className="font-semibold text-sm">{selectedConversation.otherName}</p>
               </div>
             </div>
             <Button variant="ghost" size="icon">
@@ -229,36 +216,40 @@ export default function MessagesPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/20">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex",
-                  msg.sender === "me" ? "justify-end" : "justify-start"
-                )}
-              >
-                <div
-                  className={cn(
-                    "max-w-[70%] rounded-2xl px-4 py-2.5",
-                    msg.sender === "me"
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-background border rounded-bl-md"
-                  )}
-                >
-                  <p className="text-sm">{msg.content}</p>
-                  <p
-                    className={cn(
-                      "text-[10px] mt-1",
-                      msg.sender === "me"
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {msg.time}
-                  </p>
-                </div>
+            {messagesLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground text-sm">로딩 중...</p>
               </div>
-            ))}
+            ) : (
+              messages.map((msg) => {
+                const isMe = msg.senderId === currentUserId;
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn("flex", isMe ? "justify-end" : "justify-start")}
+                  >
+                    <div
+                      className={cn(
+                        "max-w-[70%] rounded-2xl px-4 py-2.5",
+                        isMe
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-background border rounded-bl-md"
+                      )}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                      <p
+                        className={cn(
+                          "text-[10px] mt-1",
+                          isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                        )}
+                      >
+                        {new Date(msg.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Message Input */}
@@ -287,9 +278,7 @@ export default function MessagesPage() {
           <div className="text-center">
             <MessageCircle className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-1">메시지</h3>
-            <p className="text-muted-foreground text-sm">
-              대화를 선택해주세요
-            </p>
+            <p className="text-muted-foreground text-sm">대화를 선택해주세요</p>
           </div>
         </div>
       )}

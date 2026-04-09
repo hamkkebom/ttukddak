@@ -1,11 +1,15 @@
 "use client";
 
-import { Plus, Edit, Trash2, Eye, Calendar, Tag } from "lucide-react";
+// TODO: Create events table for dynamic data
+
+import { useState } from "react";
+import { Plus, Edit, Trash2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
-const events = [
+const initialEvents = [
   { id: "E001", title: "봄맞이 첫 구매 30% 할인", type: "할인", status: "진행중", start: "2024-03-01", end: "2024-04-30", participants: 234 },
   { id: "E002", title: "전문가 등록 수수료 50% 할인", type: "수수료", status: "진행중", start: "2024-03-15", end: "2024-05-15", participants: 45 },
   { id: "E003", title: "친구 초대 이벤트", type: "초대", status: "진행중", start: "상시", end: "상시", participants: 892 },
@@ -14,7 +18,7 @@ const events = [
   { id: "E006", title: "겨울 얼리버드", type: "할인", status: "종료", start: "2024-01-01", end: "2024-01-31", participants: 567 },
 ];
 
-const coupons = [
+const initialCoupons = [
   { code: "WELCOME30", discount: "30%", issued: 1200, used: 234, active: true },
   { code: "SPRING2024", discount: "20%", issued: 500, used: 189, active: true },
   { code: "FRIEND10K", discount: "1만원", issued: 892, used: 445, active: true },
@@ -28,11 +32,24 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminEventsPage() {
+  const [events, setEvents] = useState(initialEvents);
+  const [coupons, setCoupons] = useState(initialCoupons);
+
+  const handleDeleteEvent = (id: string) => {
+    if (!confirm("이 이벤트를 삭제하시겠습니까?")) return;
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    toast.success("이벤트가 삭제되었습니다");
+  };
+
+  const handleAddEvent = () => {
+    toast.info("이벤트 추가 기능은 DB 테이블 생성 후 사용 가능합니다");
+  };
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">이벤트 & 쿠폰 관리</h1>
-        <Button><Plus className="h-4 w-4 mr-2" /> 이벤트 추가</Button>
+        <Button onClick={handleAddEvent}><Plus className="h-4 w-4 mr-2" /> 이벤트 추가</Button>
       </div>
 
       {/* Events */}
@@ -57,8 +74,8 @@ export default function AdminEventsPage() {
                   <td className="p-4 text-right font-medium">{e.participants}명</td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7"><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast.info("수정 기능은 DB 테이블 생성 후 사용 가능합니다")}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteEvent(e.id)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </td>
                 </tr>

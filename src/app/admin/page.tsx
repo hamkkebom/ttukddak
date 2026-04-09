@@ -1,16 +1,14 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Users, Package, ShoppingBag, DollarSign, TrendingUp,
   ArrowUpRight, ArrowDownRight, Star, Clock, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-const kpiCards = [
-  { label: "총 회원수", value: "5,234", change: "+128", up: true, icon: Users },
-  { label: "등록 서비스", value: "284", change: "+12", up: true, icon: Package },
-  { label: "이번 달 거래", value: "487건", change: "+23%", up: true, icon: ShoppingBag },
-  { label: "이번 달 매출", value: "45.2M", change: "+18%", up: true, icon: DollarSign },
-];
+import { getProfilesClient, getServicesClient, getOrdersClient } from "@/lib/db-client";
+import type { Order, Profile, Service } from "@/types";
 
 const pendingItems = [
   { type: "서비스 승인 대기", count: 8, color: "text-amber-600 bg-amber-100" },
@@ -19,22 +17,6 @@ const pendingItems = [
   { type: "환불 요청", count: 1, color: "text-purple-600 bg-purple-100" },
   { type: "1:1 문의 미답변", count: 5, color: "text-green-600 bg-green-100" },
 ];
-
-const recentOrders = [
-  { id: "ORD-2487", buyer: "김의뢰", seller: "김영상", service: "AI 프리미엄 뮤직비디오", amount: 300000, status: "진행중", time: "2시간 전" },
-  { id: "ORD-2486", buyer: "박고객", seller: "이모션", service: "로고 모션그래픽", amount: 200000, status: "결제완료", time: "3시간 전" },
-  { id: "ORD-2485", buyer: "최신규", seller: "정유튜", service: "유튜브 편집", amount: 100000, status: "검수중", time: "5시간 전" },
-  { id: "ORD-2484", buyer: "한재주", seller: "최삼디", service: "3D 제품 렌더링", amount: 500000, status: "완료", time: "어제" },
-  { id: "ORD-2483", buyer: "오만족", seller: "김영상", service: "Runway 시네마틱", amount: 700000, status: "환불요청", time: "어제" },
-];
-
-const statusColors: Record<string, string> = {
-  "진행중": "bg-blue-100 text-blue-700",
-  "결제완료": "bg-green-100 text-green-700",
-  "검수중": "bg-amber-100 text-amber-700",
-  "완료": "bg-slate-100 text-slate-700",
-  "환불요청": "bg-red-100 text-red-700",
-};
 
 const monthlyRevenue = [
   { month: "10월", value: 32000000 },
@@ -45,9 +27,67 @@ const monthlyRevenue = [
   { month: "3월", value: 45200000 },
 ];
 
+const statusColors: Record<string, string> = {
+  pending: "bg-blue-100 text-blue-700",
+  paid: "bg-green-100 text-green-700",
+  in_progress: "bg-cyan-100 text-cyan-700",
+  review: "bg-amber-100 text-amber-700",
+  completed: "bg-slate-100 text-slate-700",
+  cancelled: "bg-red-100 text-red-700",
+  refunded: "bg-red-100 text-red-700",
+};
+
+const statusLabels: Record<string, string> = {
+  pending: "결제완료",
+  paid: "결제완료",
+  in_progress: "진행중",
+  review: "검수중",
+  completed: "완료",
+  cancelled: "취소",
+  refunded: "환불",
+};
+
 export default function AdminDashboard() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      getProfilesClient(),
+      getServicesClient(),
+      getOrdersClient(),
+    ]).then(([p, s, o]) => {
+      setProfiles(p);
+      setServices(s);
+      setOrders(o);
+      setLoading(false);
+    });
+  }, []);
+
   const fmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
   const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.value));
+
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
+  const thisMonthOrders = orders.length;
+
+  const kpiCards = [
+    { label: "총 회원수", value: loading ? "..." : profiles.length.toLocaleString(), change: "", up: true, icon: Users },
+    { label: "등록 서비스", value: loading ? "..." : services.length.toLocaleString(), change: "", up: true, icon: Package },
+    { label: "총 거래", value: loading ? "..." : `${thisMonthOrders}건`, change: "", up: true, icon: ShoppingBag },
+    { label: "누적 매출", value: loading ? "..." : `${(totalRevenue / 1000000).toFixed(1)}M`, change: "", up: true, icon: DollarSign },
+  ];
+
+  const recentOrders = orders.slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -65,10 +105,12 @@ export default function AdminDashboard() {
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <kpi.icon className="h-5 w-5 text-primary" />
                 </div>
-                <div className={`flex items-center gap-0.5 text-xs font-medium ${kpi.up ? "text-green-600" : "text-red-500"}`}>
-                  {kpi.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                  {kpi.change}
-                </div>
+                {kpi.change && (
+                  <div className={`flex items-center gap-0.5 text-xs font-medium ${kpi.up ? "text-green-600" : "text-red-500"}`}>
+                    {kpi.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                    {kpi.change}
+                  </div>
+                )}
               </div>
               <p className="text-2xl font-bold">{kpi.value}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
@@ -113,36 +155,38 @@ export default function AdminDashboard() {
               <CardTitle className="text-base">최근 거래</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="text-left py-2 font-medium">주문번호</th>
-                      <th className="text-left py-2 font-medium">구매자</th>
-                      <th className="text-left py-2 font-medium">판매자</th>
-                      <th className="text-left py-2 font-medium">서비스</th>
-                      <th className="text-right py-2 font-medium">금액</th>
-                      <th className="text-center py-2 font-medium">상태</th>
-                      <th className="text-right py-2 font-medium">시간</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentOrders.map((order) => (
-                      <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-3 font-mono text-xs">{order.id}</td>
-                        <td className="py-3">{order.buyer}</td>
-                        <td className="py-3">{order.seller}</td>
-                        <td className="py-3 max-w-[150px] truncate">{order.service}</td>
-                        <td className="py-3 text-right font-medium">{fmt(order.amount)}</td>
-                        <td className="py-3 text-center">
-                          <Badge variant="secondary" className={statusColors[order.status] || ""}>{order.status}</Badge>
-                        </td>
-                        <td className="py-3 text-right text-muted-foreground text-xs">{order.time}</td>
+              {recentOrders.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">거래 내역이 없습니다</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-2 font-medium">주문번호</th>
+                        <th className="text-left py-2 font-medium">구매자</th>
+                        <th className="text-left py-2 font-medium">서비스</th>
+                        <th className="text-right py-2 font-medium">금액</th>
+                        <th className="text-center py-2 font-medium">상태</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {recentOrders.map((order) => (
+                        <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
+                          <td className="py-3 font-mono text-xs">{order.id.slice(0, 8)}</td>
+                          <td className="py-3">{order.buyerName || order.buyerId.slice(0, 8)}</td>
+                          <td className="py-3 max-w-[150px] truncate">{order.serviceName || "-"}</td>
+                          <td className="py-3 text-right font-medium">{fmt(order.price)}</td>
+                          <td className="py-3 text-center">
+                            <Badge variant="secondary" className={statusColors[order.status] || ""}>
+                              {statusLabels[order.status] || order.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -168,14 +212,14 @@ export default function AdminDashboard() {
 
           {/* Quick Stats */}
           <Card>
-            <CardHeader><CardTitle className="text-base">오늘 현황</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">현황</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: "신규 가입", value: "12명" },
-                { label: "신규 주문", value: "23건" },
-                { label: "완료 거래", value: "18건" },
-                { label: "평균 응답시간", value: "47분" },
-                { label: "DAU", value: "1,234" },
+                { label: "총 회원수", value: `${profiles.length}명` },
+                { label: "총 서비스", value: `${services.length}개` },
+                { label: "총 주문", value: `${orders.length}건` },
+                { label: "완료 거래", value: `${orders.filter((o) => o.status === "completed").length}건` },
+                { label: "진행중 거래", value: `${orders.filter((o) => o.status === "in_progress").length}건` },
               ].map((s) => (
                 <div key={s.label} className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{s.label}</span>
