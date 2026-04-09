@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Star, Zap, Award, Heart, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,12 +33,13 @@ export function ServiceCard({ service, expert, className }: ServiceCardProps) {
       )}>
         {/* Thumbnail */}
         <div className="relative aspect-video overflow-hidden bg-slate-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={service.thumbnail}
             alt={service.title}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px"
+            unoptimized
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
           
           {/* Gradient Overlay */}

@@ -27,23 +27,23 @@ const popularSearches = [
 
 // 추천 전문가 데이터 (실제 프리랜서 + 로컬 썸네일)
 const featuredExperts = [
-  { name: "새론", specialty: "AI 영상 · 운세 콘텐츠", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "/thumbnails/expert-saeron.jpg", service: "AI 힐링·운세 영상 제작", price: 150000, portfolioImages: ["/thumbnails/expert-saeron-p1.jpg", "/thumbnails/expert-saeron-p2.jpg", "/thumbnails/expert-saeron-p3.jpg"], badge: "TOP" },
-  { name: "버들", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "/thumbnails/expert-beodeul.jpg", service: "힐링 기도 영상 제작", price: 120000, portfolioImages: ["/thumbnails/expert-beodeul-p1.jpg", "/thumbnails/expert-beodeul-p2.jpg", "/thumbnails/expert-beodeul-p3.jpg"], badge: "HOT" },
-  { name: "아이", specialty: "AI 영상 · 힐링 콘텐츠", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "/thumbnails/expert-ai.jpg", service: "AI 꿈꿈·소개 영상 패키지", price: 100000, portfolioImages: ["/thumbnails/expert-ai-p1.jpg", "/thumbnails/expert-ai-p2.jpg", "/thumbnails/expert-ai-p3.jpg"], badge: "FAST" },
-  { name: "산다라", specialty: "AI 영상 · 상담 콘텐츠", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "/thumbnails/expert-sandara.jpg", service: "상담 콘텐츠 영상 제작", price: 130000, portfolioImages: ["/thumbnails/expert-sandara-p1.jpg", "/thumbnails/expert-sandara-p2.jpg", "/thumbnails/expert-sandara-p3.jpg"], badge: "PRO" },
+  { name: "새론", specialty: "AI 제품광고 · 시네마틱 영상", rating: 4.9, reviews: 59, completionRate: 99, responseTime: "1시간", color: "from-orange-500 to-red-500", image: "/thumbnails/expert-saeron.jpg", service: "AI 제품광고 영상 제작", price: 150000, portfolioImages: ["/thumbnails/expert-saeron-p1.jpg", "/thumbnails/expert-saeron-p2.jpg", "/thumbnails/expert-saeron-p3.jpg"], badge: "TOP" },
+  { name: "버들", specialty: "유튜브 편집 · 숏폼 제작", rating: 4.8, reviews: 41, completionRate: 99, responseTime: "1시간", color: "from-violet-500 to-purple-600", image: "/thumbnails/expert-beodeul.jpg", service: "유튜브 채널 편집 패키지", price: 120000, portfolioImages: ["/thumbnails/expert-beodeul-p1.jpg", "/thumbnails/expert-beodeul-p2.jpg", "/thumbnails/expert-beodeul-p3.jpg"], badge: "HOT" },
+  { name: "아이", specialty: "모션그래픽 · 3D 렌더링", rating: 4.9, reviews: 38, completionRate: 97, responseTime: "2시간", color: "from-cyan-500 to-blue-600", image: "/thumbnails/expert-ai.jpg", service: "모션그래픽 인포 영상 제작", price: 100000, portfolioImages: ["/thumbnails/expert-ai-p1.jpg", "/thumbnails/expert-ai-p2.jpg", "/thumbnails/expert-ai-p3.jpg"], badge: "FAST" },
+  { name: "산다라", specialty: "기업 홍보 · 브랜딩 영상", rating: 4.8, reviews: 31, completionRate: 96, responseTime: "1시간", color: "from-emerald-500 to-teal-600", image: "/thumbnails/expert-sandara.jpg", service: "기업 브랜딩 영상 제작", price: 130000, portfolioImages: ["/thumbnails/expert-sandara-p1.jpg", "/thumbnails/expert-sandara-p2.jpg", "/thumbnails/expert-sandara-p3.jpg"], badge: "PRO" },
 ];
 
-// 크리에이터 작품 데이터 (실제 프리랜서 영상 + 로컬 썸네일)
+// 크리에이터 작품 데이터 (AI 영상 공모전 출품작)
 const contestEntries = [
-  { id: 1, title: "콕콕상담 소개 영상", author: "새론", image: "/thumbnails/contest-1.jpg", category: "콕콕상담" },
-  { id: 2, title: "상담사 소개홍보 영상", author: "박건우", image: "/thumbnails/contest-2.jpg", category: "소개영상" },
-  { id: 3, title: "타로 상담송", author: "여울", image: "/thumbnails/contest-3.jpg", category: "타로코너" },
-  { id: 4, title: "영상 상담사 소개", author: "아이", image: "/thumbnails/contest-4.jpg", category: "콕콕상담" },
-  { id: 5, title: "상담사 기도문 영상", author: "버들", image: "/thumbnails/contest-5.jpg", category: "기도영상" },
-  { id: 6, title: "단골상담 소개", author: "샛별", image: "/thumbnails/contest-6.jpg", category: "단골상담" },
-  { id: 7, title: "자기소개 영상", author: "산다라", image: "/thumbnails/contest-7.jpg", category: "소개영상" },
-  { id: 8, title: "콕콕상담 홍보", author: "해솔", image: "/thumbnails/contest-8.jpg", category: "콕콕상담" },
-  { id: 9, title: "오늘의 운세", author: "꿈돌", image: "/thumbnails/contest-9.jpg", category: "콕콕상담" },
+  { id: 1, title: "AI 시네마틱 제품광고", author: "새론", image: "/thumbnails/contest-1.jpg", category: "제품광고" },
+  { id: 2, title: "AI 브랜드 소개 영상", author: "박건우", image: "/thumbnails/contest-2.jpg", category: "기업홍보" },
+  { id: 3, title: "AI 뮤직비디오", author: "여울", image: "/thumbnails/contest-3.jpg", category: "뮤직비디오" },
+  { id: 4, title: "AI 모션그래픽 인포", author: "아이", image: "/thumbnails/contest-4.jpg", category: "모션그래픽" },
+  { id: 5, title: "AI 숏폼 바이럴 영상", author: "버들", image: "/thumbnails/contest-5.jpg", category: "숏폼" },
+  { id: 6, title: "AI 건축 시각화", author: "샛별", image: "/thumbnails/contest-6.jpg", category: "3D렌더링" },
+  { id: 7, title: "AI 여행 시네마틱", author: "산다라", image: "/thumbnails/contest-7.jpg", category: "여행영상" },
+  { id: 8, title: "AI 교육 다큐멘터리", author: "해솔", image: "/thumbnails/contest-8.jpg", category: "교육영상" },
+  { id: 9, title: "AI 애니메이션 단편", author: "꿈돌", image: "/thumbnails/contest-9.jpg", category: "애니메이션" },
 ];
 
 
@@ -81,11 +81,19 @@ export default async function HomePage() {
     seed + 2
   ).slice(0, 8);
 
-  // 페르소나별 서비스 - 겹치지 않게 분배
-  const shuffled1 = seededShuffle(allServices, seed + 3);
-  const shuffled2 = seededShuffle(allServices, seed + 4);
-  const personaServices1 = shuffled1.slice(0, 8);
-  const personaServices2 = shuffled2.filter(s => !personaServices1.find(p => p.id === s.id)).slice(0, 8);
+  // 페르소나별 서비스 - 태그 기반 필터
+  const creatorTags = ["유튜브", "숏폼", "편집", "SNS", "바이럴", "릴스", "콘텐츠"];
+  const brandTags = ["광고", "홍보", "브랜딩", "제품", "기업", "마케팅", "브랜드"];
+
+  const creatorServices = seededShuffle(
+    allServices.filter(s => s.tags.some(t => creatorTags.includes(t))),
+    seed + 3
+  ).slice(0, 8);
+
+  const brandServices = seededShuffle(
+    allServices.filter(s => s.tags.some(t => brandTags.includes(t))),
+    seed + 4
+  ).slice(0, 8);
 
   return (
     <div className="min-h-screen bg-white">
@@ -286,7 +294,7 @@ export default async function HomePage() {
                   {/* 포트폴리오 썸네일 갤러리 */}
                   <div className="relative h-[200px] overflow-hidden">
                     {/* 메인 이미지 */}
-                    <Image src={expert.image} alt={expert.service} fill sizes="(max-width: 640px) 100vw, 25vw" className="object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <Image src={expert.image} alt={expert.service} fill sizes="(max-width: 640px) 100vw, 25vw" unoptimized className="object-cover group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                     {/* 배지 */}
@@ -315,7 +323,7 @@ export default async function HomePage() {
                     <div className="absolute bottom-3 left-3 right-3 flex gap-1.5">
                       {expert.portfolioImages.map((img, i) => (
                         <div key={i} className="relative h-10 flex-1 rounded-lg overflow-hidden ring-1 ring-white/20">
-                          <Image src={img} alt="" fill sizes="80px" className="object-cover" />
+                          <Image src={img} alt="" fill sizes="80px" unoptimized className="object-cover" />
                         </div>
                       ))}
                     </div>
@@ -385,7 +393,7 @@ export default async function HomePage() {
           <div className="flex gap-2.5">
             {/* 대형 카드 */}
             <Link href={`/contest/${contestEntries[0].id}`} className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
-              <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill sizes="400px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+              <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill sizes="400px" unoptimized className="object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5">
                 <div className="inline-flex bg-orange-500 rounded-full px-2.5 py-0.5 mb-2">
@@ -409,7 +417,7 @@ export default async function HomePage() {
             <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-2.5">
               {contestEntries.slice(1, 7).map((entry) => (
                 <Link key={entry.id} href={`/contest/${entry.id}`} className="relative rounded-2xl overflow-hidden group">
-                  <Image src={entry.image} alt={entry.title} fill sizes="200px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <Image src={entry.image} alt={entry.title} fill sizes="200px" unoptimized className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                     <p className="text-white font-semibold text-sm">{entry.title}</p>
@@ -458,7 +466,7 @@ export default async function HomePage() {
           </div>
 
           <HorizontalScrollRow>
-            {personaServices1.map((service) => (
+            {creatorServices.map((service) => (
               <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                 <ServiceCard
                   service={service}
@@ -489,7 +497,7 @@ export default async function HomePage() {
           </div>
 
           <HorizontalScrollRow>
-            {personaServices2.map((service) => (
+            {brandServices.map((service) => (
               <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
                 <ServiceCard
                   service={service}
@@ -566,6 +574,7 @@ export default async function HomePage() {
             alt="CTA background"
             fill
             sizes="100vw"
+            unoptimized
             className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-900/60" />

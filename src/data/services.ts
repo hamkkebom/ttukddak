@@ -13,7 +13,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 58,
     salesCount: 174,
-    tags: ["AI영상", "기부상담", "콕콕상담"],
+    tags: ["AI영상", "제품", "광고", "프리미엄"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -35,7 +35,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 40,
     salesCount: 120,
-    tags: ["AI영상", "기부상담", "콕콕상담", "선물상담"],
+    tags: ["AI영상", "패션", "광고", "트렌드"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -57,7 +57,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 40,
     salesCount: 120,
-    tags: ["AI영상", "기부상담", "콕콕상담"],
+    tags: ["AI영상", "부동산", "홍보", "공간영상"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -79,7 +79,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 38,
     salesCount: 114,
-    tags: ["AI영상", "기부상담", "콕콕상담"],
+    tags: ["AI영상", "푸드", "광고", "제품"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -101,7 +101,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 34,
     salesCount: 102,
-    tags: ["AI영상", "기부상담", "콕콕상담", "별님의 소개영상"],
+    tags: ["AI영상", "여행", "시네마틱", "드론"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -123,7 +123,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 32,
     salesCount: 96,
-    tags: ["AI영상", "기부상담", "콕콕상담", "선물상담"],
+    tags: ["AI영상", "아바타", "프레젠터", "AI"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -145,7 +145,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 31,
     salesCount: 93,
-    tags: ["AI영상", "콕콕상담", "상담사 기도영상", "별님의 추억영상"],
+    tags: ["AI영상", "립싱크", "AI", "교육"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -167,7 +167,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 26,
     salesCount: 78,
-    tags: ["AI영상", "효심말벗", "콕콕상담", "퍼스널브랜딩"],
+    tags: ["AI영상", "유튜브", "게임", "편집"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -189,7 +189,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 23,
     salesCount: 69,
-    tags: ["AI영상", "기부상담", "효심말벗", "별님의 모집영상"],
+    tags: ["AI영상", "유튜브", "쿠킹", "편집"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -211,7 +211,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 20,
     salesCount: 60,
-    tags: ["AI영상", "기부상담", "선물상담"],
+    tags: ["AI영상", "유튜브", "테크", "편집"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -233,7 +233,7 @@ export const services: Service[] = [
     rating: 4.9,
     reviewCount: 20,
     salesCount: 60,
-    tags: ["AI영상", "콕콕상담", "타로코너 영상", "고민영상"],
+    tags: ["AI영상", "숏폼", "릴스", "SNS"],
     isPrime: true,
     isFastResponse: true,
     packages: [
@@ -255,7 +255,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 19,
     salesCount: 57,
-    tags: ["AI영상", "효심말벗", "별님의 모집영상"],
+    tags: ["AI영상", "숏폼", "바이럴", "SNS"],
     isPrime: true,
     isFastResponse: false,
     packages: [
@@ -277,7 +277,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 17,
     salesCount: 51,
-    tags: ["AI영상", "선물상담", "콕콕상담", "별님의 추억영상"],
+    tags: ["AI영상", "모션그래픽", "인포그래픽", "브랜드"],
     isPrime: true,
     isFastResponse: false,
     packages: [
@@ -299,7 +299,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 16,
     salesCount: 48,
-    tags: ["AI영상", "퍼스널브랜딩", "별님의 소개영상"],
+    tags: ["AI영상", "모션그래픽", "로고", "애니메이션"],
     isPrime: true,
     isFastResponse: false,
     packages: [
@@ -321,7 +321,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 15,
     salesCount: 45,
-    tags: ["AI영상", "콕콕상담", "타로코너 영상"],
+    tags: ["AI영상", "화장품", "광고", "제품"],
     isPrime: true,
     isFastResponse: false,
     packages: [
@@ -343,7 +343,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 14,
     salesCount: 42,
-    tags: ["AI영상", "별님의 꿈꿈영상", "고민영상"],
+    tags: ["AI영상", "자동차", "광고", "제품"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -365,7 +365,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 14,
     salesCount: 42,
-    tags: ["AI영상", "콕콕상담", "별님의 꿈꿈영상", "퍼스널브랜딩"],
+    tags: ["AI영상", "스니커즈", "광고", "제품"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -387,7 +387,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 11,
     salesCount: 33,
-    tags: ["AI영상", "콕콕상담", "타로코너 영상", "고민영상"],
+    tags: ["AI영상", "건축", "3D", "렌더링"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -409,7 +409,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 11,
     salesCount: 33,
-    tags: ["AI영상", "기부상담", "효심말벗", "별님의 모집영상"],
+    tags: ["AI영상", "3D캐릭터", "CG", "애니메이션"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -431,7 +431,7 @@ export const services: Service[] = [
     rating: 4.8,
     reviewCount: 11,
     salesCount: 33,
-    tags: ["AI영상", "콕콕상담", "고민영상", "별님의 소개영상"],
+    tags: ["AI영상", "기업", "홍보", "브랜딩"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -453,7 +453,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 9,
     salesCount: 27,
-    tags: ["AI영상", "별님의 추억영상"],
+    tags: ["AI영상", "병원", "홍보", "브랜딩"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -475,7 +475,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 9,
     salesCount: 27,
-    tags: ["AI영상", "별님의 모집영상", "콕콕상담"],
+    tags: ["AI영상", "뮤직비디오", "K-pop", "공연"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -497,7 +497,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 9,
     salesCount: 27,
-    tags: ["AI영상", "상담사 소개영상", "콕콕상담", "퍼스널브랜딩"],
+    tags: ["AI영상", "뮤직비디오", "비주얼", "로파이"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -519,7 +519,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 8,
     salesCount: 24,
-    tags: ["AI영상", "콕콕상담", "고민영상"],
+    tags: ["AI영상", "웨딩", "이벤트", "특별한순간"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -541,7 +541,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "상담사 소개영상", "별님의 꿈꿈영상", "별님의 소개영상"],
+    tags: ["AI영상", "이벤트", "생일", "특별한순간"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -563,7 +563,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "상담사 소개영상", "콕콕상담"],
+    tags: ["AI영상", "교육", "과학", "다큐"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -585,7 +585,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "상담사 소개영상", "선물상담", "상담사 기도영상"],
+    tags: ["AI영상", "교육", "다큐", "역사"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -607,7 +607,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "콕콕상담", "띠별운세"],
+    tags: ["AI영상", "카페", "리뷰", "SNS"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -629,7 +629,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "고민영상", "신년운세"],
+    tags: ["AI영상", "반려동물", "SNS", "바이럴"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -651,7 +651,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 5,
     salesCount: 15,
-    tags: ["AI영상", "상담사 소개영상", "별님의 추억영상", "별님의 소개영상"],
+    tags: ["AI영상", "인테리어", "공간", "홍보"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -673,7 +673,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 4,
     salesCount: 12,
-    tags: ["AI영상", "고민영상", "신년운세"],
+    tags: ["AI영상", "애니메이션", "일본풍", "감성"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -695,7 +695,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 3,
     salesCount: 9,
-    tags: ["AI영상", "별님의 과제제출"],
+    tags: ["AI영상", "키즈", "애니메이션", "어린이"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -717,7 +717,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 3,
     salesCount: 9,
-    tags: ["AI영상", "상담사 소개영상", "타로코너 영상", "고민영상"],
+    tags: ["AI영상", "게임", "VFX", "트레일러"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -739,7 +739,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 3,
     salesCount: 9,
-    tags: ["AI영상", "상담사 소개영상", "콕콕상담"],
+    tags: ["AI영상", "VFX", "합성", "CG"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -761,7 +761,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 3,
     salesCount: 9,
-    tags: ["AI영상", "상담사 소개영상", "신년운세"],
+    tags: ["AI영상", "피트니스", "라이프스타일", "SNS"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -783,7 +783,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 2,
     salesCount: 6,
-    tags: ["AI영상", "상담사 소개영상", "콕콕상담"],
+    tags: ["AI영상", "화보", "포토", "패션"],
     isPrime: false,
     isFastResponse: false,
     packages: [
@@ -805,7 +805,7 @@ export const services: Service[] = [
     rating: 4.7,
     reviewCount: 2,
     salesCount: 6,
-    tags: ["AI영상", "퍼스널브랜딩"],
+    tags: ["AI영상", "팟캐스트", "오디오", "콘텐츠"],
     isPrime: false,
     isFastResponse: false,
     packages: [
