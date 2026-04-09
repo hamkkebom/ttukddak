@@ -39,6 +39,7 @@ export default function OrderPage({
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [ordering, setOrdering] = useState(false);
 
   useEffect(() => {
     getServiceByIdClient(id).then(async (svc) => {
@@ -83,8 +84,6 @@ export default function OrderPage({
   const serviceFee = Math.round(pkg.price * 0.05);
   const baseTotal = pkg.price + serviceFee;
   const totalPrice = Math.max(0, baseTotal - discountAmount);
-
-  const [ordering, setOrdering] = useState(false);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {

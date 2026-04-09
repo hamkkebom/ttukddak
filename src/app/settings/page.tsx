@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   User, Lock, Bell, Shield, Trash2, ChevronRight,
-  Mail, Smartphone, Eye, EyeOff, ArrowLeft
+  Mail, Smartphone, Eye, EyeOff, ArrowLeft, Camera, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { updateProfileClient } from "@/lib/db-client";
+import { uploadFile } from "@/lib/storage";
 
 const NOTIF_STORAGE_KEY = "ttukddak_notif_settings";
 
@@ -41,9 +43,14 @@ function loadNotifSettings() {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [withdrawConfirm, setWithdrawConfirm] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
@@ -67,6 +74,7 @@ export default function SettingsPage() {
       const { data: { user } } = await sb.auth.getUser();
       if (user) {
         setUserId(user.id);
+        setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || "");
         setProfileData({
           name: user.user_metadata?.name || user.email?.split("@")[0] || "",
           email: user.email || "",
@@ -126,8 +134,43 @@ export default function SettingsPage() {
     }
   };
 
-  const handleWithdraw = () => {
-    toast.info("고객센터에 문의해주세요");
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setAvatarUploading(true);
+    try {
+      const result = await uploadFile("avatars", file, userId);
+      setAvatarUrl(result.url);
+      const sb = createClient();
+      await sb.auth.updateUser({ data: { avatar_url: result.url } });
+      await updateProfileClient(userId, { name: profileData.name });
+      // Update avatar_url in profiles table directly
+      await sb.from("profiles").update({ avatar_url: result.url }).eq("id", userId);
+      toast.success("프로필 사진이 변경되었습니다");
+    } catch {
+      toast.error("사진 업로드에 실패했습니다");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawConfirm) {
+      setWithdrawConfirm(true);
+      return;
+    }
+    try {
+      const res = await fetch("/api/account/delete", { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("계정이 삭제되었습니다");
+      const sb = createClient();
+      await sb.auth.signOut();
+      router.push("/");
+    } catch {
+      toast.error("계정 삭제에 실패했습니다. 고객센터에 문의해주세요");
+      setWithdrawConfirm(false);
+    }
   };
 
   if (loading) {
@@ -181,11 +224,31 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground">
-                      {avatarInitial}
+                    <div className="relative h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground overflow-hidden">
+                      {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        avatarInitial
+                      )}
                     </div>
                     <div>
-                      <Button variant="outline" size="sm">사진 변경</Button>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarUpload}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={avatarUploading}
+                        onClick={() => avatarInputRef.current?.click()}
+                      >
+                        {avatarUploading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Camera className="h-3 w-3 mr-1" />}
+                        사진 변경
+                      </Button>
                       <p className="text-xs text-muted-foreground mt-1">JPG, PNG (최대 2MB)</p>
                     </div>
                   </div>
@@ -331,8 +394,18 @@ export default function SettingsPage() {
                       진행 중인 거래가 있는 경우 모든 거래 완료 후 탈퇴가 가능합니다.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Button variant="destructive" size="sm" onClick={handleWithdraw}>회원 탈퇴</Button>
+                  <CardContent className="space-y-3">
+                    {withdrawConfirm && (
+                      <p className="text-sm text-destructive font-medium">정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="destructive" size="sm" onClick={handleWithdraw}>
+                        {withdrawConfirm ? "탈퇴 확인" : "회원 탈퇴"}
+                      </Button>
+                      {withdrawConfirm && (
+                        <Button variant="outline" size="sm" onClick={() => setWithdrawConfirm(false)}>취소</Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>

@@ -1,10 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac } from "crypto";
+
+// Verify PortOne V2 webhook signature
+// PortOne sends: webhook-signature header with "t=<timestamp>,v1=<hmac>"
+function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string
+): boolean {
+  try {
+    // Parse "t=<timestamp>,v1=<sig1>[,v1=<sig2>]"
+    const parts = signatureHeader.split(",");
+    let timestamp = "";
+    const signatures: string[] = [];
+
+    for (const part of parts) {
+      const [key, value] = part.split("=");
+      if (key === "t") timestamp = value;
+      else if (key === "v1") signatures.push(value);
+    }
+
+    if (!timestamp || signatures.length === 0) return false;
+
+    // Compute expected signature: HMAC-SHA256 of "<timestamp>.<rawBody>"
+    const signedPayload = `${timestamp}.${rawBody}`;
+    const expected = createHmac("sha256", secret)
+      .update(signedPayload, "utf8")
+      .digest("hex");
+
+    return signatures.some((sig) => sig === expected);
+  } catch {
+    return false;
+  }
+}
 
 // PortOne webhook - receives async payment status updates
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { payment_id, status } = body;
+    const rawBody = await request.text();
+
+    // Webhook signature verification
+    const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const signatureHeader = request.headers.get("webhook-signature") ?? "";
+      if (!signatureHeader) {
+        return NextResponse.json({ error: "Missing webhook signature" }, { status: 401 });
+      }
+      const isValid = verifyWebhookSignature(rawBody, signatureHeader, webhookSecret);
+      if (!isValid) {
+        return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+      }
+    } else {
+      console.warn(
+        "[Webhook] PORTONE_WEBHOOK_SECRET is not set. Skipping signature verification (dev mode)."
+      );
+    }
+
+    let body: { payment_id?: string; status?: string };
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const { payment_id } = body;
 
     if (!payment_id) {
       return NextResponse.json({ error: "Missing payment_id" }, { status: 400 });

@@ -13,6 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { getOrdersClient } from "@/lib/db-client";
+import type { Order } from "@/types";
 
 const menuItems = [
   {
@@ -47,35 +49,25 @@ const menuItems = [
   },
 ];
 
-const recentOrders = [
-  {
-    id: "ord-1",
-    serviceName: "AI로 만드는 프리미엄 뮤직비디오 & 광고 영상",
-    expertName: "김영상",
-    status: "진행중",
-    statusColor: "bg-blue-100 text-blue-700",
-    date: "2024-03-15",
-    price: 300000,
-  },
-  {
-    id: "ord-2",
-    serviceName: "유튜브 영상 편집 (자막+효과+썸네일)",
-    expertName: "정유튜",
-    status: "완료",
-    statusColor: "bg-green-100 text-green-700",
-    date: "2024-03-10",
-    price: 100000,
-  },
-  {
-    id: "ord-3",
-    serviceName: "브랜드 인트로 & 로고 모션그래픽 제작",
-    expertName: "이모션",
-    status: "검수중",
-    statusColor: "bg-amber-100 text-amber-700",
-    date: "2024-03-08",
-    price: 200000,
-  },
-];
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  pending: "요구사항 확인",
+  paid: "요구사항 확인",
+  in_progress: "진행중",
+  review: "검수중",
+  completed: "완료",
+  cancelled: "취소",
+  refunded: "환불",
+};
+
+const ORDER_STATUS_COLOR: Record<string, string> = {
+  pending: "bg-purple-100 text-purple-700",
+  paid: "bg-purple-100 text-purple-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  review: "bg-amber-100 text-amber-700",
+  completed: "bg-green-100 text-green-700",
+  cancelled: "bg-slate-100 text-slate-700",
+  refunded: "bg-red-100 text-red-700",
+};
 
 export default function MyPage() {
   const [userName, setUserName] = useState("");
@@ -83,6 +75,7 @@ export default function MyPage() {
   const [userAvatar, setUserAvatar] = useState("");
   const [userInitial, setUserInitial] = useState("U");
   const [couponCount, setCouponCount] = useState(0);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const { favorites } = useFavorites();
 
   useEffect(() => {
@@ -97,6 +90,10 @@ export default function MyPage() {
         setUserEmail(email);
         setUserAvatar(avatar);
         setUserInitial(name[0] || "U");
+
+        getOrdersClient({ buyerId: user.id })
+          .then((orders) => setRecentOrders(orders.slice(0, 5)))
+          .catch(() => {});
       }
     });
 
@@ -185,8 +182,16 @@ export default function MyPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: "진행중 주문", value: "0", color: "text-blue-600" },
-                { label: "완료된 주문", value: "0", color: "text-green-600" },
+                {
+                  label: "진행중 주문",
+                  value: String(recentOrders.filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "refunded").length),
+                  color: "text-blue-600",
+                },
+                {
+                  label: "완료된 주문",
+                  value: String(recentOrders.filter((o) => o.status === "completed").length),
+                  color: "text-green-600",
+                },
                 { label: "찜한 서비스", value: String(favorites.length), color: "text-red-500" },
                 { label: "받은 쿠폰", value: String(couponCount), color: "text-primary" },
               ].map((stat) => (
@@ -214,38 +219,39 @@ export default function MyPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {recentOrders.map((order) => (
-                  <Link
-                    key={order.id}
-                    href={`/order/${order.id}/tracking`}
-                    className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge
-                          variant="secondary"
-                          className={order.statusColor}
-                        >
-                          {order.status}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {order.date}
-                        </span>
+                {recentOrders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">주문 내역이 없습니다</p>
+                ) : (
+                  recentOrders.map((order) => (
+                    <Link
+                      key={order.id}
+                      href={`/order/${order.id}/tracking`}
+                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge
+                            variant="secondary"
+                            className={ORDER_STATUS_COLOR[order.status] || "bg-gray-100 text-gray-700"}
+                          >
+                            {ORDER_STATUS_LABEL[order.status] || order.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {order.createdAt.split("T")[0]}
+                          </span>
+                        </div>
+                        <p className="font-medium text-sm truncate">
+                          {order.serviceName || "서비스"}
+                        </p>
                       </div>
-                      <p className="font-medium text-sm truncate">
-                        {order.serviceName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.expertName} 전문가
-                      </p>
-                    </div>
-                    <div className="text-right ml-4 shrink-0">
-                      <p className="font-bold">
-                        {formatPrice(order.price)}원
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                      <div className="text-right ml-4 shrink-0">
+                        <p className="font-bold">
+                          {formatPrice(order.price)}원
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </CardContent>
             </Card>
 

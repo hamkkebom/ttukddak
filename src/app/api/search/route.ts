@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchServicesDB, getExperts } from "@/lib/db-server";
+import { searchServicesDB, searchExpertsDB } from "@/lib/db-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -28,20 +28,10 @@ export async function GET(request: Request) {
     });
   }
 
-  const lowerQuery = query.toLowerCase();
-  const [{ services: serviceResults, total }, allExperts] = await Promise.all([
+  const [{ services: serviceResults, total }, expertResults] = await Promise.all([
     searchServicesDB(query, { sort, categoryId: category, limit, offset }),
-    getExperts(),
+    searchExpertsDB(query),
   ]);
-
-  const expertResults = allExperts.filter(
-    (expert) =>
-      expert.name.toLowerCase().includes(lowerQuery) ||
-      expert.title.toLowerCase().includes(lowerQuery) ||
-      expert.introduction.toLowerCase().includes(lowerQuery) ||
-      expert.skills.some((skill) => skill.toLowerCase().includes(lowerQuery)) ||
-      expert.tools.some((tool) => tool.toLowerCase().includes(lowerQuery))
-  );
 
   return NextResponse.json({
     success: true,

@@ -21,9 +21,23 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data || []);
 }
 
-// POST - create a notification (internal use)
+// POST - create a notification (admin/system only)
 export async function POST(request: NextRequest) {
   const sb = await createServerSupabaseClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Only admin can create notifications for arbitrary users
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await request.json();
   const { userId, type, title, message, link } = body;
 

@@ -26,6 +26,7 @@ interface DBService {
   created_at: string;
   view_count: number;
   video_url: string | null;
+  rejection_reason?: string | null;
 }
 
 interface DBExpert {
@@ -97,11 +98,14 @@ function dbServiceToApp(s: DBService, packages?: any[]): Service {
     rating: s.rating || 0,
     reviewCount: s.review_count || 0,
     salesCount: s.sales_count || 0,
+    viewCount: s.view_count || 0,
     tags: s.tags || [],
     isPrime: s.is_prime || false,
     isFastResponse: s.is_fast_response || false,
     packages: pkgs,
     createdAt: s.created_at?.split("T")[0] || "2026-01-01",
+    status: (s.status as Service["status"]) || "active",
+    rejectionReason: s.rejection_reason || undefined,
   };
 }
 
@@ -139,6 +143,16 @@ function dbCategoryToApp(c: DBCategory): Category {
     serviceCount: c.service_count || 0,
   };
 }
+
+// ============================================
+// Input sanitization helpers
+// ============================================
+
+function sanitizeFilterValue(v: string): string {
+  return v.replace(/[(),.*]/g, "");
+}
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ============================================
 // Server-side queries (for Server Components & API routes)
@@ -235,7 +249,7 @@ export async function searchServicesDB(
   }
 ): Promise<{ services: Service[]; total: number }> {
   const sb = await createServerSupabaseClient();
-  const lower = `%${query}%`;
+  const lower = `%${sanitizeFilterValue(query)}%`;
   const limit = options?.limit ?? 20;
   const offset = options?.offset ?? 0;
 
@@ -318,6 +332,25 @@ export async function getExpertByIdDB(id: string): Promise<Expert | null> {
   const profile = (data as any).profiles;
   delete (data as any).profiles;
   return dbExpertToApp(data as any, profile);
+}
+
+export async function searchExpertsDB(query: string): Promise<Expert[]> {
+  const sb = await createServerSupabaseClient();
+  const { data } = await sb
+    .from("experts")
+    .select("*, profiles(name, email, avatar_url, role)")
+    .or(
+      `title.ilike.%${query}%,introduction.ilike.%${query}%`
+    )
+    .order("rating", { ascending: false })
+    .limit(20);
+
+  if (!data) return [];
+  return data.map((row: any) => {
+    const profile = row.profiles;
+    delete row.profiles;
+    return dbExpertToApp(row, profile);
+  });
 }
 
 export async function getExpertsByCategory(categoryId: string): Promise<Expert[]> {
@@ -415,25 +448,30 @@ export async function updateOrderStatus(id: string, status: string): Promise<boo
 // Reviews
 // ============================================
 
-export async function getReviews(filters?: { serviceId?: string; reviewerId?: string }): Promise<Review[]> {
+export async function getReviews(filters?: { serviceId?: string; reviewerId?: string; limit?: number; offset?: number }): Promise<{ data: Review[]; total: number }> {
   const sb = await createServerSupabaseClient();
-  let query = sb.from("reviews").select("*").order("created_at", { ascending: false });
+  let query = sb.from("reviews").select("*", { count: "exact" }).order("created_at", { ascending: false });
   if (filters?.serviceId) query = query.eq("service_id", filters.serviceId);
   if (filters?.reviewerId) query = query.eq("reviewer_id", filters.reviewerId);
+  if (filters?.limit) query = query.limit(filters.limit);
+  if (filters?.offset) query = query.range(filters.offset, (filters.offset + (filters.limit ?? 20)) - 1);
 
-  const { data } = await query;
-  if (!data) return [];
-  return data.map((r: any) => ({
-    id: r.id,
-    serviceId: r.service_id,
-    orderId: r.order_id,
-    userId: r.reviewer_id,
-    userName: r.reviewer_name || "사용자",
-    rating: r.rating,
-    content: r.content || "",
-    helpfulCount: r.helpful_count || 0,
-    createdAt: r.created_at,
-  }));
+  const { data, count } = await query;
+  if (!data) return { data: [], total: 0 };
+  return {
+    data: data.map((r: any) => ({
+      id: r.id,
+      serviceId: r.service_id,
+      orderId: r.order_id,
+      userId: r.reviewer_id,
+      userName: r.reviewer_name || "사용자",
+      rating: r.rating,
+      content: r.content || "",
+      helpfulCount: r.helpful_count || 0,
+      createdAt: r.created_at,
+    })),
+    total: count ?? 0,
+  };
 }
 
 export async function createReview(review: { orderId: string; serviceId: string; reviewerId: string; reviewerName: string; rating: number; qualityRating?: number; communicationRating?: number; deliveryRating?: number; content: string }): Promise<boolean> {
@@ -449,7 +487,22 @@ export async function createReview(review: { orderId: string; serviceId: string;
     delivery_rating: review.deliveryRating || review.rating,
     content: review.content,
   });
-  return !error;
+  if (error) return false;
+
+  // Update service rating and review_count aggregates
+  const { data: allReviews } = await sb
+    .from("reviews")
+    .select("rating")
+    .eq("service_id", review.serviceId);
+  const avgRating = allReviews && allReviews.length > 0
+    ? allReviews.reduce((s: number, r: any) => s + r.rating, 0) / allReviews.length
+    : 0;
+  await sb.from("services").update({
+    rating: Math.round(avgRating * 10) / 10,
+    review_count: allReviews?.length || 0,
+  }).eq("id", review.serviceId);
+
+  return true;
 }
 
 // ============================================
@@ -457,6 +510,7 @@ export async function createReview(review: { orderId: string; serviceId: string;
 // ============================================
 
 export async function getConversations(userId: string): Promise<Conversation[]> {
+  if (!uuidRegex.test(userId)) return [];
   const sb = await createServerSupabaseClient();
   const { data } = await sb.from("conversations")
     .select("*")
@@ -758,7 +812,7 @@ export interface AdminStats {
 export async function getAdminStats(): Promise<AdminStats> {
   const sb = createAdminSupabaseClient();
 
-  const [u, e, s, o, pendingSvc, pendingExp, refundReq] = await Promise.all([
+  const [u, e, s, o, pendingSvc, pendingExp, refundReq, pendingSupportRow] = await Promise.all([
     sb.from("profiles").select("*", { count: "exact", head: true }),
     sb.from("experts").select("*", { count: "exact", head: true }),
     sb.from("services").select("*", { count: "exact", head: true }),
@@ -766,6 +820,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     sb.from("services").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
     sb.from("expert_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
     sb.from("orders").select("*", { count: "exact", head: true }).in("status", ["refunded", "cancelled"]),
+    sb.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
   ]);
 
   // Revenue from completed orders
@@ -807,7 +862,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     pendingExperts: pendingExp.count || 0,
     pendingReports: 0,
     refundRequests: refundReq.count || 0,
-    pendingSupport: 0,
+    pendingSupport: pendingSupportRow.count || 0,
     monthlyRevenue,
   };
 }

@@ -50,8 +50,8 @@ const contestEntries = [
 export default async function HomePage() {
   const [categories, allServices, experts] = await Promise.all([
     getCategories(),
-    getServices(),
-    getExperts(),
+    getServices(20),
+    getExperts(20),
   ]);
 
   // 시드 기반 셔플 (매 시간 변경)

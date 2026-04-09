@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/mypage/", "/login/", "/signup/"],
+        disallow: ["/api/", "/mypage/", "/login/", "/signup/", "/dashboard/", "/admin/"],
       },
     ],
     sitemap: "https://ttukddak.vercel.app/sitemap.xml",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServices, getServicesByCategory, searchServicesDB, createService } from "@/lib/db-server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -41,7 +42,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(req: NextRequest) {
+  const sb = await createServerSupabaseClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
+
+  // Force expertId from authenticated user
+  body.expertId = user.id;
+
   const id = await createService(body);
   if (!id) return NextResponse.json({ error: "Failed to create service" }, { status: 500 });
   return NextResponse.json({ success: true, id }, { status: 201 });

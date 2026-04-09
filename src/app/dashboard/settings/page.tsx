@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  User, Lock, CreditCard, Bell, Building2, ArrowLeft, Eye, EyeOff
+  User, Lock, CreditCard, Bell, Building2, ArrowLeft, Eye, EyeOff, Camera, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { updateProfileClient } from "@/lib/db-client";
+import { uploadFile } from "@/lib/storage";
 
 type Tab = "profile" | "bank" | "notifications";
 
@@ -31,6 +32,9 @@ const defaultNotif: Record<string, Record<string, boolean>> = {
 export default function DashboardSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [userId, setUserId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState({
     name: "",
     email: "",
@@ -56,6 +60,7 @@ export default function DashboardSettingsPage() {
         const { data: { user } } = await sb.auth.getUser();
         if (!user) return;
         setUserId(user.id);
+        setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || "");
         setProfile({
           name: user.user_metadata?.name || user.user_metadata?.full_name || "",
           email: user.email || "",
@@ -79,6 +84,25 @@ export default function DashboardSettingsPage() {
     }
     load();
   }, []);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setAvatarUploading(true);
+    try {
+      const result = await uploadFile("avatars", file, userId);
+      setAvatarUrl(result.url);
+      const sb = createClient();
+      await sb.auth.updateUser({ data: { avatar_url: result.url } });
+      await sb.from("profiles").update({ avatar_url: result.url }).eq("id", userId);
+      toast.success("프로필 사진이 변경되었습니다");
+    } catch {
+      toast.error("사진 업로드에 실패했습니다");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   const handleProfileSave = async () => {
     if (!userId) return;
@@ -165,11 +189,31 @@ export default function DashboardSettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-2xl font-bold text-white">
-                    {loading ? "..." : avatarLetter}
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      loading ? "..." : avatarLetter
+                    )}
                   </div>
                   <div>
-                    <Button variant="outline" size="sm">사진 변경</Button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={avatarUploading || loading}
+                      onClick={() => avatarInputRef.current?.click()}
+                    >
+                      {avatarUploading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Camera className="h-3 w-3 mr-1" />}
+                      사진 변경
+                    </Button>
                     <p className="text-xs text-muted-foreground mt-1">JPG, PNG (최대 2MB)</p>
                   </div>
                 </div>

@@ -96,6 +96,7 @@ function dbServiceToApp(s: DBService, packages?: any[]): Service {
     rating: s.rating || 0,
     reviewCount: s.review_count || 0,
     salesCount: s.sales_count || 0,
+    viewCount: s.view_count || 0,
     tags: s.tags || [],
     isPrime: s.is_prime || false,
     isFastResponse: s.is_fast_response || false,
@@ -140,6 +141,16 @@ function dbCategoryToApp(c: DBCategory): Category {
     serviceCount: c.service_count || 0,
   };
 }
+
+// ============================================
+// Input sanitization helpers
+// ============================================
+
+function sanitizeFilterValue(v: string): string {
+  return v.replace(/[(),.*]/g, "");
+}
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ============================================
 // Client-side queries (for Client Components)
@@ -206,7 +217,7 @@ export async function getServicesByExpertClient(expertId: string): Promise<Servi
 
 export async function searchServicesClient(query: string): Promise<Service[]> {
   const sb = createClient();
-  const lower = `%${query}%`;
+  const lower = `%${sanitizeFilterValue(query)}%`;
   const { data } = await sb
     .from("services")
     .select("*")
@@ -296,6 +307,7 @@ export async function getReviewsClient(filters?: { serviceId?: string }): Promis
 // ============================================
 
 export async function getConversationsClient(userId: string): Promise<Conversation[]> {
+  if (!uuidRegex.test(userId)) return [];
   const sb = createClient();
   const { data } = await sb.from("conversations")
     .select("*")
@@ -399,6 +411,8 @@ export async function updateProfileClient(id: string, updates: { name?: string; 
   const sb = createClient();
   const dbUpdates: any = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+  if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
   const { error } = await sb.from("profiles").update(dbUpdates).eq("id", id);
   return !error;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMessages, sendMessage } from "@/lib/db-server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   const conversationId = new URL(req.url).searchParams.get("conversationId");
@@ -9,8 +10,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { conversationId, senderId, content } = await req.json();
-  const msg = await sendMessage(conversationId, senderId, content);
+  const sb = await createServerSupabaseClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { conversationId, content } = await req.json();
+
+  // Force senderId from authenticated user
+  const msg = await sendMessage(conversationId, user.id, content);
   if (!msg) return NextResponse.json({ error: "Failed" }, { status: 500 });
   return NextResponse.json(msg, { status: 201 });
 }

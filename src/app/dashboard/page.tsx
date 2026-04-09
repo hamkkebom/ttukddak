@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   BarChart3, Package, MessageCircle, Star, DollarSign,
   TrendingUp, Eye, ShoppingBag, Plus, ChevronRight,
-  Calendar, Clock, Users, ArrowUpRight, ArrowDownRight
+  Calendar, Clock, Users, ArrowUpRight, ArrowDownRight, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +53,8 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -146,7 +148,7 @@ export default function DashboardPage() {
     },
     {
       label: "총 조회수",
-      value: String(services.reduce((s, sv) => s + (sv.salesCount * 5), 0)),
+      value: String(services.reduce((s, sv) => s + (sv.viewCount || 0), 0)),
       change: "+0%",
       up: true,
       icon: Eye,
@@ -159,6 +161,23 @@ export default function DashboardPage() {
       icon: Star,
     },
   ];
+
+  const handleReplySubmit = async (reviewId: string) => {
+    if (!replyContent.trim()) return;
+    try {
+      const res = await fetch(`/api/reviews/${reviewId}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: replyContent.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("답글이 등록되었습니다");
+      setReplyingId(null);
+      setReplyContent("");
+    } catch {
+      toast.error("답글 등록에 실패했습니다");
+    }
+  };
 
   const getRelativeDate = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -288,7 +307,7 @@ export default function DashboardPage() {
                           <Badge variant="default" className="text-xs shrink-0">활성</Badge>
                         </div>
                         <div className="flex gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{svc.salesCount * 5}</span>
+                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{svc.viewCount || 0}</span>
                           <span className="flex items-center gap-1"><ShoppingBag className="h-3 w-3" />{svc.salesCount}건</span>
                           <span className="flex items-center gap-1"><Star className="h-3 w-3" />{svc.rating.toFixed(1)}</span>
                         </div>
@@ -361,8 +380,34 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground">{review.content}</p>
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] text-muted-foreground">{getRelativeDate(review.createdAt)}</p>
-                        <button className="text-[10px] text-primary hover:underline" onClick={() => toast.success("답글 기능은 준비 중입니다")}>답글 달기</button>
+                        <button
+                          className="text-[10px] text-primary hover:underline"
+                          onClick={() => {
+                            setReplyingId(replyingId === review.id ? null : review.id);
+                            setReplyContent("");
+                          }}
+                        >
+                          {replyingId === review.id ? "취소" : "답글 달기"}
+                        </button>
                       </div>
+                      {replyingId === review.id && (
+                        <div className="flex gap-2 mt-2">
+                          <input
+                            className="flex-1 text-xs rounded border border-input bg-background px-2 py-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            placeholder="답글을 입력하세요..."
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleReplySubmit(review.id); }}
+                          />
+                          <button
+                            className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            disabled={!replyContent.trim()}
+                            onClick={() => handleReplySubmit(review.id)}
+                          >
+                            <Send className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
                       {i < recentReviews.length - 1 && <Separator className="mt-3" />}
                     </div>
                   ))

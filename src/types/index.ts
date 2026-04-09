@@ -52,6 +52,7 @@ export interface Service {
   isFastResponse: boolean;
   packages: ServicePackage[];
   createdAt: string;
+  viewCount?: number;
   status?: "draft" | "pending_review" | "active" | "rejected" | "suspended" | "deleted";
   rejectionReason?: string;
 }
