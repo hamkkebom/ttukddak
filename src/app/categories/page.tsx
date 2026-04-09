@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Sparkles, Zap, Layers, Box, Play, ShoppingBag,
   Building, Music, Heart, GraduationCap, ArrowRight, Star, Users
@@ -27,19 +26,6 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   GraduationCap,
 };
 
-// 카테고리별 이미지 (Gemini로 생성 후 교체)
-const categoryImages: Record<string, string> = {
-  "ai-video": "https://picsum.photos/seed/cat-ai/600/400",
-  "motion-graphics": "https://picsum.photos/seed/cat-motion/600/400",
-  "2d-animation": "https://picsum.photos/seed/cat-2d/600/400",
-  "3d-animation": "https://picsum.photos/seed/cat-3d/600/400",
-  "youtube-shorts": "https://picsum.photos/seed/cat-youtube/600/400",
-  "product-ad": "https://picsum.photos/seed/cat-product/600/400",
-  "corporate": "https://picsum.photos/seed/cat-corp/600/400",
-  "music-video": "https://picsum.photos/seed/cat-music/600/400",
-  "wedding-event": "https://picsum.photos/seed/cat-wedding/600/400",
-  "education": "https://picsum.photos/seed/cat-edu/600/400",
-};
 
 // 카테고리별 그라데이션
 const categoryGradients: Record<string, string> = {
@@ -123,20 +109,13 @@ export default async function CategoriesPage() {
                 ? (services.reduce((sum, s) => sum + s.rating, 0) / services.length).toFixed(1)
                 : "0.0";
               const gradient = categoryGradients[category.slug] || "from-gray-500/90 to-gray-700/90";
-              const image = categoryImages[category.slug] || "https://picsum.photos/seed/default/600/400";
 
               return (
                 <Link key={category.id} href={`/category/${category.slug}`}>
                   <Card className="group h-full overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                     {/* Image Header */}
                     <div className="relative h-48 overflow-hidden">
-                      <Image
-                        src={image}
-                        alt={category.name}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      {/* Gradient Overlay */}
+                      {/* Gradient Background */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
 
                       {/* Content Overlay */}

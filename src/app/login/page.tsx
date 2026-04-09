@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Eye, EyeOff, ArrowRight, Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -33,7 +31,6 @@ function LoginContent() {
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -102,13 +99,7 @@ function LoginContent() {
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
         {/* Background */}
         <div className="absolute inset-0">
-          <Image
-            src="https://picsum.photos/seed/login-bg/1200/1600"
-            alt="Background"
-            fill
-            className="object-cover opacity-30"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-slate-900/80 to-slate-900" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/60 via-slate-800 to-slate-900" />
         </div>
 
         {/* Content */}
@@ -130,7 +121,7 @@ function LoginContent() {
                 <span className="text-primary">전문가와 함께</span>
               </h1>
               <p className="text-lg text-slate-300">
-                300명 이상의 검증된 AI 영상 전문가가
+                수백 명의 검증된 AI 영상 전문가가
                 <br />
                 당신의 프로젝트를 기다리고 있습니다.
               </p>
@@ -152,7 +143,7 @@ function LoginContent() {
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   <span>평균 4.9점</span>
                 </div>
-                <div>10,000+ 완료 프로젝트</div>
+                <div>수천 건의 완료 프로젝트</div>
               </div>
             </div>
           </div>
@@ -168,7 +159,7 @@ function LoginContent() {
               ))}
             </div>
             <p className="text-sm text-slate-400">
-              <span className="text-white font-semibold">5,000명+</span>의 만족한 고객
+              <span className="text-white font-semibold">수천 명</span>의 만족한 고객
             </p>
           </div>
         </div>
@@ -266,14 +257,7 @@ function LoginContent() {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                />
-                <span className="text-sm text-slate-600">로그인 상태 유지</span>
-              </label>
+            <div className="flex items-center justify-end">
               <Link href="/forgot-password" className="text-sm text-primary hover:underline font-medium">
                 비밀번호 찾기
               </Link>

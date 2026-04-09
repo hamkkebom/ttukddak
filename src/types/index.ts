@@ -185,3 +185,28 @@ export interface ExpertBankAccount {
   accountHolder: string;
   updatedAt: string;
 }
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discountType: "percent" | "fixed";
+  discountValue: number; // percent: 10 = 10%, fixed: 10000 = 10,000원
+  minOrderAmount: number;
+  maxDiscountAmount?: number; // for percent coupons
+  totalIssued: number;
+  totalUsed: number;
+  isActive: boolean;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface UserCoupon {
+  id: string;
+  userId: string;
+  couponId: string;
+  coupon?: Coupon;
+  isUsed: boolean;
+  usedAt?: string;
+  expiresAt: string;
+  createdAt: string;
+}

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronRight, CheckCircle, Shield, Clock, CreditCard,
-  Smartphone, Building2
+  Smartphone, Building2, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { getServiceByIdClient, getExpertByIdClient, getCategoryByIdClient } from "@/lib/db-client";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { Service, Expert, Category } from "@/types";
+import type { Service, Expert, Category, Coupon } from "@/types";
 
 type PaymentMethod = "card" | "kakao" | "naver" | "bank";
 
@@ -35,6 +35,10 @@ export default function OrderPage({
   const [selectedPackage, setSelectedPackage] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   useEffect(() => {
     getServiceByIdClient(id).then(async (svc) => {
@@ -77,9 +81,44 @@ export default function OrderPage({
 
   const pkg = service.packages[selectedPackage];
   const serviceFee = Math.round(pkg.price * 0.05);
-  const totalPrice = pkg.price + serviceFee;
+  const baseTotal = pkg.price + serviceFee;
+  const totalPrice = Math.max(0, baseTotal - discountAmount);
 
   const [ordering, setOrdering] = useState(false);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error("쿠폰 코드를 입력해주세요");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponCode.trim(), orderAmount: baseTotal }),
+      });
+      const result = await res.json();
+      if (result.valid) {
+        setAppliedCoupon(result.coupon);
+        setDiscountAmount(result.discountAmount);
+        toast.success(`쿠폰이 적용되었습니다! ${formatPrice(result.discountAmount)}원 할인`);
+        setCouponCode("");
+      } else {
+        toast.error(result.error || "유효하지 않은 쿠폰 코드입니다");
+      }
+    } catch {
+      toast.error("쿠폰 확인 중 오류가 발생했습니다");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    toast.info("쿠폰이 제거되었습니다");
+  };
 
   const handleOrder = async () => {
     if (!agreedToTerms) {
@@ -327,16 +366,51 @@ export default function OrderPage({
                       <span>{formatPrice(serviceFee)}원</span>
                     </div>
                     {/* 쿠폰 입력 */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="쿠폰 코드 입력"
-                        className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                      <Button variant="outline" size="sm" className="h-9" type="button" onClick={() => toast.error("유효하지 않은 쿠폰 코드입니다")}>
-                        적용
-                      </Button>
-                    </div>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between p-2 bg-primary/10 rounded-md border border-primary/30">
+                        <div className="text-sm">
+                          <span className="font-mono font-medium text-primary">{appliedCoupon.code}</span>
+                          <span className="text-muted-foreground ml-2">
+                            -{formatPrice(discountAmount)}원
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          onClick={handleRemoveCoupon}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                          placeholder="쿠폰 코드 입력"
+                          className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9"
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={couponLoading}
+                        >
+                          {couponLoading ? "확인중..." : "적용"}
+                        </Button>
+                      </div>
+                    )}
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>쿠폰 할인</span>
+                        <span>-{formatPrice(discountAmount)}원</span>
+                      </div>
+                    )}
                     <Separator />
                     <div className="flex justify-between text-lg font-bold">
                       <span>총 결제금액</span>

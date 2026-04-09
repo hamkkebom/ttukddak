@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Eye, EyeOff, Check, X, ArrowRight, Users, Shield, Zap } from "lucide-react";
@@ -148,13 +147,7 @@ export default function SignUpPage() {
       {/* Left Side - Visual */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
         <div className="absolute inset-0">
-          <Image
-            src="https://picsum.photos/seed/signup-bg/1200/1600"
-            alt="Background"
-            fill
-            className="object-cover opacity-30"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/40 via-slate-900/80 to-slate-900" />
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/60 via-slate-800 to-slate-900" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">

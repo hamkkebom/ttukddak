@@ -1,11 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// 관리자 이메일 화이트리스트
-const ADMIN_EMAILS = [
-  "hamkkebom12@gmail.com",
-];
-
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -49,10 +44,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // 관리자 경로: 이메일 화이트리스트 체크
+    // 관리자 경로: profiles 테이블의 role 컬럼으로 체크
     if (isAdmin) {
-      const userEmail = user.email || "";
-      if (!ADMIN_EMAILS.includes(userEmail)) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role !== "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         return NextResponse.redirect(url);

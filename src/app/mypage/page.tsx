@@ -82,6 +82,7 @@ export default function MyPage() {
   const [userEmail, setUserEmail] = useState("");
   const [userAvatar, setUserAvatar] = useState("");
   const [userInitial, setUserInitial] = useState("U");
+  const [couponCount, setCouponCount] = useState(0);
   const { favorites } = useFavorites();
 
   useEffect(() => {
@@ -98,6 +99,16 @@ export default function MyPage() {
         setUserInitial(name[0] || "U");
       }
     });
+
+    fetch("/api/coupons/user")
+      .then((res) => res.ok ? res.json() : null)
+      .then((result) => {
+        if (result?.data) {
+          const unused = (result.data as Array<{ isUsed: boolean }>).filter((uc) => !uc.isUsed).length;
+          setCouponCount(unused);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleLogout = async () => {
@@ -177,7 +188,7 @@ export default function MyPage() {
                 { label: "진행중 주문", value: "0", color: "text-blue-600" },
                 { label: "완료된 주문", value: "0", color: "text-green-600" },
                 { label: "찜한 서비스", value: String(favorites.length), color: "text-red-500" },
-                { label: "받은 쿠폰", value: "0", color: "text-primary" },
+                { label: "받은 쿠폰", value: String(couponCount), color: "text-primary" },
               ].map((stat) => (
                 <Card key={stat.label}>
                   <CardContent className="p-5 text-center">
