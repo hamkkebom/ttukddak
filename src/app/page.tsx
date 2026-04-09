@@ -54,17 +54,38 @@ export default async function HomePage() {
     getExperts(),
   ]);
 
+  // 시드 기반 셔플 (매 시간 변경)
+  const seed = Math.floor(Date.now() / 3600000);
+  function seededShuffle<T>(arr: T[], s: number): T[] {
+    const a = [...arr];
+    let h = s;
+    for (let i = a.length - 1; i > 0; i--) {
+      h = (h * 16807 + 12345) & 0x7fffffff;
+      const j = h % (i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   const popularServices = [...allServices]
     .sort((a, b) => b.salesCount - a.salesCount)
-    .slice(0, 5);
+    .slice(0, 8);
 
-  const topRatedServices = [...allServices]
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 5);
+  const topRatedServices = seededShuffle(
+    [...allServices].sort((a, b) => b.rating - a.rating),
+    seed + 1
+  ).slice(0, 8);
 
-  const latestServices = [...allServices]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  const latestServices = seededShuffle(
+    [...allServices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    seed + 2
+  ).slice(0, 8);
+
+  // 페르소나별 서비스 - 겹치지 않게 분배
+  const shuffled1 = seededShuffle(allServices, seed + 3);
+  const shuffled2 = seededShuffle(allServices, seed + 4);
+  const personaServices1 = shuffled1.slice(0, 8);
+  const personaServices2 = shuffled2.filter(s => !personaServices1.find(p => p.id === s.id)).slice(0, 8);
 
   return (
     <div className="min-h-screen bg-white">
@@ -265,7 +286,7 @@ export default async function HomePage() {
                   {/* 포트폴리오 썸네일 갤러리 */}
                   <div className="relative h-[200px] overflow-hidden">
                     {/* 메인 이미지 */}
-                    <Image src={expert.image} alt={expert.service} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <Image src={expert.image} alt={expert.service} fill sizes="(max-width: 640px) 100vw, 25vw" className="object-cover group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                     {/* 배지 */}
@@ -294,7 +315,7 @@ export default async function HomePage() {
                     <div className="absolute bottom-3 left-3 right-3 flex gap-1.5">
                       {expert.portfolioImages.map((img, i) => (
                         <div key={i} className="relative h-10 flex-1 rounded-lg overflow-hidden ring-1 ring-white/20">
-                          <Image src={img} alt="" fill className="object-cover" />
+                          <Image src={img} alt="" fill sizes="80px" className="object-cover" />
                         </div>
                       ))}
                     </div>
@@ -364,7 +385,7 @@ export default async function HomePage() {
           <div className="flex gap-2.5">
             {/* 대형 카드 */}
             <Link href={`/contest/${contestEntries[0].id}`} className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
-              <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+              <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill sizes="400px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5">
                 <div className="inline-flex bg-orange-500 rounded-full px-2.5 py-0.5 mb-2">
@@ -388,7 +409,7 @@ export default async function HomePage() {
             <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-2.5">
               {contestEntries.slice(1, 7).map((entry) => (
                 <Link key={entry.id} href={`/contest/${entry.id}`} className="relative rounded-2xl overflow-hidden group">
-                  <Image src={entry.image} alt={entry.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <Image src={entry.image} alt={entry.title} fill sizes="200px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                     <p className="text-white font-semibold text-sm">{entry.title}</p>
@@ -418,7 +439,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ===== 페르소나 큐레이션 — 유튜버 ===== */}
+      {/* ===== 페르소나 큐레이션 — 이런 분들이 찾아요 ===== */}
       <section className="py-10 md:py-14">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
@@ -427,44 +448,29 @@ export default async function HomePage() {
                 <Play className="h-4 w-4 text-red-500 fill-red-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">유튜버가 많이 찾아요</h2>
-                <p className="text-xs text-slate-400 mt-0.5">유튜브 채널 운영에 필요한 인기 서비스</p>
+                <h2 className="text-xl font-bold text-slate-900">콘텐츠 크리에이터가 많이 찾아요</h2>
+                <p className="text-xs text-slate-400 mt-0.5">영상 콘텐츠 제작에 인기 있는 서비스</p>
               </div>
             </div>
-            <Link href="/search?q=유튜브" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
+            <Link href="/categories" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
               전체보기 <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
           <HorizontalScrollRow>
-            {[...allServices]
-              .filter((s) => s.tags.some((t) => ["유튜브", "편집", "숏폼", "썸네일", "인트로"].includes(t)))
-              .sort((a, b) => b.salesCount - a.salesCount)
-              .slice(0, 8)
-              .map((service) => (
-                <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
-                  <ServiceCard
-                    service={service}
-                    expert={experts.find(e => e.id === service.expertId)}
-                  />
-                </div>
-              ))}
-            {/* 데이터 부족 시 인기 서비스로 채움 */}
-            {[...allServices]
-              .filter((s) => s.tags.some((t) => ["유튜브", "편집", "숏폼", "썸네일", "인트로"].includes(t)))
-              .length < 5 && popularServices.map((service) => (
-                <div key={`yt-${service.id}`} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
-                  <ServiceCard
-                    service={service}
-                    expert={experts.find(e => e.id === service.expertId)}
-                  />
-                </div>
-              ))}
+            {personaServices1.map((service) => (
+              <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
+                <ServiceCard
+                  service={service}
+                  expert={experts.find(e => e.id === service.expertId)}
+                />
+              </div>
+            ))}
           </HorizontalScrollRow>
         </div>
       </section>
 
-      {/* ===== 페르소나 큐레이션 — 스타트업 마케터 ===== */}
+      {/* ===== 페르소나 큐레이션 — 브랜딩 ===== */}
       <section className="py-10 md:py-14 bg-slate-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
@@ -473,38 +479,24 @@ export default async function HomePage() {
                 <TrendingUp className="h-4 w-4 text-blue-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">스타트업 마케터가 많이 찾아요</h2>
-                <p className="text-xs text-slate-400 mt-0.5">제품 홍보·광고에 많이 이용하는 서비스</p>
+                <h2 className="text-xl font-bold text-slate-900">브랜딩·홍보 영상이 필요하다면</h2>
+                <p className="text-xs text-slate-400 mt-0.5">퍼스널 브랜딩과 소개 영상 전문가</p>
               </div>
             </div>
-            <Link href="/search?q=광고" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
+            <Link href="/categories" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
               전체보기 <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
           <HorizontalScrollRow>
-            {[...allServices]
-              .filter((s) => s.tags.some((t) => ["광고", "홍보", "제품", "마케팅", "브랜드", "SNS"].includes(t)))
-              .sort((a, b) => b.salesCount - a.salesCount)
-              .slice(0, 8)
-              .map((service) => (
-                <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
-                  <ServiceCard
-                    service={service}
-                    expert={experts.find(e => e.id === service.expertId)}
-                  />
-                </div>
-              ))}
-            {[...allServices]
-              .filter((s) => s.tags.some((t) => ["광고", "홍보", "제품", "마케팅", "브랜드", "SNS"].includes(t)))
-              .length < 5 && topRatedServices.map((service) => (
-                <div key={`mk-${service.id}`} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
-                  <ServiceCard
-                    service={service}
-                    expert={experts.find(e => e.id === service.expertId)}
-                  />
-                </div>
-              ))}
+            {personaServices2.map((service) => (
+              <div key={service.id} className="min-w-[260px] max-w-[280px] snap-start shrink-0">
+                <ServiceCard
+                  service={service}
+                  expert={experts.find(e => e.id === service.expertId)}
+                />
+              </div>
+            ))}
           </HorizontalScrollRow>
         </div>
       </section>
@@ -573,6 +565,7 @@ export default async function HomePage() {
             src="/thumbnails/cta-bg.jpg"
             alt="CTA background"
             fill
+            sizes="100vw"
             className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-900/60" />
