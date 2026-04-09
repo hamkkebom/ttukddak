@@ -577,15 +577,15 @@ export async function updateApplicationStatus(id: string, status: "pending" | "a
 
 export async function getQuoteRequests(filters?: { userId?: string; status?: string }): Promise<QuoteRequest[]> {
   const sb = await createServerSupabaseClient();
-  let query = sb.from("quote_requests").select("*, profiles!quote_requests_user_id_fkey(name, avatar_url)").order("created_at", { ascending: false });
-  if (filters?.userId) query = query.eq("user_id", filters.userId);
+  let query = sb.from("quote_requests").select("*, profiles!quote_requests_requester_id_fkey(name, avatar_url)").order("created_at", { ascending: false });
+  if (filters?.userId) query = query.eq("requester_id", filters.userId);
   if (filters?.status) query = query.eq("status", filters.status);
 
   const { data } = await query;
   if (!data) return [];
   return data.map((q: any) => ({
     id: q.id,
-    userId: q.user_id,
+    userId: q.requester_id,
     title: q.title,
     category: q.category,
     budgetMin: q.budget_min,
@@ -602,7 +602,7 @@ export async function getQuoteRequests(filters?: { userId?: string; status?: str
 export async function createQuoteRequest(req: { userId: string; title: string; category?: string; budgetMin?: number; budgetMax?: number; deadline?: string; description?: string }): Promise<boolean> {
   const sb = await createServerSupabaseClient();
   const { error } = await sb.from("quote_requests").insert({
-    user_id: req.userId,
+    requester_id: req.userId,
     title: req.title,
     category: req.category,
     budget_min: req.budgetMin,

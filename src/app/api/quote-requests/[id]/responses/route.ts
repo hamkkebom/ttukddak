@@ -63,7 +63,7 @@ export async function POST(
   // Fetch quote request to get the requester's userId
   const { data: quoteRequest } = await sb
     .from("quote_requests")
-    .select("id, user_id, status")
+    .select("id, requester_id, status")
     .eq("id", id)
     .maybeSingle();
 
@@ -117,7 +117,7 @@ export async function POST(
 
   // Notify the quote requester
   await createNotification({
-    userId: quoteRequest.user_id,
+    userId: quoteRequest.requester_id,
     type: "system",
     title: "새 견적이 도착했어요",
     message: `전문가가 견적을 보냈습니다. 확인해보세요.`,

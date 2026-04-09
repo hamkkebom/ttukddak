@@ -375,7 +375,7 @@ export async function getQuoteRequestsClient(): Promise<QuoteRequest[]> {
   const { data } = await sb.from("quote_requests").select("*").order("created_at", { ascending: false });
   if (!data) return [];
   return data.map((q: any) => ({
-    id: q.id, userId: q.user_id, title: q.title, category: q.category,
+    id: q.id, userId: q.requester_id, title: q.title, category: q.category,
     budgetMin: q.budget_min, budgetMax: q.budget_max, deadline: q.deadline,
     description: q.description, status: q.status, createdAt: q.created_at,
   }));
@@ -384,7 +384,7 @@ export async function getQuoteRequestsClient(): Promise<QuoteRequest[]> {
 export async function createQuoteRequestClient(req: { userId: string; title: string; category?: string; budgetMin?: number; budgetMax?: number; deadline?: string; description?: string }): Promise<boolean> {
   const sb = createClient();
   const { error } = await sb.from("quote_requests").insert({
-    user_id: req.userId, title: req.title, category: req.category,
+    requester_id: req.userId, title: req.title, category: req.category,
     budget_min: req.budgetMin, budget_max: req.budgetMax,
     deadline: req.deadline, description: req.description, status: "open",
   });

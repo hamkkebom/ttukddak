@@ -17,7 +17,7 @@ export async function PATCH(
   // Verify user owns the quote request
   const { data: quoteRequest } = await sb
     .from("quote_requests")
-    .select("id, user_id, status")
+    .select("id, requester_id, status")
     .eq("id", id)
     .maybeSingle();
 
@@ -25,7 +25,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Quote request not found" }, { status: 404 });
   }
 
-  if (quoteRequest.user_id !== user.id) {
+  if (quoteRequest.requester_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
