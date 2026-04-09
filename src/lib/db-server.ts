@@ -1,5 +1,6 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile } from "@/types";
 
 // ============================================
@@ -503,7 +504,7 @@ export async function createExpertApplication(app: { userId: string; name: strin
 }
 
 export async function updateApplicationStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { error } = await sb.from("expert_applications").update({ status }).eq("id", id);
   return !error;
 }
@@ -556,7 +557,7 @@ export async function createQuoteRequest(req: { userId: string; title: string; c
 // ============================================
 
 export async function getProfiles(): Promise<Profile[]> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { data } = await sb.from("profiles").select("*").order("created_at", { ascending: false });
   if (!data) return [];
   return data.map((p: any) => ({
@@ -627,7 +628,7 @@ export async function deleteService(id: string): Promise<boolean> {
 // ============================================
 
 export async function deleteReview(id: string): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { error } = await sb.from("reviews").delete().eq("id", id);
   return !error;
 }
@@ -668,7 +669,7 @@ export async function updateCategory(id: string, updates: { name?: string; slug?
 }
 
 export async function deleteCategory(id: string): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { error } = await sb.from("categories").delete().eq("id", id);
   return !error;
 }
@@ -678,7 +679,7 @@ export async function deleteCategory(id: string): Promise<boolean> {
 // ============================================
 
 export async function getAdminStats(): Promise<{ users: number; experts: number; services: number; orders: number; revenue: number }> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const [u, e, s, o] = await Promise.all([
     sb.from("profiles").select("*", { count: "exact", head: true }),
     sb.from("experts").select("*", { count: "exact", head: true }),

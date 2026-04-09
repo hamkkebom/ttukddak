@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { updateOrderStatus } from "@/lib/db-server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // DB에 주문 상태 업데이트: pending → paid
+    // DB에 주문 상태 업데이트: pending → paid, payment_id 저장
     const updated = await updateOrderStatus(orderId, "paid");
     if (!updated) {
       return NextResponse.json(
@@ -40,6 +41,13 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // payment_id를 주문에 저장
+    const adminSb = createAdminSupabaseClient();
+    await adminSb
+      .from("orders")
+      .update({ payment_id: paymentId, updated_at: new Date().toISOString() })
+      .eq("id", orderId);
 
     return NextResponse.json({
       success: true,

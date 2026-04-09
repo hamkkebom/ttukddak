@@ -7,3 +7,4 @@ next-env.d.ts
 
 .vercel
 .claude/settings.local.json
+supabase/.temp/

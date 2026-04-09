@@ -9,7 +9,7 @@ from google.genai import types
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io, os, time, sys
 
-API_KEY = "***GEMINI_API_KEY_REMOVED***"
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "thumbnails")
 W, H = 800, 450
 

@@ -4,17 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { Sparkles, ArrowLeft, Mail, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
+  const supabase = createClient();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isSent, setIsSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const validate = () => {
     if (!email) {
@@ -29,12 +32,22 @@ export default function ForgotPasswordPage() {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) {
-      setIsSent(true);
-      toast.success("비밀번호 재설정 링크가 발송되었습니다");
+    if (!validate()) return;
+    setIsLoading(true);
+
+    const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    setIsLoading(false);
+    if (supabaseError) {
+      toast.error("이메일 발송에 실패했습니다", { description: supabaseError.message });
+      return;
     }
+    setIsSent(true);
+    toast.success("비밀번호 재설정 링크가 발송되었습니다");
   };
 
   if (isSent) {
@@ -61,9 +74,15 @@ export default function ForgotPasswordPage() {
               <Button
                 variant="ghost"
                 className="w-full text-sm"
-                onClick={() => {
-                  setIsSent(false);
-                  toast.success("재발송되었습니다");
+                onClick={async () => {
+                  const { error: resendError } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/auth/reset-password`,
+                  });
+                  if (resendError) {
+                    toast.error("재발송에 실패했습니다");
+                  } else {
+                    toast.success("재발송되었습니다");
+                  }
                 }}
               >
                 이메일을 받지 못하셨나요? 다시 보내기
@@ -120,8 +139,10 @@ export default function ForgotPasswordPage() {
 
             <Button
               type="submit"
+              disabled={isLoading}
               className="w-full h-12 text-base bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90"
             >
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
               재설정 링크 보내기
             </Button>
           </form>

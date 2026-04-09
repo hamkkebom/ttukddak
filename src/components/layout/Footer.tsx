@@ -49,8 +49,14 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} 뚝딱. All rights reserved.</p>
+        {/* Business Info */}
+        <div className="border-t mt-8 pt-8">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-slate-600">뚝딱 (TTUKDDAK)</p>
+            <p>대표: [대표자명] | 사업자등록번호: [000-00-00000] | 통신판매업 신고번호: [제0000-서울XX-0000호]</p>
+            <p>주소: [사업장 주소] | 이메일: support@ttukddak.com</p>
+            <p className="pt-2">&copy; {new Date().getFullYear()} 뚝딱. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </footer>

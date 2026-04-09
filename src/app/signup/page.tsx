@@ -102,6 +102,18 @@ export default function SignUpPage() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleSocialSignup = async (provider: "google" | "kakao") => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      toast.error("소셜 로그인에 실패했습니다", { description: error.message });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -210,7 +222,7 @@ export default function SignUpPage() {
 
           {/* Social Signup */}
           <div className="space-y-3 mb-6">
-            <Button variant="outline" className="w-full h-11 gap-3 font-medium" type="button">
+            <Button variant="outline" className="w-full h-11 gap-3 font-medium" type="button" onClick={() => handleSocialSignup("google")}>
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -220,7 +232,7 @@ export default function SignUpPage() {
               Google로 시작하기
             </Button>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-11 gap-2 bg-[#FEE500] hover:bg-[#FEE500]/90 border-[#FEE500] text-[#3C1E1E] font-medium" type="button">
+              <Button variant="outline" className="h-11 gap-2 bg-[#FEE500] hover:bg-[#FEE500]/90 border-[#FEE500] text-[#3C1E1E] font-medium" type="button" onClick={() => handleSocialSignup("kakao")}>
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.47 1.607 4.647 4.093 5.903-.14.53-.527 1.924-.604 2.22-.093.36.132.354.278.258.115-.075 1.83-1.213 2.573-1.71.548.076 1.107.116 1.66.116 5.523 0 10-3.477 10-7.787C20 6.477 15.523 3 12 3z"/>
                 </svg>

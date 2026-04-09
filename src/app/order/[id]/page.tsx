@@ -118,42 +118,45 @@ export default function OrderPage({
 
       const { data: newOrder } = await orderRes.json();
 
-      // 2. PortOne 결제 요청 (PortOne SDK가 로드된 경우)
-      if (typeof window !== "undefined" && (window as any).PortOne) {
-        const paymentResponse = await (window as any).PortOne.requestPayment({
-          storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
-          channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
-          paymentId: `payment-${newOrder.id}-${Date.now()}`,
-          orderName: service.title,
-          totalAmount: totalPrice,
-          currency: "KRW",
-          payMethod: paymentMethod === "card" ? "CARD" : paymentMethod === "kakao" ? "EASY_PAY" : paymentMethod === "naver" ? "EASY_PAY" : "VIRTUAL_ACCOUNT",
-          customer: { fullName: user.user_metadata?.name || "고객" },
-          customData: { orderId: newOrder.id },
-        });
+      // 2. PortOne 결제 요청
+      if (typeof window === "undefined" || !(window as any).PortOne) {
+        toast.error("결제 모듈을 불러오지 못했습니다. 페이지를 새로고침 후 다시 시도해주세요.");
+        setOrdering(false);
+        return;
+      }
 
-        if (paymentResponse?.code) {
-          toast.error(`결제 실패: ${paymentResponse.message}`);
-          setOrdering(false);
-          return;
-        }
+      const paymentResponse = await (window as any).PortOne.requestPayment({
+        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
+        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
+        paymentId: `payment-${newOrder.id}-${Date.now()}`,
+        orderName: service.title,
+        totalAmount: totalPrice,
+        currency: "KRW",
+        payMethod: paymentMethod === "card" ? "CARD" : paymentMethod === "kakao" ? "EASY_PAY" : paymentMethod === "naver" ? "EASY_PAY" : "VIRTUAL_ACCOUNT",
+        customer: { fullName: user.user_metadata?.name || "고객" },
+        customData: { orderId: newOrder.id },
+      });
 
-        // 3. 결제 확인
-        await fetch("/api/payment/confirm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paymentId: paymentResponse.paymentId,
-            orderId: newOrder.id,
-          }),
-        });
-      } else {
-        // PortOne SDK 미로드 시 바로 paid 처리 (개발용)
-        await fetch(`/api/orders/${newOrder.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "paid" }),
-        });
+      if (paymentResponse?.code) {
+        toast.error(`결제 실패: ${paymentResponse.message}`);
+        setOrdering(false);
+        return;
+      }
+
+      // 3. 결제 확인
+      const confirmRes = await fetch("/api/payment/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: paymentResponse.paymentId,
+          orderId: newOrder.id,
+        }),
+      });
+
+      if (!confirmRes.ok) {
+        toast.error("결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+        setOrdering(false);
+        return;
       }
 
       toast.success("주문이 완료되었습니다!", {
