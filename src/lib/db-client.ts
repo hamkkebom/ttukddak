@@ -247,14 +247,14 @@ export async function getOrdersClient(filters?: { buyerId?: string; expertId?: s
   const sb = createClient();
   let query = sb.from("orders").select("*, services(title), profiles!orders_buyer_id_fkey(name, avatar_url)").order("created_at", { ascending: false });
   if (filters?.buyerId) query = query.eq("buyer_id", filters.buyerId);
-  if (filters?.expertId) query = query.eq("expert_id", filters.expertId);
+  if (filters?.expertId) query = query.eq("seller_id", filters.expertId);
   if (filters?.status) query = query.eq("status", filters.status);
 
   const { data } = await query;
   if (!data) return [];
   return data.map((o: any) => ({
-    id: o.id, buyerId: o.buyer_id, serviceId: o.service_id, expertId: o.expert_id,
-    packageName: o.package_name, price: o.price, status: o.status, paymentId: o.payment_id,
+    id: o.id, buyerId: o.buyer_id, serviceId: o.service_id, expertId: o.seller_id,
+    packageName: o.package_id, price: o.amount, status: o.status, paymentId: o.payment_id,
     requirements: o.requirements, createdAt: o.created_at, updatedAt: o.updated_at,
     serviceName: o.services?.title, buyerName: o.profiles?.name, buyerAvatar: o.profiles?.avatar_url,
   }));
@@ -265,8 +265,8 @@ export async function getOrderByIdClient(id: string): Promise<Order | null> {
   const { data } = await sb.from("orders").select("*, services(title), profiles!orders_buyer_id_fkey(name, avatar_url)").eq("id", id).maybeSingle();
   if (!data) return null;
   return {
-    id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.expert_id,
-    packageName: data.package_name, price: data.price, status: data.status, paymentId: data.payment_id,
+    id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id,
+    packageName: data.package_id, price: data.amount, status: data.status, paymentId: data.payment_id,
     requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at,
     serviceName: (data as any).services?.title, buyerName: (data as any).profiles?.name,
     buyerAvatar: (data as any).profiles?.avatar_url,
@@ -299,12 +299,12 @@ export async function getConversationsClient(userId: string): Promise<Conversati
   const sb = createClient();
   const { data } = await sb.from("conversations")
     .select("*")
-    .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
     .order("last_message_at", { ascending: false });
 
   if (!data) return [];
   return data.map((c: any) => ({
-    id: c.id, participant1: c.participant_1, participant2: c.participant_2,
+    id: c.id, participant1: c.buyer_id, participant2: c.seller_id,
     lastMessage: c.last_message, lastMessageAt: c.last_message_at, createdAt: c.created_at,
   }));
 }

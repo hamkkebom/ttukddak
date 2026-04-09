@@ -20,7 +20,7 @@ interface DbNotification {
   user_id: string;
   type: NotifType;
   title: string;
-  message: string;
+  description: string;
   link: string | null;
   is_read: boolean;
   created_at: string;
@@ -216,7 +216,7 @@ export default function NotificationsPage() {
                                 {notif.title}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {notif.message}
+                                {notif.description}
                               </p>
                             </div>
                             {!notif.is_read && (

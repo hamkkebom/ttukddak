@@ -154,7 +154,7 @@ export default function MessagesPage() {
         (payload) => {
           const updated = payload.new as any;
           // Check if current user is a participant
-          if (updated.participant_1 === currentUserId || updated.participant_2 === currentUserId) {
+          if (updated.buyer_id === currentUserId || updated.seller_id === currentUserId) {
             setConversations((prev) =>
               prev.map((c) =>
                 c.id === updated.id

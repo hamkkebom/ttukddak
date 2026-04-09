@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       type: type || "system",
       title,
-      message: message || "",
+      description: message || "",
       link: link || null,
       is_read: false,
     })

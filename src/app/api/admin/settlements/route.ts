@@ -41,9 +41,9 @@ export async function GET(req: NextRequest) {
     .from("orders")
     .select(`
       id,
-      expert_id,
+      seller_id,
       service_id,
-      price,
+      amount,
       status,
       created_at,
       updated_at,
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   }
 
   const settlements: Settlement[] = (orders ?? []).map((o: Record<string, unknown>) => {
-    const orderAmount = (o.price as number) ?? 0;
+    const orderAmount = (o.amount as number) ?? 0;
     const feeAmount = Math.round(orderAmount * FEE_RATE);
     const settlementAmount = orderAmount - feeAmount;
     const completedAt = (o.updated_at as string) ?? (o.created_at as string);
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     return {
       id: o.id as string,
-      expertId: (o.expert_id as string) ?? "",
+      expertId: (o.seller_id as string) ?? "",
       expertName: experts?.profiles?.name ?? undefined,
       orderId: o.id as string,
       serviceName: services?.title ?? undefined,

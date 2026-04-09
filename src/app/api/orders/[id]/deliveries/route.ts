@@ -34,11 +34,11 @@ export async function POST(
   // Verify user is the expert for this order
   const { data: order } = await sb
     .from("orders")
-    .select("expert_id, status")
+    .select("seller_id, status")
     .eq("id", id)
     .single();
 
-  if (!order || order.expert_id !== user.id) {
+  if (!order || order.seller_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

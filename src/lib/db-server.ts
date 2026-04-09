@@ -344,7 +344,7 @@ export async function getOrders(filters?: { buyerId?: string; expertId?: string;
   let query = sb.from("orders").select("*, services(title), profiles!orders_buyer_id_fkey(name, avatar_url)").order("created_at", { ascending: false });
 
   if (filters?.buyerId) query = query.eq("buyer_id", filters.buyerId);
-  if (filters?.expertId) query = query.eq("expert_id", filters.expertId);
+  if (filters?.expertId) query = query.eq("seller_id", filters.expertId);
   if (filters?.status) query = query.eq("status", filters.status);
 
   const { data } = await query;
@@ -353,9 +353,9 @@ export async function getOrders(filters?: { buyerId?: string; expertId?: string;
     id: o.id,
     buyerId: o.buyer_id,
     serviceId: o.service_id,
-    expertId: o.expert_id,
-    packageName: o.package_name,
-    price: o.price,
+    expertId: o.seller_id,
+    packageName: o.package_id,
+    price: o.amount,
     status: o.status,
     paymentId: o.payment_id,
     requirements: o.requirements,
@@ -375,9 +375,9 @@ export async function getOrderById(id: string): Promise<Order | null> {
     id: data.id,
     buyerId: data.buyer_id,
     serviceId: data.service_id,
-    expertId: data.expert_id,
-    packageName: data.package_name,
-    price: data.price,
+    expertId: data.seller_id,
+    packageName: data.package_id,
+    price: data.amount,
     status: data.status,
     paymentId: data.payment_id,
     requirements: data.requirements,
@@ -394,15 +394,15 @@ export async function createOrder(order: { buyerId: string; serviceId: string; e
   const { data, error } = await sb.from("orders").insert({
     buyer_id: order.buyerId,
     service_id: order.serviceId,
-    expert_id: order.expertId,
-    package_name: order.packageName,
-    price: order.price,
+    seller_id: order.expertId,
+    package_id: order.packageName,
+    amount: order.price,
     requirements: order.requirements,
     status: "pending",
   }).select().single();
 
   if (error || !data) return null;
-  return { id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.expert_id, packageName: data.package_name, price: data.price, status: data.status, paymentId: data.payment_id, requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at };
+  return { id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id, packageName: data.package_id, price: data.amount, status: data.status, paymentId: data.payment_id, requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at };
 }
 
 export async function updateOrderStatus(id: string, status: string): Promise<boolean> {
@@ -460,14 +460,14 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
   const sb = await createServerSupabaseClient();
   const { data } = await sb.from("conversations")
     .select("*")
-    .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
     .order("last_message_at", { ascending: false });
 
   if (!data) return [];
   return data.map((c: any) => ({
     id: c.id,
-    participant1: c.participant_1,
-    participant2: c.participant_2,
+    participant1: c.buyer_id,
+    participant2: c.seller_id,
     lastMessage: c.last_message,
     lastMessageAt: c.last_message_at,
     createdAt: c.created_at,
@@ -513,12 +513,12 @@ export async function createConversation(participant1: string, participant2: str
   // Check existing
   const { data: existing } = await sb.from("conversations")
     .select("id")
-    .or(`and(participant_1.eq.${participant1},participant_2.eq.${participant2}),and(participant_1.eq.${participant2},participant_2.eq.${participant1})`)
+    .or(`and(buyer_id.eq.${participant1},seller_id.eq.${participant2}),and(buyer_id.eq.${participant2},seller_id.eq.${participant1})`)
     .maybeSingle();
 
   if (existing) return existing.id;
 
-  const { data, error } = await sb.from("conversations").insert({ participant_1: participant1, participant_2: participant2 }).select("id").single();
+  const { data, error } = await sb.from("conversations").insert({ buyer_id: participant1, seller_id: participant2 }).select("id").single();
   if (error || !data) return null;
   return data.id;
 }
@@ -769,15 +769,15 @@ export async function getAdminStats(): Promise<AdminStats> {
   ]);
 
   // Revenue from completed orders
-  const { data: revenueData } = await sb.from("orders").select("price").eq("status", "completed");
-  const totalRevenue = (revenueData || []).reduce((sum: number, r: any) => sum + (r.price || 0), 0);
+  const { data: revenueData } = await sb.from("orders").select("amount").eq("status", "completed");
+  const totalRevenue = (revenueData || []).reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
   // Monthly revenue for last 6 months
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const { data: monthlyData } = await sb
     .from("orders")
-    .select("price, created_at")
+    .select("amount, created_at")
     .eq("status", "completed")
     .gte("created_at", sixMonthsAgo.toISOString());
 
@@ -785,7 +785,7 @@ export async function getAdminStats(): Promise<AdminStats> {
   for (const row of monthlyData || []) {
     const d = new Date(row.created_at);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    revenueByMonth[key] = (revenueByMonth[key] || 0) + (row.price || 0);
+    revenueByMonth[key] = (revenueByMonth[key] || 0) + (row.amount || 0);
   }
 
   // Build last 6 months list in order

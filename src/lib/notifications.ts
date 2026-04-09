@@ -13,7 +13,7 @@ export async function createNotification(params: {
     user_id: params.userId,
     type: params.type,
     title: params.title,
-    message: params.message || "",
+    description: params.message || "",
     link: params.link || null,
     is_read: false,
   });
