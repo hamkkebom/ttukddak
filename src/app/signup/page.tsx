@@ -102,9 +102,9 @@ export default function SignUpPage() {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSocialSignup = async (provider: "google" | "kakao") => {
+  const handleSocialSignup = async (provider: "google" | "kakao" | "naver") => {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: provider as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -238,7 +238,7 @@ export default function SignUpPage() {
                 </svg>
                 카카오
               </Button>
-              <Button variant="outline" className="h-11 gap-2 bg-[#03C75A] hover:bg-[#03C75A]/90 border-[#03C75A] text-white font-medium" type="button">
+              <Button variant="outline" className="h-11 gap-2 bg-[#03C75A] hover:bg-[#03C75A]/90 border-[#03C75A] text-white font-medium" type="button" onClick={() => handleSocialSignup("naver")}>
                 <span className="font-bold text-lg">N</span>
                 네이버
               </Button>

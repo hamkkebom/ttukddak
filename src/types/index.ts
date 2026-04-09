@@ -52,6 +52,8 @@ export interface Service {
   isFastResponse: boolean;
   packages: ServicePackage[];
   createdAt: string;
+  status?: "draft" | "pending_review" | "active" | "rejected" | "suspended" | "deleted";
+  rejectionReason?: string;
 }
 
 export interface Review {
@@ -137,6 +139,19 @@ export interface QuoteRequest {
   userAvatar?: string;
 }
 
+export interface QuoteResponse {
+  id: string;
+  quoteRequestId: string;
+  expertId: string;
+  expertName?: string;
+  expertAvatar?: string;
+  price: number;
+  message: string;
+  estimatedDays: number;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -145,4 +160,28 @@ export interface Profile {
   role: "user" | "expert" | "admin";
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface Settlement {
+  id: string;
+  expertId: string;
+  expertName?: string;
+  orderId: string;
+  serviceName?: string;
+  orderAmount: number;
+  feeRate: number;
+  feeAmount: number;
+  settlementAmount: number;
+  status: "pending" | "scheduled" | "completed" | "held";
+  scheduledDate?: string;
+  completedDate?: string;
+  createdAt: string;
+}
+
+export interface ExpertBankAccount {
+  expertId: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  updatedAt: string;
 }

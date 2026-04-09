@@ -223,6 +223,8 @@ function SearchPageContent() {
   const [query, setQuery] = useState(initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showRecent, setShowRecent] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [searchResults, setSearchResults] = useState<Service[]>([]);
@@ -236,6 +238,38 @@ function SearchPageContent() {
   const [onlyPrime, setOnlyPrime] = useState(false);
   const [onlyFast, setOnlyFast] = useState(false);
   const [onlyMaster, setOnlyMaster] = useState(false);
+
+  // Load recent searches from localStorage once
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("recentSearches");
+      if (stored) setRecentSearches(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const saveRecentSearch = (term: string) => {
+    if (!term.trim()) return;
+    setRecentSearches((prev) => {
+      const updated = [term, ...prev.filter((s) => s !== term)].slice(0, 10);
+      try {
+        localStorage.setItem("recentSearches", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem("recentSearches");
+    } catch {
+      // ignore
+    }
+  };
 
   // Load categories once
   useEffect(() => {
@@ -276,12 +310,22 @@ function SearchPageContent() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowRecent(false);
+    if (query.trim()) saveRecentSearch(query.trim());
     setSubmittedQuery(query);
   };
 
   const handleKeywordClick = (keyword: string) => {
     setQuery(keyword);
+    setShowRecent(false);
+    saveRecentSearch(keyword);
     setSubmittedQuery(keyword);
+  };
+
+  const handleRecentClick = (term: string) => {
+    setQuery(term);
+    setShowRecent(false);
+    setSubmittedQuery(term);
   };
 
   const handleFilterReset = () => {
@@ -373,7 +417,7 @@ function SearchPageContent() {
       {/* ── Search Header ── */}
       <section className="bg-white border-b border-slate-100 py-6">
         <div className="container mx-auto px-4 max-w-6xl">
-          <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
             <div className="flex items-stretch h-13 rounded-xl border-2 border-slate-200 bg-white overflow-hidden focus-within:border-orange-400 transition-colors shadow-sm">
               <div className="flex items-center pl-4">
                 <Search className="h-5 w-5 text-slate-400 shrink-0" />
@@ -383,6 +427,8 @@ function SearchPageContent() {
                 placeholder="어떤 영상 서비스를 찾고 계세요?"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setShowRecent(true)}
+                onBlur={() => setTimeout(() => setShowRecent(false), 150)}
                 className="flex-1 border-0 shadow-none focus-visible:ring-0 text-base px-3 h-full bg-transparent"
               />
               {query && (
@@ -401,6 +447,51 @@ function SearchPageContent() {
                 검색
               </button>
             </div>
+            {/* Recent Searches Dropdown */}
+            {showRecent && !query && recentSearches.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-500">최근 검색어</span>
+                  <button
+                    type="button"
+                    onClick={clearRecentSearches}
+                    className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    전체 삭제
+                  </button>
+                </div>
+                <ul>
+                  {recentSearches.map((term) => (
+                    <li key={term}>
+                      <button
+                        type="button"
+                        onMouseDown={() => handleRecentClick(term)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                      >
+                        <Search className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                        <span className="flex-1 truncate">{term}</span>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            const updated = recentSearches.filter((s) => s !== term);
+                            setRecentSearches(updated);
+                            try {
+                              localStorage.setItem("recentSearches", JSON.stringify(updated));
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          className="text-slate-300 hover:text-slate-500 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
 
           {/* Category Chips */}

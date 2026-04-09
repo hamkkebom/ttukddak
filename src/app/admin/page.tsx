@@ -3,29 +3,13 @@
 import { useState, useEffect } from "react";
 import {
   Users, Package, ShoppingBag, DollarSign, TrendingUp,
-  ArrowUpRight, ArrowDownRight, Star, Clock, AlertCircle
+  ArrowUpRight, ArrowDownRight, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getProfilesClient, getServicesClient, getOrdersClient } from "@/lib/db-client";
-import type { Order, Profile, Service } from "@/types";
-
-const pendingItems = [
-  { type: "서비스 승인 대기", count: 8, color: "text-amber-600 bg-amber-100" },
-  { type: "전문가 승인 대기", count: 3, color: "text-blue-600 bg-blue-100" },
-  { type: "신고 처리 대기", count: 2, color: "text-red-600 bg-red-100" },
-  { type: "환불 요청", count: 1, color: "text-purple-600 bg-purple-100" },
-  { type: "1:1 문의 미답변", count: 5, color: "text-green-600 bg-green-100" },
-];
-
-const monthlyRevenue = [
-  { month: "10월", value: 32000000 },
-  { month: "11월", value: 35000000 },
-  { month: "12월", value: 41000000 },
-  { month: "1월", value: 38000000 },
-  { month: "2월", value: 42000000 },
-  { month: "3월", value: 45200000 },
-];
+import { getOrdersClient } from "@/lib/db-client";
+import type { Order } from "@/types";
+import type { AdminStats } from "@/lib/db-server";
 
 const statusColors: Record<string, string> = {
   pending: "bg-blue-100 text-blue-700",
@@ -48,35 +32,39 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      getProfilesClient(),
-      getServicesClient(),
+      fetch("/api/admin/stats").then((r) => r.ok ? r.json() : null),
       getOrdersClient(),
-    ]).then(([p, s, o]) => {
-      setProfiles(p);
-      setServices(s);
+    ]).then(([s, o]) => {
+      setStats(s);
       setOrders(o);
       setLoading(false);
     });
   }, []);
 
   const fmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
-  const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.value));
 
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const thisMonthOrders = orders.length;
+  const monthlyRevenue = stats?.monthlyRevenue ?? [];
+  const maxRevenue = monthlyRevenue.length > 0 ? Math.max(...monthlyRevenue.map((m) => m.revenue)) : 1;
 
   const kpiCards = [
-    { label: "총 회원수", value: loading ? "..." : profiles.length.toLocaleString(), change: "", up: true, icon: Users },
-    { label: "등록 서비스", value: loading ? "..." : services.length.toLocaleString(), change: "", up: true, icon: Package },
-    { label: "총 거래", value: loading ? "..." : `${thisMonthOrders}건`, change: "", up: true, icon: ShoppingBag },
-    { label: "누적 매출", value: loading ? "..." : `${(totalRevenue / 1000000).toFixed(1)}M`, change: "", up: true, icon: DollarSign },
+    { label: "총 회원수", value: loading ? "..." : (stats?.userCount ?? 0).toLocaleString(), change: "", up: true, icon: Users },
+    { label: "등록 서비스", value: loading ? "..." : (stats?.serviceCount ?? 0).toLocaleString(), change: "", up: true, icon: Package },
+    { label: "총 거래", value: loading ? "..." : `${stats?.totalOrders ?? 0}건`, change: "", up: true, icon: ShoppingBag },
+    { label: "누적 매출", value: loading ? "..." : `${((stats?.totalRevenue ?? 0) / 1000000).toFixed(1)}M`, change: "", up: true, icon: DollarSign },
+  ];
+
+  const pendingItems = [
+    { type: "서비스 승인 대기", count: stats?.pendingServices ?? 0, color: "text-amber-600 bg-amber-100" },
+    { type: "전문가 승인 대기", count: stats?.pendingExperts ?? 0, color: "text-blue-600 bg-blue-100" },
+    { type: "신고 처리 대기", count: stats?.pendingReports ?? 0, color: "text-red-600 bg-red-100" },
+    { type: "환불 요청", count: stats?.refundRequests ?? 0, color: "text-purple-600 bg-purple-100" },
+    { type: "1:1 문의 미답변", count: stats?.pendingSupport ?? 0, color: "text-green-600 bg-green-100" },
   ];
 
   const recentOrders = orders.slice(0, 5);
@@ -137,11 +125,11 @@ export default function AdminDashboard() {
                     <div className="flex-1 bg-muted rounded-full h-4">
                       <div
                         className="bg-primary rounded-full h-4 transition-all"
-                        style={{ width: `${(m.value / maxRevenue) * 100}%` }}
+                        style={{ width: `${(m.revenue / maxRevenue) * 100}%` }}
                       />
                     </div>
                     <span className="text-xs font-medium w-16 text-right">
-                      {(m.value / 1000000).toFixed(1)}M
+                      {(m.revenue / 1000000).toFixed(1)}M
                     </span>
                   </div>
                 ))}
@@ -215,9 +203,9 @@ export default function AdminDashboard() {
             <CardHeader><CardTitle className="text-base">현황</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: "총 회원수", value: `${profiles.length}명` },
-                { label: "총 서비스", value: `${services.length}개` },
-                { label: "총 주문", value: `${orders.length}건` },
+                { label: "총 회원수", value: `${stats?.userCount ?? 0}명` },
+                { label: "총 서비스", value: `${stats?.serviceCount ?? 0}개` },
+                { label: "총 주문", value: `${stats?.totalOrders ?? 0}건` },
                 { label: "완료 거래", value: `${orders.filter((o) => o.status === "completed").length}건` },
                 { label: "진행중 거래", value: `${orders.filter((o) => o.status === "in_progress").length}건` },
               ].map((s) => (

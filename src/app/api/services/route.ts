@@ -8,27 +8,34 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
 
-  let result;
+  let services;
+  let totalCount: number;
+
   if (category) {
-    result = await getServicesByCategory(category);
+    const data = await getServicesByCategory(category);
+    services = data;
+    totalCount = data.length;
   } else if (query) {
-    result = await searchServicesDB(query);
+    const { services: found, total } = await searchServicesDB(query, { limit, offset: (page - 1) * limit });
+    services = found;
+    totalCount = total;
   } else {
-    result = await getServices();
+    const data = await getServices();
+    services = data;
+    totalCount = data.length;
   }
 
-  const start = (page - 1) * limit;
-  const end = start + limit;
-  const paginatedData = result.slice(start, end);
+  // For non-search paths, apply manual pagination
+  const paginatedData = query ? services : services.slice((page - 1) * limit, page * limit);
 
   return NextResponse.json({
     success: true,
     data: paginatedData,
     meta: {
-      total: result.length,
+      total: totalCount,
       page,
       limit,
-      totalPages: Math.ceil(result.length / limit),
+      totalPages: Math.ceil(totalCount / limit),
     },
   });
 }

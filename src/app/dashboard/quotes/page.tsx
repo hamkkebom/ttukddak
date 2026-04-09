@@ -34,6 +34,8 @@ export default function DashboardQuotesPage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
+  const [estimatedDays, setEstimatedDays] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,11 +55,46 @@ export default function DashboardQuotesPage() {
 
   const selected = quoteRequests.find((q) => q.id === selectedQuoteId);
 
-  const handleSendQuote = () => {
+  const handleSendQuote = async () => {
+    if (!selectedQuoteId) return;
     if (!quoteAmount) { toast.error("견적 금액을 입력해주세요"); return; }
-    toast.success("견적이 전송되었습니다!", { description: `견적을 보냈습니다. (견적 응답 테이블 준비 중)` });
-    setQuoteAmount("");
-    setQuoteMessage("");
+    if (!quoteMessage) { toast.error("견적 설명을 입력해주세요"); return; }
+    if (!estimatedDays) { toast.error("작업 예상 기간을 입력해주세요"); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/quote-requests/${selectedQuoteId}/responses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          price: Number(quoteAmount),
+          message: quoteMessage,
+          estimatedDays: Number(estimatedDays),
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        toast.error(json.error || "견적 전송에 실패했습니다");
+        return;
+      }
+
+      toast.success("견적이 전송되었습니다!", { description: "고객에게 견적을 성공적으로 보냈습니다." });
+      setQuoteAmount("");
+      setQuoteMessage("");
+      setEstimatedDays("");
+
+      // Refresh list and mark the request as matched
+      setQuoteRequests((prev) =>
+        prev.map((q) =>
+          q.id === selectedQuoteId ? { ...q, status: "matched" as const } : q
+        )
+      );
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatBudget = (q: QuoteRequest) => {
@@ -192,6 +229,18 @@ export default function DashboardQuotesPage() {
                         value={quoteAmount}
                         onChange={(e) => setQuoteAmount(e.target.value)}
                         className="pl-9"
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="relative w-36">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        placeholder="작업 기간 (일)"
+                        value={estimatedDays}
+                        onChange={(e) => setEstimatedDays(e.target.value)}
+                        className="pl-9"
+                        disabled={submitting}
                       />
                     </div>
                   </div>
@@ -200,16 +249,20 @@ export default function DashboardQuotesPage() {
                     onChange={(e) => setQuoteMessage(e.target.value)}
                     placeholder="견적 설명 (작업 범위, 포함 사항, 일정 등)"
                     rows={3}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    disabled={submitting}
                   />
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1">
-                      <X className="h-4 w-4 mr-1" /> 거절
-                    </Button>
-                    <Button className="flex-1" onClick={handleSendQuote}>
-                      <Send className="h-4 w-4 mr-1" /> 견적 보내기
+                    <Button className="flex-1" onClick={handleSendQuote} disabled={submitting}>
+                      <Send className="h-4 w-4 mr-1" /> {submitting ? "전송 중..." : "견적 보내기"}
                     </Button>
                   </div>
+                </div>
+              )}
+              {selected.status === "matched" && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  견적을 이미 전송했습니다. 고객의 응답을 기다리고 있습니다.
                 </div>
               )}
             </CardContent>

@@ -18,6 +18,7 @@ interface DBService {
   is_prime: boolean;
   is_fast_response: boolean;
   status: string;
+  rejection_reason: string | null;
   sales_count: number;
   rating: number;
   review_count: number;
@@ -100,6 +101,8 @@ function dbServiceToApp(s: DBService, packages?: any[]): Service {
     isFastResponse: s.is_fast_response || false,
     packages: pkgs,
     createdAt: s.created_at?.split("T")[0] || "2026-01-01",
+    status: (s.status as Service["status"]) || "active",
+    rejectionReason: s.rejection_reason || undefined,
   };
 }
 
@@ -153,6 +156,16 @@ export async function getServicesClient(limit?: number): Promise<Service[]> {
   if (limit) query = query.limit(limit);
 
   const { data } = await query;
+  return (data || []).map((s: any) => dbServiceToApp(s));
+}
+
+export async function getAllServicesAdminClient(): Promise<Service[]> {
+  const sb = createClient();
+  const { data } = await sb
+    .from("services")
+    .select("*")
+    .neq("status", "deleted")
+    .order("created_at", { ascending: false });
   return (data || []).map((s: any) => dbServiceToApp(s));
 }
 

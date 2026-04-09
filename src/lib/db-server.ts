@@ -225,18 +225,66 @@ export async function getServicesByExpertDB(expertId: string): Promise<Service[]
   return (data || []).map((s: any) => dbServiceToApp(s));
 }
 
-export async function searchServicesDB(query: string): Promise<Service[]> {
+export async function searchServicesDB(
+  query: string,
+  options?: {
+    sort?: "popular" | "rating" | "price_low" | "price_high" | "relevance";
+    categoryId?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{ services: Service[]; total: number }> {
   const sb = await createServerSupabaseClient();
   const lower = `%${query}%`;
-  const { data } = await sb
+  const limit = options?.limit ?? 20;
+  const offset = options?.offset ?? 0;
+
+  // Count query
+  let countQuery = sb
+    .from("services")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active")
+    .or(`title.ilike.${lower},description.ilike.${lower}`);
+
+  if (options?.categoryId) {
+    countQuery = countQuery.eq("category_id", options.categoryId);
+  }
+
+  // Data query
+  let dataQuery = sb
     .from("services")
     .select("*")
     .eq("status", "active")
-    .or(`title.ilike.${lower},description.ilike.${lower}`)
-    .order("sales_count", { ascending: false })
-    .limit(50);
+    .or(`title.ilike.${lower},description.ilike.${lower}`);
 
-  return (data || []).map((s: any) => dbServiceToApp(s));
+  if (options?.categoryId) {
+    dataQuery = dataQuery.eq("category_id", options.categoryId);
+  }
+
+  const sort = options?.sort ?? "popular";
+  switch (sort) {
+    case "rating":
+      dataQuery = dataQuery.order("rating", { ascending: false });
+      break;
+    case "price_low":
+      dataQuery = dataQuery.order("price", { ascending: true });
+      break;
+    case "price_high":
+      dataQuery = dataQuery.order("price", { ascending: false });
+      break;
+    default:
+      dataQuery = dataQuery.order("sales_count", { ascending: false });
+      break;
+  }
+
+  dataQuery = dataQuery.range(offset, offset + limit - 1);
+
+  const [{ count }, { data }] = await Promise.all([countQuery, dataQuery]);
+
+  return {
+    services: (data || []).map((s: any) => dbServiceToApp(s)),
+    total: count ?? 0,
+  };
 }
 
 export async function getExperts(limit?: number): Promise<Expert[]> {
@@ -598,7 +646,7 @@ export async function updateProfile(id: string, updates: { name?: string; avatar
 // Service CRUD (for dashboard)
 // ============================================
 
-export async function createService(svc: { expertId: string; categoryId: string; title: string; description: string; price: number; tags?: string[]; images?: string[] }): Promise<string | null> {
+export async function createService(svc: { expertId: string; categoryId: string; title: string; description: string; price: number; tags?: string[]; images?: string[]; status?: string }): Promise<string | null> {
   const sb = await createServerSupabaseClient();
   const { data, error } = await sb.from("services").insert({
     expert_id: svc.expertId,
@@ -608,13 +656,13 @@ export async function createService(svc: { expertId: string; categoryId: string;
     price: svc.price,
     tags: svc.tags || [],
     images: svc.images || [],
-    status: "active",
+    status: svc.status || "pending_review",
   }).select("id").single();
   if (error || !data) return null;
   return data.id;
 }
 
-export async function updateService(id: string, updates: { title?: string; description?: string; price?: number; tags?: string[]; categoryId?: string; status?: string }): Promise<boolean> {
+export async function updateService(id: string, updates: { title?: string; description?: string; price?: number; tags?: string[]; categoryId?: string; status?: string; rejectionReason?: string | null }): Promise<boolean> {
   const sb = await createServerSupabaseClient();
   const dbUpdates: any = { updated_at: new Date().toISOString() };
   if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -623,6 +671,7 @@ export async function updateService(id: string, updates: { title?: string; descr
   if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
   if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.rejectionReason !== undefined) dbUpdates.rejection_reason = updates.rejectionReason;
   const { error } = await sb.from("services").update(dbUpdates).eq("id", id);
   return !error;
 }
@@ -692,24 +741,73 @@ export async function deleteCategory(id: string): Promise<boolean> {
 // Admin Stats
 // ============================================
 
-export async function getAdminStats(): Promise<{ users: number; experts: number; services: number; orders: number; revenue: number }> {
+export interface AdminStats {
+  userCount: number;
+  expertCount: number;
+  serviceCount: number;
+  totalOrders: number;
+  totalRevenue: number;
+  pendingServices: number;
+  pendingExperts: number;
+  pendingReports: number;
+  refundRequests: number;
+  pendingSupport: number;
+  monthlyRevenue: { month: string; revenue: number }[];
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
   const sb = createAdminSupabaseClient();
-  const [u, e, s, o] = await Promise.all([
+
+  const [u, e, s, o, pendingSvc, pendingExp, refundReq] = await Promise.all([
     sb.from("profiles").select("*", { count: "exact", head: true }),
     sb.from("experts").select("*", { count: "exact", head: true }),
     sb.from("services").select("*", { count: "exact", head: true }),
     sb.from("orders").select("*", { count: "exact", head: true }),
+    sb.from("services").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
+    sb.from("expert_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    sb.from("orders").select("*", { count: "exact", head: true }).in("status", ["refunded", "cancelled"]),
   ]);
 
   // Revenue from completed orders
   const { data: revenueData } = await sb.from("orders").select("price").eq("status", "completed");
-  const revenue = (revenueData || []).reduce((sum: number, r: any) => sum + (r.price || 0), 0);
+  const totalRevenue = (revenueData || []).reduce((sum: number, r: any) => sum + (r.price || 0), 0);
+
+  // Monthly revenue for last 6 months
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const { data: monthlyData } = await sb
+    .from("orders")
+    .select("price, created_at")
+    .eq("status", "completed")
+    .gte("created_at", sixMonthsAgo.toISOString());
+
+  const revenueByMonth: Record<string, number> = {};
+  for (const row of monthlyData || []) {
+    const d = new Date(row.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    revenueByMonth[key] = (revenueByMonth[key] || 0) + (row.price || 0);
+  }
+
+  // Build last 6 months list in order
+  const monthlyRevenue: { month: string; revenue: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlyRevenue.push({ month: `${d.getMonth() + 1}월`, revenue: revenueByMonth[key] || 0 });
+  }
 
   return {
-    users: u.count || 0,
-    experts: e.count || 0,
-    services: s.count || 0,
-    orders: o.count || 0,
-    revenue,
+    userCount: u.count || 0,
+    expertCount: e.count || 0,
+    serviceCount: s.count || 0,
+    totalOrders: o.count || 0,
+    totalRevenue,
+    pendingServices: pendingSvc.count || 0,
+    pendingExperts: pendingExp.count || 0,
+    pendingReports: 0,
+    refundRequests: refundReq.count || 0,
+    pendingSupport: 0,
+    monthlyRevenue,
   };
 }

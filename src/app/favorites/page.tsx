@@ -2,17 +2,26 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Heart, ArrowRight } from "lucide-react";
+import { Heart, ArrowRight, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceCard } from "@/components/ServiceCard";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { getServiceByIdClient, getExpertByIdClient } from "@/lib/db-client";
+import { createClient } from "@/lib/supabase/client";
 import type { Service, Expert } from "@/types";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
   const [favoriteServices, setFavoriteServices] = useState<Service[]>([]);
   const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   useEffect(() => {
     if (favorites.length === 0) {
@@ -56,6 +65,17 @@ export default function FavoritesPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {!isLoggedIn && (
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <LogIn className="h-4 w-4 shrink-0" />
+            <span>
+              로그인하면 찜 목록이 모든 기기에서 동기화됩니다.{" "}
+              <Link href="/login" className="font-medium underline underline-offset-2">
+                로그인하기
+              </Link>
+            </span>
+          </div>
+        )}
         {favoriteServices.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {favoriteServices.map((service) => (

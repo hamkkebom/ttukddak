@@ -32,6 +32,10 @@ export default function EditServicePage({
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
 
+  const [serviceStatus, setServiceStatus] = useState<string>("draft");
+  const [rejectionReason, setRejectionReason] = useState<string | undefined>(undefined);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -52,6 +56,8 @@ export default function EditServicePage({
         ]);
         setCategories(cats);
         if (!service) { setNotFound(true); return; }
+        setServiceStatus(service.status || "active");
+        setRejectionReason(service.rejectionReason);
         setFormData({
           title: service.title,
           category: service.categoryId,
@@ -140,6 +146,25 @@ export default function EditServicePage({
     }
   };
 
+  const handleSubmitForReview = async () => {
+    setSubmittingReview(true);
+    try {
+      const res = await fetch(`/api/services/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending_review", rejectionReason: null }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setServiceStatus("pending_review");
+      setRejectionReason(undefined);
+      toast.success("심사 신청이 완료되었습니다", { description: "관리자 검토 후 활성화됩니다." });
+    } catch {
+      toast.error("심사 신청에 실패했습니다");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="max-w-3xl mx-auto">
@@ -165,16 +190,49 @@ export default function EditServicePage({
         <div className="space-y-6">
           {/* Status */}
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">서비스 상태</span>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">활성</Badge>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">서비스 상태</span>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      serviceStatus === "active" ? "bg-green-100 text-green-700" :
+                      serviceStatus === "pending_review" ? "bg-amber-100 text-amber-700" :
+                      serviceStatus === "rejected" ? "bg-red-100 text-red-700" :
+                      serviceStatus === "suspended" ? "bg-slate-100 text-slate-700" :
+                      "bg-blue-100 text-blue-700"
+                    }
+                  >
+                    {serviceStatus === "active" ? "활성" :
+                     serviceStatus === "pending_review" ? "심사중" :
+                     serviceStatus === "rejected" ? "반려" :
+                     serviceStatus === "suspended" ? "정지" :
+                     "임시저장"}
+                  </Badge>
+                  {(serviceStatus === "draft" || serviceStatus === "rejected") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSubmitForReview}
+                      disabled={submittingReview}
+                    >
+                      {submittingReview ? "신청 중..." : "심사 신청"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>조회 {formData.salesCount * 5}</span>
+                  <span>판매 {formData.salesCount}건</span>
+                  <span>평점 {formData.rating}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>조회 {formData.salesCount * 5}</span>
-                <span>판매 {formData.salesCount}건</span>
-                <span>평점 {formData.rating}</span>
-              </div>
+              {serviceStatus === "rejected" && rejectionReason && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm font-medium text-red-700 mb-0.5">반려 사유</p>
+                  <p className="text-sm text-red-600">{rejectionReason}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

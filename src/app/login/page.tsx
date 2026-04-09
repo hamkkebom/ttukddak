@@ -87,9 +87,9 @@ function LoginContent() {
     router.refresh();
   };
 
-  const handleSocialLogin = async (provider: "google" | "kakao") => {
+  const handleSocialLogin = async (provider: "google" | "kakao" | "naver") => {
     await supabase.auth.signInWithOAuth({
-      provider,
+      provider: provider as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
@@ -211,9 +211,9 @@ function LoginContent() {
                 </svg>
                 카카오
               </Button>
-              <Button variant="outline" className="h-12 gap-2 bg-[#03C75A] hover:bg-[#03C75A]/90 border-[#03C75A] text-white font-medium" type="button" disabled>
+              <Button variant="outline" className="h-12 gap-2 bg-[#03C75A] hover:bg-[#03C75A]/90 border-[#03C75A] text-white font-medium" type="button" onClick={() => handleSocialLogin("naver")}>
                 <span className="font-bold text-lg">N</span>
-                네이버 (준비중)
+                네이버
               </Button>
             </div>
           </div>

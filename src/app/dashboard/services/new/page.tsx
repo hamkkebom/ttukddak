@@ -103,9 +103,9 @@ export default function NewServicePage() {
     ));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (submitForReview = false) => {
     if (!formData.title.trim()) { toast.error("서비스 제목을 입력해주세요"); return; }
-    if (!formData.category) { toast.error("카테고리를 선택해주세요"); return; }
+    if (submitForReview && !formData.category) { toast.error("카테고리를 선택해주세요"); return; }
 
     setSubmitting(true);
     try {
@@ -124,12 +124,17 @@ export default function NewServicePage() {
           description: formData.description,
           price: basePrice,
           tags: formData.tags,
+          status: submitForReview ? "pending_review" : "draft",
         }),
       });
 
       if (!res.ok) throw new Error("Failed to create service");
 
-      toast.success("서비스가 등록되었습니다!", { description: "검토 후 활성화됩니다." });
+      if (submitForReview) {
+        toast.success("심사 신청이 완료되었습니다!", { description: "관리자 검토 후 활성화됩니다." });
+      } else {
+        toast.success("임시 저장되었습니다", { description: "나중에 심사를 신청할 수 있습니다." });
+      }
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
@@ -330,9 +335,11 @@ export default function NewServicePage() {
                 <Link href="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" /> 취소</Link>
               </Button>
               <div className="flex gap-3">
-                <Button variant="outline" disabled={submitting}>임시 저장</Button>
-                <Button onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? "등록 중..." : "서비스 등록"} <Check className="h-4 w-4 ml-2" />
+                <Button variant="outline" disabled={submitting} onClick={() => handleSubmit(false)}>
+                  임시 저장
+                </Button>
+                <Button onClick={() => handleSubmit(true)} disabled={submitting}>
+                  {submitting ? "등록 중..." : "심사 신청"} <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             </div>
