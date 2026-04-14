@@ -15,9 +15,16 @@ export async function generateMetadata({
   const { id } = await params;
   const expert = await getExpertByIdDB(id);
 
+  const name = expert?.name || "전문가";
+  const description = expert?.introduction || "AI 영상 전문가를 만나보세요.";
   return {
-    title: `${expert?.name || "전문가"} | 뚝딱`,
-    description: expert?.introduction || "AI 영상 전문가를 만나보세요.",
+    title: name,
+    description,
+    openGraph: {
+      title: `${name} | 뚝딱`,
+      description,
+      ...(expert?.profileImage ? { images: [{ url: expert.profileImage }] } : {}),
+    },
   };
 }
 

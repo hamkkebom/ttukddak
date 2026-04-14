@@ -14,9 +14,12 @@ export async function generateMetadata({
   const { slug } = await params;
   const category = await getCategoryBySlugDB(slug);
 
+  const name = category?.name || "카테고리";
+  const description = category?.description || "AI 영상 전문가 서비스를 찾아보세요.";
   return {
-    title: `${category?.name || "카테고리"} | 뚝딱`,
-    description: category?.description || "AI 영상 전문가 서비스를 찾아보세요.",
+    title: name,
+    description,
+    openGraph: { title: `${name} | 뚝딱`, description },
   };
 }
 

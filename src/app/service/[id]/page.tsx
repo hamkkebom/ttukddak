@@ -15,9 +15,16 @@ export async function generateMetadata({
   const { id } = await params;
   const service = await getServiceByIdDB(id);
 
+  const title = service?.title || "서비스";
+  const description = service?.description || "AI 영상 전문가 서비스를 확인해보세요.";
   return {
-    title: `${service?.title || "서비스"} | 뚝딱`,
-    description: service?.description || "AI 영상 전문가 서비스를 확인해보세요.",
+    title,
+    description,
+    openGraph: {
+      title: `${title} | 뚝딱`,
+      description,
+      ...(service?.thumbnail ? { images: [{ url: service.thumbnail }] } : {}),
+    },
   };
 }
 

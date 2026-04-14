@@ -14,10 +14,39 @@ const inter = Inter({
   display: "swap",
 });
 
+const SITE_URL = "https://ttukddak.vercel.app";
+const SITE_NAME = "뚝딱";
+const DEFAULT_TITLE = "뚝딱 - AI 영상 전문가를 만나는 가장 쉬운 방법";
+const DEFAULT_DESC = "AI 영상 제작부터 모션그래픽, 유튜브 편집까지 300명 이상의 검증된 전문가가 기다리고 있습니다.";
+
 export const metadata: Metadata = {
-  title: "뚝딱 - AI 영상 전문가를 만나는 가장 쉬운 방법",
-  description: "AI 영상 제작부터 모션그래픽, 유튜브 편집까지 300명 이상의 검증된 전문가가 기다리고 있습니다.",
-  keywords: ["AI영상", "영상제작", "모션그래픽", "유튜브편집", "3D애니메이션", "재능마켓"],
+  title: {
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: DEFAULT_DESC,
+  keywords: ["AI영상", "영상제작", "모션그래픽", "유튜브편집", "3D애니메이션", "재능마켓", "프리랜서", "영상편집"],
+  metadataBase: new URL(SITE_URL),
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESC,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESC,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: SITE_URL,
+  },
 };
 
 export default function RootLayout({

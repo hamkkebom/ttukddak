@@ -7,7 +7,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [categories, services, expertsResult] = await Promise.all([
     getCategories(),
     getServices(),
-    getExperts(50),
+    getExperts(),
   ])
   const experts = expertsResult.experts
 
@@ -15,9 +15,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${baseUrl}/categories`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${baseUrl}/search`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/faq`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/guide`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${baseUrl}/event`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.5 },
+    { url: `${baseUrl}/terms`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
   ]
 
   // 카테고리 페이지
@@ -28,18 +32,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
-  // 서비스 페이지 (상위 100개만)
-  const servicePages: MetadataRoute.Sitemap = services.slice(0, 100).map((service) => ({
+  // 서비스 페이지 (전체)
+  const servicePages: MetadataRoute.Sitemap = services.map((service) => ({
     url: `${baseUrl}/service/${service.id}`,
-    lastModified: new Date(),
+    lastModified: service.createdAt ? new Date(service.createdAt) : new Date(),
     changeFrequency: "weekly",
     priority: 0.7,
   }))
 
-  // 전문가 페이지 (상위 50개만)
-  const expertPages: MetadataRoute.Sitemap = experts.slice(0, 50).map((expert) => ({
+  // 전문가 페이지 (전체)
+  const expertPages: MetadataRoute.Sitemap = experts.map((expert) => ({
     url: `${baseUrl}/expert/${expert.id}`,
-    lastModified: new Date(),
+    lastModified: expert.joinedAt ? new Date(expert.joinedAt) : new Date(),
     changeFrequency: "weekly",
     priority: 0.6,
   }))
