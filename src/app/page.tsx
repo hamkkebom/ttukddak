@@ -48,11 +48,12 @@ const contestEntries = [
 
 
 export default async function HomePage() {
-  const [categories, allServices, experts] = await Promise.all([
+  const [categories, allServices, expertsResult] = await Promise.all([
     getCategories(),
     getServices(20),
     getExperts(20),
   ]);
+  const experts = expertsResult.experts;
 
   // 시드 기반 셔플 (매 시간 변경)
   const seed = Math.floor(Date.now() / 3600000);

@@ -6,23 +6,20 @@ export async function GET(request: Request) {
   const category = searchParams.get("category");
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
+  const offset = (page - 1) * limit;
 
-  const result = category
-    ? await getExpertsByCategory(category)
-    : await getExperts();
-
-  const start = (page - 1) * limit;
-  const end = start + limit;
-  const paginatedData = result.slice(start, end);
+  const { experts, total } = category
+    ? await getExpertsByCategory(category, limit, offset)
+    : await getExperts(limit, offset);
 
   return NextResponse.json({
     success: true,
-    data: paginatedData,
+    data: experts,
     meta: {
-      total: result.length,
+      total,
       page,
       limit,
-      totalPages: Math.ceil(result.length / limit),
+      totalPages: Math.ceil(total / limit),
     },
   });
 }

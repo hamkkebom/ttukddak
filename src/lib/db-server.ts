@@ -70,9 +70,7 @@ interface DBProfile {
 // ============================================
 
 const DEFAULT_PACKAGES = (price: number) => [
-  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["30초 영상", "HD 화질", "배경음악 포함", "자막 포함"] },
-  { name: "스탠다드", price: price * 2, deliveryDays: 10, revisions: 3, features: ["1분 영상", "4K 화질", "배경음악 포함", "자막+효과음"] },
-  { name: "프리미엄", price: price * 3, deliveryDays: 14, revisions: 5, features: ["2분 영상", "4K 화질", "맞춤 음악", "소스파일 제공"] },
+  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"] },
 ];
 
 function dbServiceToApp(s: DBService, packages?: any[]): Service {
@@ -301,23 +299,25 @@ export async function searchServicesDB(
   };
 }
 
-export async function getExperts(limit?: number): Promise<Expert[]> {
+export async function getExperts(limit?: number, offset?: number): Promise<{ experts: Expert[]; total: number }> {
   const sb = await createServerSupabaseClient();
   let query = sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)")
+    .select("*, profiles(name, email, avatar_url, role)", { count: "exact" })
     .order("rating", { ascending: false });
 
   if (limit) query = query.limit(limit);
+  if (offset) query = query.range(offset, offset + (limit || 20) - 1);
 
-  const { data } = await query;
-  if (!data) return [];
+  const { data, count } = await query;
+  if (!data) return { experts: [], total: 0 };
 
-  return data.map((row: any) => {
+  const experts = data.map((row: any) => {
     const profile = row.profiles;
     delete row.profiles;
     return dbExpertToApp(row, profile);
   });
+  return { experts, total: count || 0 };
 }
 
 export async function getExpertByIdDB(id: string): Promise<Expert | null> {
@@ -353,19 +353,25 @@ export async function searchExpertsDB(query: string): Promise<Expert[]> {
   });
 }
 
-export async function getExpertsByCategory(categoryId: string): Promise<Expert[]> {
+export async function getExpertsByCategory(categoryId: string, limit?: number, offset?: number): Promise<{ experts: Expert[]; total: number }> {
   const sb = await createServerSupabaseClient();
-  const { data } = await sb
+  let query = sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)")
-    .eq("category_id", categoryId);
+    .select("*, profiles(name, email, avatar_url, role)", { count: "exact" })
+    .eq("category_id", categoryId)
+    .order("rating", { ascending: false });
 
-  if (!data) return [];
-  return data.map((row: any) => {
+  if (limit) query = query.limit(limit);
+  if (offset) query = query.range(offset, offset + (limit || 20) - 1);
+
+  const { data, count } = await query;
+  if (!data) return { experts: [], total: 0 };
+  const experts = data.map((row: any) => {
     const profile = row.profiles;
     delete row.profiles;
     return dbExpertToApp(row, profile);
   });
+  return { experts, total: count || 0 };
 }
 
 // ============================================
@@ -813,7 +819,7 @@ export interface AdminStats {
 export async function getAdminStats(): Promise<AdminStats> {
   const sb = createAdminSupabaseClient();
 
-  const [u, e, s, o, pendingSvc, pendingExp, refundReq, pendingSupportRow] = await Promise.all([
+  const [u, e, s, o, pendingSvc, pendingExp, refundReq, pendingSupportRow, pendingReportsRow] = await Promise.all([
     sb.from("profiles").select("*", { count: "exact", head: true }),
     sb.from("experts").select("*", { count: "exact", head: true }),
     sb.from("services").select("*", { count: "exact", head: true }),
@@ -822,6 +828,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     sb.from("expert_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
     sb.from("orders").select("*", { count: "exact", head: true }).in("status", ["refunded", "cancelled"]),
     sb.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
+    sb.from("reports").select("*", { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
   // Revenue from completed orders
@@ -861,7 +868,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     totalRevenue,
     pendingServices: pendingSvc.count || 0,
     pendingExperts: pendingExp.count || 0,
-    pendingReports: 0,
+    pendingReports: pendingReportsRow.count || 0,
     refundRequests: refundReq.count || 0,
     pendingSupport: pendingSupportRow.count || 0,
     monthlyRevenue,

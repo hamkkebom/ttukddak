@@ -68,9 +68,7 @@ interface DBProfile {
 // ============================================
 
 const DEFAULT_PACKAGES = (price: number) => [
-  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["30초 영상", "HD 화질", "배경음악 포함", "자막 포함"] },
-  { name: "스탠다드", price: price * 2, deliveryDays: 10, revisions: 3, features: ["1분 영상", "4K 화질", "배경음악 포함", "자막+효과음"] },
-  { name: "프리미엄", price: price * 3, deliveryDays: 14, revisions: 5, features: ["2분 영상", "4K 화질", "맞춤 음악", "소스파일 제공"] },
+  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"] },
 ];
 
 function dbServiceToApp(s: DBService, packages?: any[]): Service {
@@ -335,15 +333,25 @@ export async function getMessagesClient(conversationId: string): Promise<Message
   }));
 }
 
-export async function sendMessageClient(conversationId: string, senderId: string, content: string): Promise<Message | null> {
+export async function sendMessageClient(
+  conversationId: string,
+  senderId: string,
+  content: string,
+  options?: { messageType?: string; fileUrl?: string }
+): Promise<Message | null> {
   const sb = createClient();
   const { data, error } = await sb.from("messages").insert({
-    conversation_id: conversationId, sender_id: senderId, content,
+    conversation_id: conversationId,
+    sender_id: senderId,
+    content,
+    message_type: options?.messageType || "text",
+    file_url: options?.fileUrl || null,
   }).select().single();
 
   if (error || !data) return null;
-  await sb.from("conversations").update({ last_message: content, last_message_at: new Date().toISOString() }).eq("id", conversationId);
-  return { id: data.id, conversationId: data.conversation_id, senderId: data.sender_id, content: data.content, isRead: data.is_read, createdAt: data.created_at };
+  const displayContent = options?.messageType === "image" ? "📷 이미지" : options?.messageType === "file" ? "📎 파일" : content;
+  await sb.from("conversations").update({ last_message: displayContent, last_message_at: new Date().toISOString() }).eq("id", conversationId);
+  return { id: data.id, conversationId: data.conversation_id, senderId: data.sender_id, content: data.content, isRead: data.is_read, createdAt: data.created_at, messageType: data.message_type, fileUrl: data.file_url };
 }
 
 // ============================================

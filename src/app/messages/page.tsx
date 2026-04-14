@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   MessageCircle, Send, Search, ArrowLeft, Paperclip,
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getConversationsClient, getMessagesClient, sendMessageClient } from "@/lib/db-client";
+import { uploadFile } from "@/lib/storage";
 import type { Conversation, Message } from "@/types";
 
 interface ConvDisplay {
@@ -47,6 +48,8 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -117,6 +120,8 @@ export default function MessagesPage() {
                 content: newMsg.content,
                 isRead: newMsg.is_read,
                 createdAt: newMsg.created_at,
+                messageType: newMsg.message_type,
+                fileUrl: newMsg.file_url,
               },
             ]);
           }
@@ -185,6 +190,27 @@ export default function MessagesPage() {
       setConversations((prev) =>
         prev.map((c) => c.id === selectedConv ? { ...c, lastMessage: content, lastTime: "방금" } : c)
       );
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "file" | "image") => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedConv || !currentUserId) return;
+    e.target.value = "";
+    try {
+      const result = await uploadFile("attachments", file, `messages/${selectedConv}`);
+      const messageType = type === "image" ? "image" : "file";
+      const content = file.name;
+      const msg = await sendMessageClient(selectedConv, currentUserId, content, { messageType, fileUrl: result.url });
+      if (msg) {
+        setMessages((prev) => [...prev, msg]);
+        const display = type === "image" ? "이미지" : "파일";
+        setConversations((prev) =>
+          prev.map((c) => c.id === selectedConv ? { ...c, lastMessage: display, lastTime: "방금" } : c)
+        );
+      }
+    } catch {
+      alert("파일 업로드에 실패했습니다.");
     }
   };
 
@@ -319,7 +345,17 @@ export default function MessagesPage() {
                           : "bg-background border rounded-bl-md"
                       )}
                     >
-                      <p className="text-sm">{msg.content}</p>
+                      {msg.messageType === "image" && msg.fileUrl ? (
+                        <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={msg.fileUrl} alt={msg.content} className="max-w-[200px] rounded" />
+                        </a>
+                      ) : msg.messageType === "file" && msg.fileUrl ? (
+                        <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline flex items-center gap-1">
+                          <Paperclip className="h-3 w-3" />{msg.content}
+                        </a>
+                      ) : (
+                        <p className="text-sm">{msg.content}</p>
+                      )}
                       <p
                         className={cn(
                           "text-[10px] mt-1",
@@ -338,10 +374,12 @@ export default function MessagesPage() {
           {/* Message Input */}
           <div className="border-t p-4 bg-background">
             <form onSubmit={handleSend} className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="icon" className="shrink-0">
+              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.zip,.doc,.docx,.txt,.mp4" onChange={(e) => handleFileUpload(e, "file")} />
+              <input ref={imageInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} />
+              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-5 w-5" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="shrink-0">
+              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => imageInputRef.current?.click()}>
                 <ImageIcon className="h-5 w-5" />
               </Button>
               <Input

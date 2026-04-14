@@ -13,7 +13,7 @@ export async function POST(
 
   const { data: order } = await sb
     .from("orders")
-    .select("buyer_id, status")
+    .select("buyer_id, status, coupon_id")
     .eq("id", id)
     .single();
 
@@ -30,6 +30,30 @@ export async function POST(
     .from("orders")
     .update({ status: "completed", updated_at: new Date().toISOString() })
     .eq("id", id);
+
+  // Mark coupon as used
+  if (order.coupon_id) {
+    const { data: uc } = await sb
+      .from("user_coupons")
+      .update({ is_used: true, used_at: new Date().toISOString() })
+      .eq("id", order.coupon_id)
+      .select("coupon_id")
+      .single();
+
+    if (uc?.coupon_id) {
+      const { data: coupon } = await sb
+        .from("coupons")
+        .select("total_used")
+        .eq("id", uc.coupon_id)
+        .single();
+      if (coupon) {
+        await sb
+          .from("coupons")
+          .update({ total_used: (coupon.total_used || 0) + 1 })
+          .eq("id", uc.coupon_id);
+      }
+    }
+  }
 
   return NextResponse.json({ success: true, message: "구매가 확정되었습니다" });
 }

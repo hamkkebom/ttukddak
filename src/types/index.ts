@@ -108,6 +108,8 @@ export interface Message {
   content: string;
   isRead: boolean;
   createdAt: string;
+  messageType?: string;
+  fileUrl?: string;
 }
 
 export interface ExpertApplication {

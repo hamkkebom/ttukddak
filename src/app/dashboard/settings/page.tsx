@@ -69,13 +69,23 @@ export default function DashboardSettingsPage() {
           introduction: user.user_metadata?.introduction || "",
         });
 
-        // Load bank from localStorage
-        const savedBank = localStorage.getItem(BANK_STORAGE_KEY);
-        if (savedBank) setBank(JSON.parse(savedBank));
+        // Load bank from user_metadata (fallback to localStorage for migration)
+        const savedBankMeta = user.user_metadata?.bank_settings;
+        if (savedBankMeta) {
+          setBank(savedBankMeta);
+        } else {
+          const savedBank = localStorage.getItem(BANK_STORAGE_KEY);
+          if (savedBank) setBank(JSON.parse(savedBank));
+        }
 
-        // Load notifications from localStorage
-        const savedNotif = localStorage.getItem(NOTIF_STORAGE_KEY);
-        if (savedNotif) setNotifSettings(JSON.parse(savedNotif));
+        // Load notifications from user_metadata (fallback to localStorage)
+        const savedNotifMeta = user.user_metadata?.notif_settings;
+        if (savedNotifMeta) {
+          setNotifSettings(savedNotifMeta);
+        } else {
+          const savedNotif = localStorage.getItem(NOTIF_STORAGE_KEY);
+          if (savedNotif) setNotifSettings(JSON.parse(savedNotif));
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -128,14 +138,32 @@ export default function DashboardSettingsPage() {
     }
   };
 
-  const handleBankSave = () => {
-    localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(bank));
-    toast.success("저장되었습니다");
+  const handleBankSave = async () => {
+    setSaving(true);
+    try {
+      const sb = createClient();
+      await sb.auth.updateUser({ data: { bank_settings: bank } });
+      localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(bank));
+      toast.success("저장되었습니다");
+    } catch {
+      toast.error("저장에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleNotifSave = () => {
-    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifSettings));
-    toast.success("저장되었습니다");
+  const handleNotifSave = async () => {
+    setSaving(true);
+    try {
+      const sb = createClient();
+      await sb.auth.updateUser({ data: { notif_settings: notifSettings } });
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifSettings));
+      toast.success("저장되었습니다");
+    } catch {
+      toast.error("저장에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleNotif = (group: string, item: string) => {

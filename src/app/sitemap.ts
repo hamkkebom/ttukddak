@@ -4,11 +4,12 @@ import { getCategories, getServices, getExperts } from "@/lib/db-server"
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://ttukddak.vercel.app"
 
-  const [categories, services, experts] = await Promise.all([
+  const [categories, services, expertsResult] = await Promise.all([
     getCategories(),
     getServices(),
-    getExperts(),
+    getExperts(50),
   ])
+  const experts = expertsResult.experts
 
   // 정적 페이지
   const staticPages: MetadataRoute.Sitemap = [
