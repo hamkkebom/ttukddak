@@ -340,7 +340,7 @@ export async function searchExpertsDB(query: string): Promise<Expert[]> {
     .from("experts")
     .select("*, profiles(name, email, avatar_url, role)")
     .or(
-      `title.ilike.%${query}%,introduction.ilike.%${query}%`
+      `title.ilike.%${sanitizeFilterValue(query)}%,introduction.ilike.%${sanitizeFilterValue(query)}%`
     )
     .order("rating", { ascending: false })
     .limit(20);
@@ -563,6 +563,7 @@ export async function sendMessage(conversationId: string, senderId: string, cont
 }
 
 export async function createConversation(participant1: string, participant2: string): Promise<string | null> {
+  if (!uuidRegex.test(participant1) || !uuidRegex.test(participant2)) return null;
   const sb = await createServerSupabaseClient();
   // Check existing
   const { data: existing } = await sb.from("conversations")
