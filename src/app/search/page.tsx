@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ServiceCard } from "@/components/ServiceCard";
 import {
   searchServicesClient,
@@ -686,18 +687,18 @@ function SearchPageContent() {
             {loading ? (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rounded-2xl overflow-hidden border border-slate-100 animate-pulse">
-                    <div className="aspect-video bg-slate-100" />
+                  <div key={i} className="rounded-2xl overflow-hidden border border-slate-100">
+                    <Skeleton className="aspect-video w-full rounded-none" />
                     <div className="p-4 space-y-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full bg-slate-100" />
-                        <div className="h-3 w-20 bg-slate-100 rounded" />
+                        <Skeleton className="h-7 w-7 rounded-full" />
+                        <Skeleton className="h-3 w-20" />
                       </div>
                       <div className="space-y-2">
-                        <div className="h-3 bg-slate-100 rounded w-full" />
-                        <div className="h-3 bg-slate-100 rounded w-3/4" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-3/4" />
                       </div>
-                      <div className="h-3 bg-slate-100 rounded w-1/2 mt-4" />
+                      <Skeleton className="h-3 w-1/2 mt-4" />
                     </div>
                   </div>
                 ))}
