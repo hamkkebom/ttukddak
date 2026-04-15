@@ -7,8 +7,13 @@ const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
 
-const SUPABASE_URL = "https://aegupcyteqgehjmsncnn.supabase.co";
-const SERVICE_KEY = "***SUPABASE_SERVICE_ROLE_KEY_REMOVED***";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars");
+  process.exit(1);
+}
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 

@@ -6,8 +6,13 @@
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://aegupcyteqgehjmsncnn.supabase.co";
-const SERVICE_ROLE_KEY = "***SUPABASE_SERVICE_ROLE_KEY_REMOVED***";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars");
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

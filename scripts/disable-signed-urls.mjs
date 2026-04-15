@@ -3,8 +3,14 @@
  * Uses time-cursor pagination since CF Stream ignores page param
  */
 
-const ACCOUNT_ID = "***CLOUDFLARE_ACCOUNT_ID_REMOVED***";
-const API_TOKEN = "***CLOUDFLARE_API_TOKEN_REMOVED***";
+const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+
+if (!ACCOUNT_ID || !API_TOKEN) {
+  console.error("Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN env vars");
+  process.exit(1);
+}
+
 const BASE_URL = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/stream`;
 
 const headers = {
