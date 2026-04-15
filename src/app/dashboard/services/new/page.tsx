@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -52,6 +52,21 @@ export default function NewServicePage() {
   });
   const [packages, setPackages] = useState<PackageData[]>(defaultPackages);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const { uploadFile } = await import("@/lib/storage");
+    for (const file of Array.from(files)) {
+      try {
+        const result = await uploadFile("service-images", file);
+        setUploadedImages((prev) => [...prev, result.url]);
+      } catch { toast.error("이미지 업로드에 실패했습니다"); }
+    }
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
 
   useEffect(() => {
     getCategoriesClient().then(setCategories).catch(console.error);
@@ -240,16 +255,22 @@ export default function NewServicePage() {
             <Card>
               <CardHeader><CardTitle className="text-base">이미지 & 포트폴리오</CardTitle></CardHeader>
               <CardContent>
+                <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                    <ImageIcon className="h-8 w-8 text-muted-foreground mb-1" />
-                    <span className="text-xs text-muted-foreground">대표 이미지</span>
-                  </div>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Plus className="h-6 w-6 text-muted-foreground" />
+                  {uploadedImages.map((url, i) => (
+                    <div key={i} className="aspect-square rounded-lg overflow-hidden relative group">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`업로드 ${i+1}`} className="w-full h-full object-cover" />
+                      <button onClick={() => setUploadedImages((prev) => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3 w-3" /></button>
+                      {i === 0 && <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">대표</span>}
                     </div>
                   ))}
+                  {uploadedImages.length < 4 && (
+                    <div onClick={() => imageInputRef.current?.click()} className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Plus className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground mt-1">{uploadedImages.length === 0 ? "대표 이미지" : "추가"}</span>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">JPG, PNG, GIF (최대 5MB). 첫 번째 이미지가 대표 이미지로 사용됩니다.</p>
               </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -56,6 +56,8 @@ export default function ReviewPage({
   });
   const [reviewText, setReviewText] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const reviewImageRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getOrderByIdClient(id).then(async (o) => {
@@ -235,11 +237,27 @@ export default function ReviewPage({
               {/* Photo Upload */}
               <div>
                 <p className="text-sm font-medium mb-2">사진 첨부 (선택)</p>
+                <input ref={reviewImageRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const { uploadFile } = await import("@/lib/storage");
+                    const result = await uploadFile("attachments", file, "reviews");
+                    setReviewImages((prev) => [...prev, result.url]);
+                  } catch { /* ignore */ }
+                  if (reviewImageRef.current) reviewImageRef.current.value = "";
+                }} />
                 <div className="flex gap-2">
-                  <div className="h-20 w-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                    <Camera className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground mt-1">추가</span>
-                  </div>
+                  {reviewImages.map((url, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={url} alt="" className="h-20 w-20 rounded-lg object-cover" />
+                  ))}
+                  {reviewImages.length < 3 && (
+                    <div onClick={() => reviewImageRef.current?.click()} className="h-20 w-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground mt-1">추가</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

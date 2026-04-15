@@ -318,7 +318,13 @@ export default function MessagesPage() {
                 <p className="font-semibold text-sm">{selectedConversation.otherName}</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => {
+              if (confirm("이 대화방을 나가시겠습니까?")) {
+                setConversations((prev) => prev.filter((c) => c.id !== selectedConv));
+                setSelectedConv(null);
+                setMessages([]);
+              }
+            }}>
               <MoreVertical className="h-5 w-5" />
             </Button>
           </div>

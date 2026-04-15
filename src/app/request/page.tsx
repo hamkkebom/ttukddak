@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -51,6 +51,8 @@ export default function RequestPage() {
     referenceLinks: [""],
     contactMethod: "message",
   });
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string }[]>([]);
+  const refFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getCategoriesClient().then(setCategories);
@@ -237,11 +239,25 @@ export default function RequestPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <input ref={refFileInputRef} type="file" accept="image/*,.pdf,.zip,.doc,.docx,.mp4" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const { uploadFile } = await import("@/lib/storage");
+                        const result = await uploadFile("attachments", file, "quotes");
+                        setUploadedFiles((prev) => [...prev, { name: file.name, url: result.url }]);
+                      } catch { /* ignore */ }
+                      if (refFileInputRef.current) refFileInputRef.current.value = "";
+                    }} />
+                    <div className="border-2 border-dashed rounded-lg p-6 text-center" onClick={() => refFileInputRef.current?.click()}>
                       <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm font-medium">참고 파일 업로드</p>
                       <p className="text-xs text-muted-foreground mb-3">이미지, 영상, 문서 등</p>
-                      <Button variant="outline" size="sm">파일 선택</Button>
+                      {uploadedFiles.length > 0 ? (
+                        <div className="space-y-1 mb-2">{uploadedFiles.map((f, i) => <p key={i} className="text-xs text-primary">{f.name}</p>)}</div>
+                      ) : (
+                        <Button variant="outline" size="sm" type="button">파일 선택</Button>
+                      )}
                     </div>
                   </div>
                 </div>

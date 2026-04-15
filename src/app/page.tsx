@@ -283,14 +283,14 @@ export default async function HomePage() {
                 <p className="text-xs text-slate-400 mt-0.5">뚝딱이 엄선한 최고의 크리에이터</p>
               </div>
             </div>
-            <Link href="/experts" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
+            <Link href="/search?sort=rating" className="text-sm text-slate-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors">
               전체보기 <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {featuredExperts.map((expert) => (
-              <Link key={expert.name} href={`/experts/${expert.name}`} className="group">
+              <Link key={expert.name} href="/search" className="group">
                 <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                   {/* 포트폴리오 썸네일 갤러리 */}
                   <div className="relative h-[200px] overflow-hidden">
@@ -385,7 +385,7 @@ export default async function HomePage() {
                 <p className="text-xs text-slate-500 mt-0.5">제1회 뚝딱 AI 영상 공모전 참가작</p>
               </div>
             </div>
-            <Link href="/contest" className="text-sm text-slate-500 hover:text-amber-400 flex items-center gap-1 transition-colors">
+            <Link href="/event" className="text-sm text-slate-500 hover:text-amber-400 flex items-center gap-1 transition-colors">
               전체 보기 <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -393,7 +393,7 @@ export default async function HomePage() {
           {/* 벤토 그리드 — 왼쪽 대형 + 오른쪽 2x3 */}
           <div className="flex gap-2.5">
             {/* 대형 카드 */}
-            <Link href={`/contest/${contestEntries[0].id}`} className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
+            <Link href="/event" className="relative w-[400px] shrink-0 h-[340px] rounded-2xl overflow-hidden group">
               <Image src={contestEntries[0].image} alt={contestEntries[0].title} fill sizes="400px" unoptimized className="object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5">
@@ -417,7 +417,7 @@ export default async function HomePage() {
             {/* 오른쪽 2행 3열 */}
             <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-2.5">
               {contestEntries.slice(1, 7).map((entry) => (
-                <Link key={entry.id} href={`/contest/${entry.id}`} className="relative rounded-2xl overflow-hidden group">
+                <Link key={entry.id} href="/event" className="relative rounded-2xl overflow-hidden group">
                   <Image src={entry.image} alt={entry.title} fill sizes="200px" unoptimized className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
@@ -437,7 +437,7 @@ export default async function HomePage() {
           {/* 공모전 참가 CTA */}
           <div className="mt-8 flex items-center justify-center">
             <Link
-              href="/contest/apply"
+              href="/event"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold px-8 py-3 rounded-xl text-sm hover:opacity-90 transition-opacity shadow-lg shadow-amber-500/20"
             >
               <Trophy className="h-4 w-4" />

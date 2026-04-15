@@ -183,7 +183,14 @@ export default function EditServicePage({
             <Button variant="outline" asChild>
               <Link href={`/service/${id}`}><Eye className="h-4 w-4 mr-2" /> 미리보기</Link>
             </Button>
-            <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+            <Button variant="destructive" size="icon" onClick={async () => {
+              if (!confirm("정말 이 서비스를 삭제하시겠습니까?")) return;
+              try {
+                const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
+                if (res.ok) { toast.success("서비스가 삭제되었습니다"); router.push("/dashboard"); }
+                else toast.error("삭제에 실패했습니다");
+              } catch { toast.error("삭제에 실패했습니다"); }
+            }}><Trash2 className="h-4 w-4" /></Button>
           </div>
         </div>
 

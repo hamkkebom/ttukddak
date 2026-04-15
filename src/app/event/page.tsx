@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Metadata } from "next";
+import { CopyCouponButton } from "@/components/CopyCouponButton";
 import {
   Sparkles, Gift, Clock, ArrowRight, Tag,
   Percent, Users, Star, Zap
@@ -153,7 +154,7 @@ export default function EventPage() {
                       <p className="text-xs text-muted-foreground mb-2">{coupon.condition}</p>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-muted-foreground">~{coupon.expiry}</span>
-                        <Button variant="outline" size="sm" className="h-7 text-xs">복사</Button>
+                        <CopyCouponButton code={coupon.code} />
                       </div>
                     </div>
                   </div>
