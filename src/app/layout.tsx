@@ -14,7 +14,7 @@ const inter = Inter({
   display: "swap",
 });
 
-const SITE_URL = "https://ttukddak.vercel.app";
+const SITE_URL = "https://ttukddak.kr";
 const SITE_NAME = "뚝딱";
 const DEFAULT_TITLE = "뚝딱 - AI 영상 전문가를 만나는 가장 쉬운 방법";
 const DEFAULT_DESC = "AI 영상 제작부터 모션그래픽, 유튜브 편집까지 300명 이상의 검증된 전문가가 기다리고 있습니다.";

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { getCategories, getServices, getExperts } from "@/lib/db-server"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://ttukddak.vercel.app"
+  const baseUrl = "https://ttukddak.kr"
 
   const [categories, services, expertsResult] = await Promise.all([
     getCategories(),
