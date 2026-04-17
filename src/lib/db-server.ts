@@ -367,7 +367,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
   };
 }
 
-export async function createOrder(order: { buyerId: string; serviceId: string; expertId: string; packageName: string; price: number; requirements?: string }): Promise<Order | null> {
+export async function createOrder(order: { buyerId: string; serviceId: string; expertId: string; packageName: string; price: number; requirements?: string; couponId?: string | null }): Promise<Order | null> {
   const sb = await createServerSupabaseClient();
   const { data, error } = await sb.from("orders").insert({
     buyer_id: order.buyerId,
@@ -376,6 +376,7 @@ export async function createOrder(order: { buyerId: string; serviceId: string; e
     package_id: order.packageName,
     amount: order.price,
     requirements: order.requirements,
+    coupon_id: order.couponId ?? null,
     status: "pending",
   }).select().single();
 

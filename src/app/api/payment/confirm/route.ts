@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { updateOrderStatus } from "@/lib/db-server";
+import * as PortOne from "@portone/server-sdk";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { computeOrderAmount } from "@/lib/payment/amount";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
     // Authentication check
     const sb = await createServerSupabaseClient();
-    const { data: { user } } = await sb.auth.getUser();
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: "인증이 필요합니다" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -20,97 +25,164 @@ export async function POST(request: Request) {
     if (!paymentId || !orderId) {
       return NextResponse.json(
         { success: false, error: "paymentId와 orderId가 필요합니다" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Fetch order from DB to verify buyer and expected amount
+    // 주문 조회 및 권한 검증
     const adminSb = createAdminSupabaseClient();
     const { data: order, error: orderError } = await adminSb
       .from("orders")
-      .select("id, buyer_id, amount, status")
+      .select("id, buyer_id, amount, status, service_id, package_id, coupon_id")
       .eq("id", orderId)
       .maybeSingle();
 
     if (orderError || !order) {
       return NextResponse.json(
         { success: false, error: "주문을 찾을 수 없습니다" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    // Verify the authenticated user is the buyer
     if (order.buyer_id !== user.id) {
       return NextResponse.json(
         { success: false, error: "접근 권한이 없습니다" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    // PortOne V2 결제 확인 API
-    const response = await fetch(
-      `https://api.portone.io/payments/${paymentId}`,
-      {
-        headers: {
-          Authorization: `PortOne ${process.env.PORTONE_API_SECRET}`,
-        },
+    // PortOne Server SDK로 결제 조회
+    const portone = PortOne.PortOneClient({
+      secret: process.env.PORTONE_API_SECRET ?? "",
+    });
+
+    let payment;
+    try {
+      payment = await portone.payment.getPayment({ paymentId });
+    } catch (e) {
+      if (e instanceof PortOne.PortOneError) {
+        return NextResponse.json(
+          { success: false, error: "결제 정보를 확인할 수 없습니다" },
+          { status: 400 },
+        );
       }
-    );
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { success: false, error: "결제 정보를 확인할 수 없습니다" },
-        { status: 400 }
-      );
+      throw e;
     }
 
-    const payment = await response.json();
-
-    // 결제 상태 확인
-    if (payment.status !== "PAID") {
+    // 허용 상태: PAID(일반 결제 완료) 또는 VIRTUAL_ACCOUNT_ISSUED(가상계좌 발급)
+    if (payment.status !== "PAID" && payment.status !== "VIRTUAL_ACCOUNT_ISSUED") {
       return NextResponse.json(
         { success: false, error: "결제가 완료되지 않았습니다" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Amount verification: compare PortOne payment amount against expected order amount
+    // 금액 재검증:
+    // 1) PortOne 결제 금액이 DB orders.amount와 일치하는지
+    // 2) 서버에서 service/package/coupon으로 다시 계산한 값과도 일치하는지
     const portoneAmount: number = payment.amount?.total;
     if (portoneAmount !== order.amount) {
       return NextResponse.json(
         { success: false, error: "결제 금액이 일치하지 않습니다" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // DB에 주문 상태 업데이트: pending → paid, payment_id 저장
-    const updated = await updateOrderStatus(orderId, "paid");
-    if (!updated) {
+    // package_id는 name이 저장되어 있음(db-server.ts의 createOrder 참조)
+    // → service_packages 테이블에서 name 기준으로 조회
+    let packageName: string | null = null;
+    if (order.package_id) {
+      const { data: pkg } = await adminSb
+        .from("service_packages")
+        .select("name")
+        .eq("id", order.package_id)
+        .maybeSingle();
+      if (pkg) packageName = pkg.name;
+      else packageName = order.package_id as string; // fallback: name으로 저장된 경우
+    }
+
+    // 쿠폰 코드 복원 (user_coupons → coupons.code)
+    let couponCode: string | null = null;
+    if (order.coupon_id) {
+      const { data: uc } = await adminSb
+        .from("user_coupons")
+        .select("coupon_id, coupons(code)")
+        .eq("id", order.coupon_id)
+        .maybeSingle();
+      // Supabase 조인 결과: coupons는 배열 또는 객체 형태로 올 수 있음. 방어적으로 처리.
+      const couponRel = (uc as unknown as { coupons?: { code?: string } | { code?: string }[] } | null)
+        ?.coupons;
+      if (Array.isArray(couponRel)) {
+        couponCode = couponRel[0]?.code ?? null;
+      } else if (couponRel && typeof couponRel === "object") {
+        couponCode = couponRel.code ?? null;
+      }
+    }
+
+    const recomputed = await computeOrderAmount({
+      serviceId: order.service_id as string,
+      packageName,
+      userId: user.id,
+      couponCode,
+    });
+
+    if (!recomputed.ok) {
+      return NextResponse.json(
+        { success: false, error: "주문 정보가 유효하지 않습니다" },
+        { status: 400 },
+      );
+    }
+
+    if (recomputed.data.totalAmount !== portoneAmount) {
+      return NextResponse.json(
+        { success: false, error: "결제 금액이 서버 계산값과 일치하지 않습니다" },
+        { status: 400 },
+      );
+    }
+
+    // 상태 및 transaction_id 업데이트
+    // VIRTUAL_ACCOUNT_ISSUED: 주문은 아직 paid로 처리하지 않고 대기 상태로 둠 (웹훅이 실입금 시점에 paid로 승격)
+    const nextStatus =
+      payment.status === "PAID" ? "paid" : "virtual_account_issued";
+
+    const transactionId =
+      "transactionId" in payment && typeof payment.transactionId === "string"
+        ? payment.transactionId
+        : null;
+
+    const { error: updateError } = await adminSb
+      .from("orders")
+      .update({
+        status: nextStatus,
+        payment_id: paymentId,
+        transaction_id: transactionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (updateError) {
       return NextResponse.json(
         { success: false, error: "주문 상태 업데이트에 실패했습니다" },
-        { status: 500 }
+        { status: 500 },
       );
     }
-
-    // payment_id를 주문에 저장
-    await adminSb
-      .from("orders")
-      .update({ payment_id: paymentId, updated_at: new Date().toISOString() })
-      .eq("id", orderId);
 
     return NextResponse.json({
       success: true,
       data: {
-        paymentId: payment.id,
-        amount: payment.amount?.total,
+        paymentId,
+        transactionId,
+        amount: portoneAmount,
         status: payment.status,
+        orderStatus: nextStatus,
         orderId,
       },
     });
   } catch (error) {
+    console.error("[PaymentConfirm] error:", error);
     return NextResponse.json(
       { success: false, error: "결제 확인 중 오류가 발생했습니다" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import PortOne from "@portone/browser-sdk/v2";
 import {
   ChevronRight, CheckCircle, Shield, Clock, CreditCard,
   Smartphone, Building2, X
@@ -135,16 +136,14 @@ export default function OrderPage({
         return;
       }
 
-      // 1. 주문 생성
+      // 1. 주문 생성 (서버에서 금액/할인 재계산)
       const orderRes = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buyerId: user.id,
           serviceId: service.id,
-          expertId: service.expertId,
           packageName: pkg.name,
-          price: totalPrice,
+          couponCode: appliedCoupon?.code ?? null,
         }),
       });
 
@@ -154,53 +153,122 @@ export default function OrderPage({
         return;
       }
 
-      const { data: newOrder } = await orderRes.json();
-
-      // 2. PortOne 결제 요청
-      if (typeof window === "undefined" || !(window as any).PortOne) {
-        toast.error("결제 모듈을 불러오지 못했습니다. 페이지를 새로고침 후 다시 시도해주세요.");
+      const newOrder = await orderRes.json();
+      // API는 Order 객체를 그대로 반환하거나 { data } 형태 모두 가능성이 있어 방어적으로 처리
+      const orderObj = (newOrder?.data ?? newOrder) as { id: string; price: number };
+      if (!orderObj?.id) {
+        toast.error("주문 생성 응답이 올바르지 않습니다");
         setOrdering(false);
         return;
       }
 
-      const paymentResponse = await (window as any).PortOne.requestPayment({
-        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
-        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
-        paymentId: `payment-${newOrder.id}-${Date.now()}`,
+      // 서버가 계산한 최종 금액을 신뢰 (클라이언트 totalPrice와 다를 수 있음)
+      const serverAmount = orderObj.price;
+
+      // 2. 결제 수단별 요청 파라미터 구성
+      const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
+      const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+      if (!storeId || !channelKey) {
+        toast.error("결제 설정이 누락되었습니다. 관리자에게 문의해주세요.");
+        setOrdering(false);
+        return;
+      }
+
+      const buyerName = user.user_metadata?.name || "고객";
+      const buyerEmail = user.email ?? undefined;
+      const buyerPhone =
+        (user.user_metadata?.phone as string | undefined) ?? undefined;
+
+      const commonPayload = {
+        storeId,
+        channelKey,
+        paymentId: `payment-${orderObj.id}-${Date.now()}`,
         orderName: service.title,
-        totalAmount: totalPrice,
-        currency: "KRW",
-        payMethod: paymentMethod === "card" ? "CARD" : paymentMethod === "kakao" ? "EASY_PAY" : paymentMethod === "naver" ? "EASY_PAY" : "VIRTUAL_ACCOUNT",
-        customer: { fullName: user.user_metadata?.name || "고객" },
-        customData: { orderId: newOrder.id },
-      });
+        totalAmount: serverAmount,
+        currency: "CURRENCY_KRW" as const,
+        customer: {
+          fullName: buyerName,
+          email: buyerEmail,
+          phoneNumber: buyerPhone,
+        },
+        customData: { orderId: orderObj.id },
+      };
 
-      if (paymentResponse?.code) {
-        toast.error(`결제 실패: ${paymentResponse.message}`);
+      // NOTE: @portone/browser-sdk v2의 PaymentRequest 타입이 `alipayPlus`를
+      // 필수 필드로 잘못 선언하고 있어, 실제 런타임 스펙에 맞게 캐스팅 처리한다.
+      // 공식 예제 역시 alipayPlus를 전달하지 않는다.
+      type PaymentReq = Parameters<typeof PortOne.requestPayment>[0];
+
+      let paymentRequest: Record<string, unknown>;
+      if (paymentMethod === "card") {
+        paymentRequest = { ...commonPayload, payMethod: "CARD" };
+      } else if (paymentMethod === "kakao") {
+        paymentRequest = {
+          ...commonPayload,
+          payMethod: "EASY_PAY",
+          easyPay: { easyPayProvider: "EASY_PAY_PROVIDER_KAKAOPAY" },
+        };
+      } else if (paymentMethod === "naver") {
+        paymentRequest = {
+          ...commonPayload,
+          payMethod: "EASY_PAY",
+          easyPay: { easyPayProvider: "EASY_PAY_PROVIDER_NAVERPAY" },
+        };
+      } else {
+        // 가상계좌: 휴대폰 번호 필수
+        if (!buyerPhone) {
+          toast.error("가상계좌 결제를 위해 프로필에 휴대폰 번호를 등록해주세요.");
+          setOrdering(false);
+          return;
+        }
+        paymentRequest = {
+          ...commonPayload,
+          payMethod: "VIRTUAL_ACCOUNT",
+          virtualAccount: {
+            accountExpiry: { validHours: 72 },
+          },
+        };
+      }
+
+      const paymentResponse = await PortOne.requestPayment(
+        paymentRequest as unknown as PaymentReq,
+      );
+
+      if (paymentResponse?.code !== undefined) {
+        toast.error(`결제 실패: ${paymentResponse.message ?? "알 수 없는 오류"}`);
         setOrdering(false);
         return;
       }
 
-      // 3. 결제 확인
+      // 3. 결제 확인 (서버가 PortOne API로 재검증)
       const confirmRes = await fetch("/api/payment/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentId: paymentResponse.paymentId,
-          orderId: newOrder.id,
+          paymentId: paymentResponse!.paymentId,
+          orderId: orderObj.id,
         }),
       });
 
-      if (!confirmRes.ok) {
-        toast.error("결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+      const confirmJson = await confirmRes.json().catch(() => null);
+      if (!confirmRes.ok || !confirmJson?.success) {
+        toast.error(
+          confirmJson?.error ?? "결제 확인에 실패했습니다. 고객센터에 문의해주세요.",
+        );
         setOrdering(false);
         return;
       }
 
-      toast.success("주문이 완료되었습니다!", {
-        description: "전문가가 곧 작업을 시작합니다.",
-      });
-      router.push(`/order/${newOrder.id}/tracking`);
+      if (confirmJson.data?.orderStatus === "virtual_account_issued") {
+        toast.success("가상계좌가 발급되었습니다", {
+          description: "입금 확인 후 주문이 자동으로 진행됩니다.",
+        });
+      } else {
+        toast.success("주문이 완료되었습니다!", {
+          description: "전문가가 곧 작업을 시작합니다.",
+        });
+      }
+      router.push(`/order/${orderObj.id}/tracking`);
     } catch (err) {
       toast.error("주문 처리 중 오류가 발생했습니다");
     } finally {

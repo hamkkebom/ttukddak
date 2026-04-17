@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrders, createOrder } from "@/lib/db-server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { computeOrderAmount } from "@/lib/payment/amount";
 
 export async function GET(req: NextRequest) {
   const sb = await createServerSupabaseClient();
@@ -41,28 +42,34 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
-  // Force buyerId to authenticated user
-  body.buyerId = user.id;
-
-  // Verify the service exists and price matches DB
-  const { data: service } = await sb
-    .from("services")
-    .select("id, price, expert_id")
-    .eq("id", body.serviceId)
-    .single();
-
-  if (!service) {
-    return NextResponse.json({ error: "Service not found" }, { status: 404 });
+  // 보안: 클라이언트가 보낸 price/expertId/buyerId는 무시하고 서버에서 재계산한다.
+  // 공격자가 1원에 고가 서비스를 결제하는 시나리오를 차단.
+  const serviceId: string | undefined = body.serviceId;
+  if (!serviceId) {
+    return NextResponse.json({ error: "serviceId가 필요합니다" }, { status: 400 });
   }
 
-  if (service.price !== body.price) {
-    return NextResponse.json({ error: "Price mismatch" }, { status: 400 });
+  const computed = await computeOrderAmount({
+    serviceId,
+    packageName: body.packageName ?? null,
+    userId: user.id,
+    couponCode: body.couponCode ?? null,
+  });
+
+  if (!computed.ok) {
+    return NextResponse.json({ error: computed.error }, { status: computed.status });
   }
 
-  // Set expertId from DB, not client
-  body.expertId = service.expert_id;
+  const order = await createOrder({
+    buyerId: user.id,
+    serviceId,
+    expertId: computed.data.expertId,
+    packageName: computed.data.packageName ?? body.packageName ?? "",
+    price: computed.data.totalAmount,
+    requirements: body.requirements,
+    couponId: computed.data.userCouponId,
+  });
 
-  const order = await createOrder(body);
   if (!order) return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
   return NextResponse.json(order, { status: 201 });
 }

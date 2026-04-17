@@ -1,110 +1,182 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import * as PortOne from "@portone/server-sdk";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-// Verify PortOne V2 webhook signature
-// PortOne sends: webhook-signature header with "t=<timestamp>,v1=<hmac>"
-function verifyWebhookSignature(
-  rawBody: string,
-  signatureHeader: string,
-  secret: string
-): boolean {
-  try {
-    // Parse "t=<timestamp>,v1=<sig1>[,v1=<sig2>]"
-    const parts = signatureHeader.split(",");
-    let timestamp = "";
-    const signatures: string[] = [];
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-    for (const part of parts) {
-      const [key, value] = part.split("=");
-      if (key === "t") timestamp = value;
-      else if (key === "v1") signatures.push(value);
-    }
+// 주문 상태 전이: 되돌리기/상태 역행 방지
+// refunded/cancelled/completed는 webhook 늦게 도착해도 paid 등으로 되돌리지 않는다.
+const TERMINAL_STATES = new Set(["refunded", "cancelled", "completed"]);
 
-    if (!timestamp || signatures.length === 0) return false;
+// paid 상태에서 허용되는 다음 상태
+const PAID_ALLOWED_NEXT = new Set([
+  "paid",
+  "in_progress",
+  "review_pending",
+  "revision_requested",
+  "completed",
+  "refund_requested",
+  "refunded",
+  "cancelled",
+]);
 
-    // Compute expected signature: HMAC-SHA256 of "<timestamp>.<rawBody>"
-    const signedPayload = `${timestamp}.${rawBody}`;
-    const expected = createHmac("sha256", secret)
-      .update(signedPayload, "utf8")
-      .digest("hex");
-
-    return signatures.some((sig) => sig === expected);
-  } catch {
-    return false;
-  }
+function canTransition(current: string | null | undefined, next: string): boolean {
+  if (!current) return true;
+  if (current === next) return true;
+  if (TERMINAL_STATES.has(current)) return false;
+  if (current === "paid") return PAID_ALLOWED_NEXT.has(next);
+  // pending / virtual_account_issued / failed → 어떤 상태로든 진입 가능
+  return true;
 }
 
-// PortOne webhook - receives async payment status updates
+// PortOne V2 webhook - Standard Webhooks spec (webhook-id, webhook-timestamp, webhook-signature)
 export async function POST(request: NextRequest) {
-  try {
-    const rawBody = await request.text();
+  const rawBody = await request.text();
 
-    // Webhook signature verification
-    const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const signatureHeader = request.headers.get("webhook-signature") ?? "";
-      if (!signatureHeader) {
-        return NextResponse.json({ error: "Missing webhook signature" }, { status: 401 });
-      }
-      const isValid = verifyWebhookSignature(rawBody, signatureHeader, webhookSecret);
-      if (!isValid) {
-        return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
-      }
-    } else {
-      console.warn(
-        "[Webhook] PORTONE_WEBHOOK_SECRET is not set. Skipping signature verification (dev mode)."
+  // Headers for Standard Webhooks
+  const headers: Record<string, string> = {
+    "webhook-id": request.headers.get("webhook-id") ?? "",
+    "webhook-timestamp": request.headers.get("webhook-timestamp") ?? "",
+    "webhook-signature": request.headers.get("webhook-signature") ?? "",
+  };
+
+  const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
+
+  // 프로덕션에서는 PORTONE_WEBHOOK_SECRET 미설정 시 즉시 실패 처리
+  if (!webhookSecret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "[Webhook] PORTONE_WEBHOOK_SECRET 환경변수가 설정되지 않았습니다. 프로덕션 환경에서는 필수입니다.",
       );
     }
-
-    let body: { payment_id?: string; status?: string };
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-
-    const { payment_id } = body;
-
-    if (!payment_id) {
-      return NextResponse.json({ error: "Missing payment_id" }, { status: 400 });
-    }
-
-    // Verify payment with PortOne
-    const portoneRes = await fetch(
-      `https://api.portone.io/payments/${encodeURIComponent(payment_id)}`,
-      {
-        headers: {
-          Authorization: `PortOne ${process.env.PORTONE_API_SECRET}`,
-        },
-      }
+    console.warn(
+      "[Webhook] PORTONE_WEBHOOK_SECRET is not set. Skipping signature verification (dev mode).",
     );
+  }
 
-    if (!portoneRes.ok) {
-      return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
+  // 서명 검증
+  let webhook: Awaited<ReturnType<typeof PortOne.Webhook.verify>>;
+  try {
+    if (webhookSecret) {
+      webhook = await PortOne.Webhook.verify(webhookSecret, rawBody, headers);
+    } else {
+      // dev-only 우회: 파싱만 수행
+      webhook = JSON.parse(rawBody) as Awaited<ReturnType<typeof PortOne.Webhook.verify>>;
+    }
+  } catch (e) {
+    if (e instanceof PortOne.Webhook.WebhookVerificationError) {
+      return NextResponse.json(
+        { error: "웹훅 서명 검증에 실패했습니다" },
+        { status: 400 },
+      );
+    }
+    throw e;
+  }
+
+  try {
+    // 결제 관련 웹훅만 처리 (Transaction.*)
+    if (!("data" in webhook) || !("paymentId" in webhook.data)) {
+      return NextResponse.json({ received: true });
     }
 
-    const payment = await portoneRes.json();
+    const paymentId = webhook.data.paymentId;
+    const webhookType = webhook.type;
+    const webhookTimestamp = webhook.timestamp;
 
-    // Import admin client for DB update
-    const { createAdminSupabaseClient } = await import("@/lib/supabase/admin");
-    const sb = createAdminSupabaseClient();
+    const adminSb = createAdminSupabaseClient();
 
-    // Update order based on payment status
-    if (payment.status === "PAID") {
-      await sb
-        .from("orders")
-        .update({ status: "paid", payment_id: payment_id, updated_at: new Date().toISOString() })
-        .eq("payment_id", payment_id);
-    } else if (payment.status === "CANCELLED" || payment.status === "FAILED") {
-      await sb
-        .from("orders")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
-        .eq("payment_id", payment_id);
+    // 멱등성 가드: (payment_id, webhook_type, webhook_timestamp) 조합으로 중복 처리 방지
+    const { error: dedupError } = await adminSb
+      .from("processed_webhooks")
+      .insert({
+        payment_id: paymentId,
+        webhook_type: webhookType,
+        webhook_timestamp: webhookTimestamp,
+      });
+
+    if (dedupError) {
+      // unique violation → 이미 처리된 웹훅. 200 OK로 응답해 재시도 방지.
+      if (dedupError.code === "23505") {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+      // 그 외의 DB 오류는 재시도가 필요하므로 500
+      console.error("[Webhook] dedup insert error:", dedupError);
+      return NextResponse.json({ error: "DB error" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    // PortOne에서 최신 결제 상태 재조회 (webhook 본문을 신뢰하지 않고 서버 측 재확인)
+    const portone = PortOne.PortOneClient({ secret: process.env.PORTONE_API_SECRET ?? "" });
+    let payment;
+    try {
+      payment = await portone.payment.getPayment({ paymentId });
+    } catch (e) {
+      if (e instanceof PortOne.PortOneError) {
+        console.error("[Webhook] getPayment failed:", e.message);
+        return NextResponse.json({ error: "결제 조회 실패" }, { status: 400 });
+      }
+      throw e;
+    }
+
+    // 주문 조회 (payment_id로 매핑)
+    const { data: order } = await adminSb
+      .from("orders")
+      .select("id, status")
+      .eq("payment_id", paymentId)
+      .maybeSingle();
+
+    if (!order) {
+      // payment.confirm 이전의 webhook일 수 있음. 200 OK로 응답.
+      console.warn(`[Webhook] order not found for paymentId=${paymentId}`);
+      return NextResponse.json({ received: true });
+    }
+
+    // 상태 전이 매핑
+    let nextStatus: string | null = null;
+    const txType = webhookType;
+
+    if (txType === "Transaction.Paid" && payment.status === "PAID") {
+      nextStatus = "paid";
+    } else if (txType === "Transaction.VirtualAccountIssued") {
+      nextStatus = "virtual_account_issued";
+    } else if (txType === "Transaction.Cancelled") {
+      nextStatus = "refunded";
+    } else if (txType === "Transaction.Failed") {
+      nextStatus = "failed";
+    } else if (txType === "Transaction.PayPending") {
+      // 결제 중간 상태. 주문 상태 변경 없음.
+      return NextResponse.json({ received: true });
+    }
+
+    if (!nextStatus) {
+      return NextResponse.json({ received: true });
+    }
+
+    // 상태 머신 가드
+    if (!canTransition(order.status, nextStatus)) {
+      console.warn(
+        `[Webhook] skipping transition ${order.status} → ${nextStatus} for order=${order.id}`,
+      );
+      return NextResponse.json({ received: true, skipped: true });
+    }
+
+    const transactionId =
+      "transactionId" in payment && typeof payment.transactionId === "string"
+        ? payment.transactionId
+        : null;
+
+    await adminSb
+      .from("orders")
+      .update({
+        status: nextStatus,
+        transaction_id: transactionId ?? undefined,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order.id);
+
+    return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("[Webhook] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
