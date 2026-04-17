@@ -125,6 +125,14 @@ export async function POST(request: NextRequest) {
       .eq("payment_id", paymentId)
       .maybeSingle();
 
+    // 취소 금액 정보 (부분/전액 취소 구분용)
+    const paymentAmountTotal: number =
+      "amount" in payment && payment.amount ? payment.amount.total ?? 0 : 0;
+    const paymentAmountCancelled: number =
+      "amount" in payment && payment.amount ? payment.amount.cancelled ?? 0 : 0;
+    const isPartialCancel =
+      paymentAmountCancelled > 0 && paymentAmountCancelled < paymentAmountTotal;
+
     if (!order) {
       // payment.confirm 이전의 webhook일 수 있음. 200 OK로 응답.
       console.warn(`[Webhook] order not found for paymentId=${paymentId}`);
@@ -140,12 +148,26 @@ export async function POST(request: NextRequest) {
     } else if (txType === "Transaction.VirtualAccountIssued") {
       nextStatus = "virtual_account_issued";
     } else if (txType === "Transaction.Cancelled") {
-      nextStatus = "refunded";
+      // 부분 취소면 주문 상태는 유지, refunded_amount만 갱신한다.
+      // 전액 취소일 때만 refunded로 전이.
+      nextStatus = isPartialCancel ? null : "refunded";
     } else if (txType === "Transaction.Failed") {
       nextStatus = "failed";
     } else if (txType === "Transaction.PayPending") {
       // 결제 중간 상태. 주문 상태 변경 없음.
       return NextResponse.json({ received: true });
+    }
+
+    // 부분 취소: 주문 상태 전이 없이 refunded_amount만 갱신
+    if (!nextStatus && txType === "Transaction.Cancelled" && isPartialCancel) {
+      await adminSb
+        .from("orders")
+        .update({
+          refunded_amount: paymentAmountCancelled,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+      return NextResponse.json({ received: true, partial: true });
     }
 
     if (!nextStatus) {
@@ -164,15 +186,22 @@ export async function POST(request: NextRequest) {
       "transactionId" in payment && typeof payment.transactionId === "string"
         ? payment.transactionId
         : null;
+    const pgTxId =
+      "pgTxId" in payment && typeof payment.pgTxId === "string"
+        ? payment.pgTxId
+        : null;
 
-    await adminSb
-      .from("orders")
-      .update({
-        status: nextStatus,
-        transaction_id: transactionId ?? undefined,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", order.id);
+    const webhookUpdate: Record<string, unknown> = {
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (transactionId) webhookUpdate.transaction_id = transactionId;
+    if (pgTxId) webhookUpdate.pg_tx_id = pgTxId;
+    if (nextStatus === "refunded") {
+      webhookUpdate.refunded_amount = paymentAmountCancelled;
+    }
+
+    await adminSb.from("orders").update(webhookUpdate).eq("id", order.id);
 
     return NextResponse.json({ received: true });
   } catch (error) {

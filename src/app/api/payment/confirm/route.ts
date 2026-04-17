@@ -51,6 +51,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // 웹훅이 먼저 도착해 이미 단말 상태로 처리된 경우 재처리하지 않고 조기 반환
+    // (paid / virtual_account_issued 는 확인 성공으로 간주, cancelled / refunded 는 이미 종료된 주문)
+    const TERMINAL = new Set([
+      "paid",
+      "virtual_account_issued",
+      "cancelled",
+      "refunded",
+      "completed",
+      "in_progress",
+      "review_pending",
+      "revision_requested",
+    ]);
+    if (TERMINAL.has(order.status)) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          paymentId,
+          orderId,
+          orderStatus: order.status,
+          alreadyProcessed: true,
+        },
+      });
+    }
+
     // PortOne Server SDK로 결제 조회
     const portone = PortOne.PortOneClient({
       secret: process.env.PORTONE_API_SECRET ?? "",
@@ -149,15 +173,22 @@ export async function POST(request: Request) {
       "transactionId" in payment && typeof payment.transactionId === "string"
         ? payment.transactionId
         : null;
+    const pgTxId =
+      "pgTxId" in payment && typeof payment.pgTxId === "string"
+        ? payment.pgTxId
+        : null;
+
+    const confirmUpdate: Record<string, unknown> = {
+      status: nextStatus,
+      payment_id: paymentId,
+      transaction_id: transactionId,
+      updated_at: new Date().toISOString(),
+    };
+    if (pgTxId) confirmUpdate.pg_tx_id = pgTxId;
 
     const { error: updateError } = await adminSb
       .from("orders")
-      .update({
-        status: nextStatus,
-        payment_id: paymentId,
-        transaction_id: transactionId,
-        updated_at: new Date().toISOString(),
-      })
+      .update(confirmUpdate)
       .eq("id", orderId);
 
     if (updateError) {
