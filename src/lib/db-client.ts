@@ -315,12 +315,15 @@ export async function getExpertApplicationByUserClient(userId: string): Promise<
   };
 }
 
-export async function createExpertApplicationClient(app: { userId: string; name: string; email: string; phone?: string; category: string; skills: string[]; portfolioUrls: string[]; introduction?: string }): Promise<boolean> {
+export async function createExpertApplicationClient(app: { userId: string; name: string; email: string; phone?: string; category: string; skills: string[]; portfolioUrls: string[]; introduction?: string; idVerificationUrl?: string; businessRegistrationUrl?: string }): Promise<boolean> {
   const sb = createClient();
   const { error } = await sb.from("expert_applications").insert({
     user_id: app.userId, name: app.name, email: app.email, phone: app.phone,
     category: app.category, skills: app.skills, portfolio_urls: app.portfolioUrls,
-    introduction: app.introduction, status: "pending",
+    introduction: app.introduction,
+    id_verification_url: app.idVerificationUrl,
+    business_registration_url: app.businessRegistrationUrl,
+    status: "pending",
   });
   return !error;
 }

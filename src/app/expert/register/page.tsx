@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -56,7 +56,34 @@ export default function ExpertRegisterPage() {
     experience: "",
     // Step 3: Portfolio
     portfolioLinks: [""],
+    // Step 3: 신원 검증 서류
+    idVerificationUrl: "",
+    businessRegistrationUrl: "",
   });
+  const idInputRef = useRef<HTMLInputElement>(null);
+  const bizInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState<"id" | "biz" | null>(null);
+
+  const handleVerificationUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "id" | "biz") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(type);
+    try {
+      const { uploadFile } = await import("@/lib/storage");
+      const folder = type === "id" ? "verification/id" : "verification/business";
+      const result = await uploadFile("attachments", file, folder);
+      setFormData((prev) => ({
+        ...prev,
+        ...(type === "id" ? { idVerificationUrl: result.url } : { businessRegistrationUrl: result.url }),
+      }));
+      toast.success(`${type === "id" ? "신분증" : "사업자등록증"} 업로드 완료`);
+    } catch {
+      toast.error("업로드에 실패했습니다");
+    } finally {
+      setUploading(null);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   useEffect(() => {
     getCategoriesClient().then(setCategories);
@@ -110,6 +137,7 @@ export default function ExpertRegisterPage() {
     }
     if (currentStep === 3) {
       if (formData.portfolioLinks.every((l) => !l.trim())) { toast.error("포트폴리오 링크를 1개 이상 입력해주세요"); return false; }
+      if (!formData.idVerificationUrl) { toast.error("신분증 사본을 업로드해주세요"); return false; }
     }
     return true;
   };
@@ -149,6 +177,8 @@ export default function ExpertRegisterPage() {
       skills: formData.skills,
       portfolioUrls: formData.portfolioLinks.filter((l) => l.trim()),
       introduction: formData.introduction || undefined,
+      idVerificationUrl: formData.idVerificationUrl || undefined,
+      businessRegistrationUrl: formData.businessRegistrationUrl || undefined,
     });
 
     setSubmitting(false);
@@ -386,13 +416,43 @@ export default function ExpertRegisterPage() {
                     </div>
                   </div>
 
-                  <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                    <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-                    <p className="font-medium mb-1">파일 업로드</p>
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">신원 확인 서류 <span className="text-xs text-muted-foreground font-normal">(필수)</span></h2>
                     <p className="text-sm text-muted-foreground mb-4">
-                      포트폴리오 이미지나 영상을 업로드하세요
+                      안전한 거래를 위해 신원 확인이 필요합니다. 업로드된 서류는 심사 목적으로만 사용됩니다.
                     </p>
-                    <Button variant="outline">파일 선택</Button>
+                    <input ref={idInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleVerificationUpload(e, "id")} />
+                    <input ref={bizInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleVerificationUpload(e, "biz")} />
+                    <div className="space-y-3">
+                      <div onClick={() => idInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Upload className="h-5 w-5 text-muted-foreground" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">신분증 사본 (주민등록증/운전면허증)</p>
+                            {formData.idVerificationUrl ? (
+                              <p className="text-xs text-green-600 mt-0.5">✓ 업로드 완료</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, PDF · 최대 10MB</p>
+                            )}
+                          </div>
+                          {uploading === "id" && <span className="text-xs text-muted-foreground">업로드 중...</span>}
+                        </div>
+                      </div>
+                      <div onClick={() => bizInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Upload className="h-5 w-5 text-muted-foreground" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">사업자등록증 <span className="text-xs text-muted-foreground font-normal">(사업자만, 선택)</span></p>
+                            {formData.businessRegistrationUrl ? (
+                              <p className="text-xs text-green-600 mt-0.5">✓ 업로드 완료</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-0.5">개인사업자/법인 시 세금계산서 발행에 필요</p>
+                            )}
+                          </div>
+                          {uploading === "biz" && <span className="text-xs text-muted-foreground">업로드 중...</span>}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
