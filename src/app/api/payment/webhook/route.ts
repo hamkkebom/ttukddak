@@ -13,6 +13,8 @@ const TERMINAL_STATES = new Set(["refunded", "cancelled", "completed"]);
 const PAID_ALLOWED_NEXT = new Set([
   "paid",
   "in_progress",
+  "delivered",
+  "review",
   "review_pending",
   "revision_requested",
   "completed",

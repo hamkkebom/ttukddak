@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const adminSb = createAdminSupabaseClient();
     const { data: order, error: orderError } = await adminSb
       .from("orders")
-      .select("id, buyer_id, amount, status, service_id, package_id, coupon_id")
+      .select("id, buyer_id, amount, status, service_id, package_id, coupon_id, deal_offer_id")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -60,6 +60,8 @@ export async function POST(request: Request) {
       "refunded",
       "completed",
       "in_progress",
+      "delivered",
+      "review",
       "review_pending",
       "revision_requested",
     ]);
@@ -112,56 +114,66 @@ export async function POST(request: Request) {
       );
     }
 
-    // package_id는 name이 저장되어 있음(db-server.ts의 createOrder 참조)
-    // → service_packages 테이블에서 name 기준으로 조회
-    let packageName: string | null = null;
-    if (order.package_id) {
-      const { data: pkg } = await adminSb
-        .from("service_packages")
-        .select("name")
-        .eq("id", order.package_id)
+    if (order.deal_offer_id) {
+      const { data: offer } = await adminSb
+        .from("deal_offers")
+        .select("amount,status,order_id")
+        .eq("id", order.deal_offer_id)
         .maybeSingle();
-      if (pkg) packageName = pkg.name;
-      else packageName = order.package_id as string; // fallback: name으로 저장된 경우
-    }
-
-    // 쿠폰 코드 복원 (user_coupons → coupons.code)
-    let couponCode: string | null = null;
-    if (order.coupon_id) {
-      const { data: uc } = await adminSb
-        .from("user_coupons")
-        .select("coupon_id, coupons(code)")
-        .eq("id", order.coupon_id)
-        .maybeSingle();
-      // Supabase 조인 결과: coupons는 배열 또는 객체 형태로 올 수 있음. 방어적으로 처리.
-      const couponRel = (uc as unknown as { coupons?: { code?: string } | { code?: string }[] } | null)
-        ?.coupons;
-      if (Array.isArray(couponRel)) {
-        couponCode = couponRel[0]?.code ?? null;
-      } else if (couponRel && typeof couponRel === "object") {
-        couponCode = couponRel.code ?? null;
+      if (!offer || offer.status !== "accepted" || offer.order_id !== order.id || offer.amount !== portoneAmount) {
+        return NextResponse.json(
+          { success: false, error: "합의견적 금액이 주문 금액과 일치하지 않습니다" },
+          { status: 400 },
+        );
       }
-    }
+    } else {
+      let packageName: string | null = null;
+      if (order.package_id) {
+        const { data: pkg } = await adminSb
+          .from("service_packages")
+          .select("name")
+          .eq("id", order.package_id)
+          .maybeSingle();
+        if (pkg) packageName = pkg.name;
+        else packageName = order.package_id as string;
+      }
 
-    const recomputed = await computeOrderAmount({
-      serviceId: order.service_id as string,
-      packageName,
-      userId: user.id,
-      couponCode,
-    });
+      let couponCode: string | null = null;
+      if (order.coupon_id) {
+        const { data: uc } = await adminSb
+          .from("user_coupons")
+          .select("coupon_id, coupons(code)")
+          .eq("id", order.coupon_id)
+          .maybeSingle();
+        const couponRel = (uc as unknown as { coupons?: { code?: string } | { code?: string }[] } | null)
+          ?.coupons;
+        if (Array.isArray(couponRel)) {
+          couponCode = couponRel[0]?.code ?? null;
+        } else if (couponRel && typeof couponRel === "object") {
+          couponCode = couponRel.code ?? null;
+        }
+      }
 
-    if (!recomputed.ok) {
-      return NextResponse.json(
-        { success: false, error: "주문 정보가 유효하지 않습니다" },
-        { status: 400 },
-      );
-    }
+      const recomputed = await computeOrderAmount({
+        serviceId: order.service_id as string,
+        packageName,
+        userId: user.id,
+        couponCode,
+      });
 
-    if (recomputed.data.totalAmount !== portoneAmount) {
-      return NextResponse.json(
-        { success: false, error: "결제 금액이 서버 계산값과 일치하지 않습니다" },
-        { status: 400 },
-      );
+      if (!recomputed.ok) {
+        return NextResponse.json(
+          { success: false, error: "주문 정보가 유효하지 않습니다" },
+          { status: 400 },
+        );
+      }
+
+      if (recomputed.data.totalAmount !== portoneAmount) {
+        return NextResponse.json(
+          { success: false, error: "결제 금액이 서버 계산값과 일치하지 않습니다" },
+          { status: 400 },
+        );
+      }
     }
 
     // 상태 및 transaction_id 업데이트

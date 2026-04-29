@@ -648,6 +648,8 @@ export default function ServiceDetailPageClient({
       <InquiryModal
         open={isInquiryOpen}
         onOpenChange={setIsInquiryOpen}
+        serviceId={service.id}
+        expertId={expert.id}
         serviceName={service.title}
         expertName={expert.name}
       />

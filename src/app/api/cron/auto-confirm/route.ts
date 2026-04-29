@@ -13,6 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   // Verify cron secret
   const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "CRON_SECRET is required in production" }, { status: 500 });
+  }
   if (cronSecret) {
     const authHeader = req.headers.get("authorization");
     if (authHeader !== `Bearer ${cronSecret}`) {
@@ -23,11 +26,11 @@ export async function GET(req: NextRequest) {
   const sb = createAdminSupabaseClient();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Find delivered (review_pending) orders past 7-day grace period
+  // Find delivered orders past 7-day grace period
   const { data: orders, error } = await sb
     .from("orders")
-    .select("id, buyer_id, expert_id, service_id, amount, coupon_id, delivered_at")
-    .eq("status", "review_pending")
+    .select("id, buyer_id, seller_id, service_id, amount, coupon_id, delivered_at")
+    .eq("status", "delivered")
     .lt("delivered_at", sevenDaysAgo);
 
   if (error) {
@@ -55,11 +58,11 @@ export async function GET(req: NextRequest) {
       }
 
       // Notify expert about settlement
-      if (order.expert_id) {
+      if (order.seller_id) {
         const { data: expertProfile } = await sb
           .from("profiles")
           .select("id")
-          .eq("id", order.expert_id)
+          .eq("id", order.seller_id)
           .maybeSingle();
         if (expertProfile?.id) {
           const fee = Math.round((order.amount || 0) * 0.05);

@@ -29,7 +29,14 @@ interface OrderDelivery {
 
 function getOrderSteps(status: string) {
   const statusMap: Record<string, number> = {
-    pending: 0, paid: 1, in_progress: 3, review: 4, completed: 7,
+    pending: 0,
+    virtual_account_issued: 0,
+    paid: 1,
+    in_progress: 3,
+    revision_requested: 5,
+    delivered: 6,
+    review: 6,
+    completed: 7,
   };
   const currentStep = statusMap[status] ?? 0;
 

@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { getQuoteRequestsClient } from "@/lib/db-client";
-import type { QuoteRequest } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import { getQuoteRequestsClient, getServicesByExpertClient } from "@/lib/db-client";
+import type { QuoteRequest, Service } from "@/types";
 
 const statusColors: Record<string, string> = {
   open: "bg-red-100 text-red-700",
@@ -35,15 +36,26 @@ export default function DashboardQuotesPage() {
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
   const [estimatedDays, setEstimatedDays] = useState("");
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getQuoteRequestsClient();
+        const sb = createClient();
+        const [{ data: { user } }, data] = await Promise.all([
+          sb.auth.getUser(),
+          getQuoteRequestsClient(),
+        ]);
         setQuoteRequests(data);
         if (data.length > 0) setSelectedQuoteId(data[0].id);
+        if (user) {
+          const myServices = await getServicesByExpertClient(user.id);
+          setServices(myServices);
+          if (myServices.length > 0) setSelectedServiceId(myServices[0].id);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -60,6 +72,7 @@ export default function DashboardQuotesPage() {
     if (!quoteAmount) { toast.error("견적 금액을 입력해주세요"); return; }
     if (!quoteMessage) { toast.error("견적 설명을 입력해주세요"); return; }
     if (!estimatedDays) { toast.error("작업 예상 기간을 입력해주세요"); return; }
+    if (!selectedServiceId) { toast.error("견적과 연결할 서비스를 선택해주세요"); return; }
 
     setSubmitting(true);
     try {
@@ -70,6 +83,7 @@ export default function DashboardQuotesPage() {
           price: Number(quoteAmount),
           message: quoteMessage,
           estimatedDays: Number(estimatedDays),
+          serviceId: selectedServiceId,
         }),
       });
 
@@ -83,6 +97,7 @@ export default function DashboardQuotesPage() {
       setQuoteAmount("");
       setQuoteMessage("");
       setEstimatedDays("");
+      if (services.length > 0) setSelectedServiceId(services[0].id);
 
       // Refresh list and mark the request as matched
       setQuoteRequests((prev) =>
@@ -220,6 +235,22 @@ export default function DashboardQuotesPage() {
               {selected.status === "open" && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold">견적 보내기</h3>
+                  <select
+                    value={selectedServiceId}
+                    onChange={(e) => setSelectedServiceId(e.target.value)}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    disabled={submitting || services.length === 0}
+                  >
+                    {services.length === 0 ? (
+                      <option value="">먼저 공개 서비스를 등록해주세요</option>
+                    ) : (
+                      services.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.title}
+                        </option>
+                      ))
+                    )}
+                  </select>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

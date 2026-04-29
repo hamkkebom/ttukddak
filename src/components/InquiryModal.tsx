@@ -10,6 +10,8 @@ import { toast } from "sonner";
 interface InquiryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  serviceId: string;
+  expertId: string;
   serviceName: string;
   expertName: string;
 }
@@ -17,26 +19,56 @@ interface InquiryModalProps {
 export function InquiryModal({
   open,
   onOpenChange,
+  serviceId,
+  expertId,
   serviceName,
   expertName,
 }: InquiryModalProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    toast.success("문의가 전송되었습니다!", {
-      description: `${expertName} 전문가에게 문의를 보냈습니다.`,
-      action: {
-        label: "메시지 확인",
-        onClick: () => router.push("/messages"),
-      },
-    });
-    setMessage("");
-    onOpenChange(false);
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/conversations/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expertId,
+          serviceId,
+          initialMessage: message.trim(),
+        }),
+      });
+
+      if (res.status === 401) {
+        toast.error("로그인이 필요합니다");
+        router.push(`/login?redirect=/service/${serviceId}`);
+        return;
+      }
+
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "문의 전송에 실패했습니다");
+        return;
+      }
+
+      toast.success("문의가 전송되었습니다", {
+        description: `${expertName} 전문가와의 대화방을 만들었습니다.`,
+      });
+      setMessage("");
+      onOpenChange(false);
+      router.push(`/messages?conversationId=${json.conversationId || json.id}`);
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goToMessages = () => {
@@ -72,6 +104,10 @@ export function InquiryModal({
           <Badge variant="secondary" className="shrink-0 text-xs">온라인</Badge>
         </div>
 
+        <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          공개 테스트 기간에는 플랫폼 메시지와 첨부파일로 요구사항, 일정, 금액을 협의합니다.
+        </p>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <textarea
             value={message}
@@ -86,12 +122,13 @@ export function InquiryModal({
               type="button"
               variant="outline"
               className="flex-1"
+              disabled={submitting}
               onClick={() => onOpenChange(false)}
             >
               취소
             </Button>
-            <Button type="submit" className="flex-1">
-              문의 보내기
+            <Button type="submit" className="flex-1" disabled={submitting || !message.trim()}>
+              {submitting ? "전송 중..." : "문의 보내기"}
             </Button>
           </div>
         </form>

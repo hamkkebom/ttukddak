@@ -245,31 +245,15 @@ export async function getReviewsClient(filters?: { serviceId?: string }): Promis
 
 export async function getConversationsClient(userId: string): Promise<Conversation[]> {
   if (!uuidRegex.test(userId)) return [];
-  const sb = createClient();
-  const { data } = await sb.from("conversations")
-    .select("*")
-    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-    .order("last_message_at", { ascending: false });
-
-  if (!data) return [];
-  return data.map((c: any) => ({
-    id: c.id, participant1: c.buyer_id, participant2: c.seller_id,
-    lastMessage: c.last_message, lastMessageAt: c.last_message_at, createdAt: c.created_at,
-  }));
+  const res = await fetch(`/api/conversations?userId=${encodeURIComponent(userId)}`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function getMessagesClient(conversationId: string): Promise<Message[]> {
-  const sb = createClient();
-  const { data } = await sb.from("messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
-
-  if (!data) return [];
-  return data.map((m: any) => ({
-    id: m.id, conversationId: m.conversation_id, senderId: m.sender_id,
-    content: m.content, isRead: m.is_read, createdAt: m.created_at,
-  }));
+  const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(conversationId)}`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function sendMessageClient(
@@ -278,19 +262,20 @@ export async function sendMessageClient(
   content: string,
   options?: { messageType?: string; fileUrl?: string }
 ): Promise<Message | null> {
-  const sb = createClient();
-  const { data, error } = await sb.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: senderId,
-    content,
-    message_type: options?.messageType || "text",
-    file_url: options?.fileUrl || null,
-  }).select().single();
+  const res = await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      conversationId,
+      senderId,
+      content,
+      messageType: options?.messageType || "text",
+      fileUrl: options?.fileUrl || null,
+    }),
+  });
 
-  if (error || !data) return null;
-  const displayContent = options?.messageType === "image" ? "📷 이미지" : options?.messageType === "file" ? "📎 파일" : content;
-  await sb.from("conversations").update({ last_message: displayContent, last_message_at: new Date().toISOString() }).eq("id", conversationId);
-  return { id: data.id, conversationId: data.conversation_id, senderId: data.sender_id, content: data.content, isRead: data.is_read, createdAt: data.created_at, messageType: data.message_type, fileUrl: data.file_url };
+  if (!res.ok) return null;
+  return res.json();
 }
 
 // ============================================
@@ -333,24 +318,18 @@ export async function createExpertApplicationClient(app: { userId: string; name:
 // ============================================
 
 export async function getQuoteRequestsClient(): Promise<QuoteRequest[]> {
-  const sb = createClient();
-  const { data } = await sb.from("quote_requests").select("*").order("created_at", { ascending: false });
-  if (!data) return [];
-  return data.map((q: any) => ({
-    id: q.id, userId: q.requester_id, title: q.title, category: q.category,
-    budgetMin: q.budget_min, budgetMax: q.budget_max, deadline: q.deadline,
-    description: q.description, status: q.status, createdAt: q.created_at,
-  }));
+  const res = await fetch("/api/quote-requests");
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function createQuoteRequestClient(req: { userId: string; title: string; category?: string; budgetMin?: number; budgetMax?: number; deadline?: string; description?: string }): Promise<boolean> {
-  const sb = createClient();
-  const { error } = await sb.from("quote_requests").insert({
-    requester_id: req.userId, title: req.title, category: req.category,
-    budget_min: req.budgetMin, budget_max: req.budgetMax,
-    deadline: req.deadline, description: req.description, status: "open",
+  const res = await fetch("/api/quote-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
   });
-  return !error;
+  return res.ok;
 }
 
 // ============================================

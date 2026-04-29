@@ -1,7 +1,7 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile } from "@/types";
+import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile, MessageType } from "@/types";
 import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 
 // ============================================
@@ -367,21 +367,22 @@ export async function getOrderById(id: string): Promise<Order | null> {
   };
 }
 
-export async function createOrder(order: { buyerId: string; serviceId: string; expertId: string; packageName: string; price: number; requirements?: string; couponId?: string | null }): Promise<Order | null> {
+export async function createOrder(order: { buyerId: string; serviceId: string; expertId: string; packageId?: string | null; packageName?: string | null; price: number; requirements?: string; couponId?: string | null; dealOfferId?: string | null }): Promise<Order | null> {
   const sb = await createServerSupabaseClient();
   const { data, error } = await sb.from("orders").insert({
     buyer_id: order.buyerId,
     service_id: order.serviceId,
     seller_id: order.expertId,
-    package_id: order.packageName,
+    package_id: order.packageId || null,
     amount: order.price,
     requirements: order.requirements,
     coupon_id: order.couponId ?? null,
+    deal_offer_id: order.dealOfferId ?? null,
     status: "pending",
   }).select().single();
 
   if (error || !data) return null;
-  return { id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id, packageName: data.package_id, price: data.amount, status: data.status, paymentId: data.payment_id, requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at };
+  return { id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id, packageName: order.packageName || data.package_id || "협의견적", price: data.amount, status: data.status, paymentId: data.payment_id, requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at, dealOfferId: data.deal_offer_id };
 }
 
 export async function updateOrderStatus(id: string, status: string): Promise<boolean> {
@@ -468,6 +469,9 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
     id: c.id,
     participant1: c.buyer_id,
     participant2: c.seller_id,
+    serviceId: c.service_id,
+    quoteRequestId: c.quote_request_id,
+    orderId: c.order_id,
     lastMessage: c.last_message,
     lastMessageAt: c.last_message_at,
     createdAt: c.created_at,
@@ -489,15 +493,24 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
     content: m.content,
     isRead: m.is_read,
     createdAt: m.created_at,
+    messageType: m.message_type,
+    fileUrl: m.file_url,
   }));
 }
 
-export async function sendMessage(conversationId: string, senderId: string, content: string): Promise<Message | null> {
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  content: string,
+  options?: { messageType?: MessageType; fileUrl?: string | null }
+): Promise<Message | null> {
   const sb = await createServerSupabaseClient();
   const { data, error } = await sb.from("messages").insert({
     conversation_id: conversationId,
     sender_id: senderId,
     content,
+    message_type: options?.messageType || "text",
+    file_url: options?.fileUrl || null,
   }).select().single();
 
   if (error || !data) return null;
@@ -505,21 +518,36 @@ export async function sendMessage(conversationId: string, senderId: string, cont
   // Update conversation last message
   await sb.from("conversations").update({ last_message: content, last_message_at: new Date().toISOString() }).eq("id", conversationId);
 
-  return { id: data.id, conversationId: data.conversation_id, senderId: data.sender_id, content: data.content, isRead: data.is_read, createdAt: data.created_at };
+  return { id: data.id, conversationId: data.conversation_id, senderId: data.sender_id, content: data.content, isRead: data.is_read, createdAt: data.created_at, messageType: data.message_type, fileUrl: data.file_url };
 }
 
-export async function createConversation(participant1: string, participant2: string): Promise<string | null> {
+export async function createConversation(
+  participant1: string,
+  participant2: string,
+  options?: { serviceId?: string | null; quoteRequestId?: string | null; orderId?: string | null }
+): Promise<string | null> {
   if (!uuidRegex.test(participant1) || !uuidRegex.test(participant2)) return null;
   const sb = await createServerSupabaseClient();
   // Check existing
-  const { data: existing } = await sb.from("conversations")
+  let existingQuery = sb.from("conversations")
     .select("id")
-    .or(`and(buyer_id.eq.${participant1},seller_id.eq.${participant2}),and(buyer_id.eq.${participant2},seller_id.eq.${participant1})`)
-    .maybeSingle();
+    .or(`and(buyer_id.eq.${participant1},seller_id.eq.${participant2}),and(buyer_id.eq.${participant2},seller_id.eq.${participant1})`);
+
+  if (options?.serviceId) existingQuery = existingQuery.eq("service_id", options.serviceId);
+  if (options?.quoteRequestId) existingQuery = existingQuery.eq("quote_request_id", options.quoteRequestId);
+  if (options?.orderId) existingQuery = existingQuery.eq("order_id", options.orderId);
+
+  const { data: existing } = await existingQuery.limit(1).maybeSingle();
 
   if (existing) return existing.id;
 
-  const { data, error } = await sb.from("conversations").insert({ buyer_id: participant1, seller_id: participant2 }).select("id").single();
+  const { data, error } = await sb.from("conversations").insert({
+    buyer_id: participant1,
+    seller_id: participant2,
+    service_id: options?.serviceId || null,
+    quote_request_id: options?.quoteRequestId || null,
+    order_id: options?.orderId || null,
+  }).select("id").single();
   if (error || !data) return null;
   return data.id;
 }
@@ -648,7 +676,7 @@ export async function updateProfile(id: string, updates: { name?: string; avatar
 // ============================================
 
 export async function createService(svc: { expertId: string; categoryId: string; title: string; description: string; price: number; tags?: string[]; images?: string[]; status?: string }): Promise<string | null> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { data, error } = await sb.from("services").insert({
     expert_id: svc.expertId,
     category_id: svc.categoryId,
@@ -664,7 +692,7 @@ export async function createService(svc: { expertId: string; categoryId: string;
 }
 
 export async function updateService(id: string, updates: { title?: string; description?: string; price?: number; tags?: string[]; categoryId?: string; status?: string; rejectionReason?: string | null }): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const dbUpdates: any = { updated_at: new Date().toISOString() };
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
@@ -682,7 +710,7 @@ export async function updateService(id: string, updates: { title?: string; descr
 // ============================================
 
 export async function deleteService(id: string): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
+  const sb = createAdminSupabaseClient();
   const { error } = await sb.from("services").update({ status: "deleted" }).eq("id", id);
   return !error;
 }

@@ -76,7 +76,7 @@ export interface Order {
   expertId: string;
   packageName: string;
   price: number;
-  status: "pending" | "paid" | "in_progress" | "review" | "delivered" | "completed" | "cancelled" | "refunded";
+  status: "pending" | "virtual_account_issued" | "paid" | "in_progress" | "delivered" | "review" | "review_pending" | "revision_requested" | "completed" | "cancelled" | "failed" | "refund_requested" | "refunded";
   paymentId?: string;
   requirements?: string;
   createdAt: string;
@@ -86,20 +86,36 @@ export interface Order {
   expertName?: string;
   buyerName?: string;
   buyerAvatar?: string;
+  dealOfferId?: string;
 }
+
+export type ConversationContext = {
+  serviceId?: string;
+  serviceTitle?: string;
+  quoteRequestId?: string;
+  quoteRequestTitle?: string;
+  orderId?: string;
+  orderStatus?: Order["status"];
+};
 
 export interface Conversation {
   id: string;
   participant1: string;
   participant2: string;
+  serviceId?: string;
+  quoteRequestId?: string;
+  orderId?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   createdAt: string;
+  context?: ConversationContext;
   // Joined fields
   otherName?: string;
   otherAvatar?: string;
   unreadCount?: number;
 }
+
+export type MessageType = "text" | "file" | "image" | "quote" | "delivery" | "deal_offer" | "system";
 
 export interface Message {
   id: string;
@@ -108,8 +124,49 @@ export interface Message {
   content: string;
   isRead: boolean;
   createdAt: string;
-  messageType?: string;
+  messageType?: MessageType;
   fileUrl?: string;
+}
+
+export type DealOfferStatus = "pending" | "accepted" | "rejected" | "expired" | "cancelled";
+
+export interface DealOffer {
+  id: string;
+  conversationId: string;
+  serviceId: string;
+  quoteRequestId?: string;
+  orderId?: string;
+  buyerId: string;
+  expertId: string;
+  title: string;
+  scope: string;
+  amount: number;
+  deliveryDays: number;
+  revisions: number;
+  memo?: string;
+  status: DealOfferStatus;
+  expiresAt?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
+  cancelledAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  serviceTitle?: string;
+  expertName?: string;
+  buyerName?: string;
+}
+
+export interface CreateDealOfferInput {
+  conversationId: string;
+  serviceId: string;
+  quoteRequestId?: string;
+  title: string;
+  scope: string;
+  amount: number;
+  deliveryDays: number;
+  revisions: number;
+  memo?: string;
+  expiresAt?: string;
 }
 
 export interface ExpertApplication {
@@ -135,7 +192,7 @@ export interface QuoteRequest {
   budgetMax?: number;
   deadline?: string;
   description?: string;
-  status: "open" | "matched" | "closed";
+  status: "open" | "matched" | "quoted" | "in_discussion" | "closed";
   createdAt: string;
   // Joined
   userName?: string;
@@ -146,6 +203,8 @@ export interface QuoteResponse {
   id: string;
   quoteRequestId: string;
   expertId: string;
+  serviceId?: string;
+  serviceTitle?: string;
   expertName?: string;
   expertAvatar?: string;
   price: number;
