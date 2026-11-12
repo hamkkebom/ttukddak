@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getCategories, getServicesByCategory } from "@/lib/db-server";
+import { getPublicCategories, getPublicServicesByCategory } from "@/lib/db-public";
 
 export const metadata: Metadata = {
   title: "전체 카테고리 | 뚝딱",
@@ -41,12 +41,15 @@ const categoryGradients: Record<string, string> = {
   "education": "from-blue-500/90 to-indigo-600/90",
 };
 
+// 공개 데이터만 쓰는 페이지라 정적으로 만들어 두고 60초마다 다시 만든다 (ISR).
+export const revalidate = 60;
+
 export default async function CategoriesPage() {
-  const categories = await getCategories();
+  const categories = await getPublicCategories();
 
   // Fetch services for each category in parallel
   const categoryServices = await Promise.all(
-    categories.map((cat) => getServicesByCategory(cat.id))
+    categories.map((cat) => getPublicServicesByCategory(cat.id))
   );
 
   return (

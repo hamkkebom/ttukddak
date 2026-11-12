@@ -8,7 +8,7 @@ import {
   Smartphone, Share2, ShoppingCart, Building2, Sparkle,
   Gamepad2, Brush, LayoutGrid, FileText, Volume2, ImageIcon
 } from "lucide-react";
-import { getCategories, getServices, getExperts } from "@/lib/db-server";
+import { getPublicCategories, getPublicServices, getPublicExperts } from "@/lib/db-public";
 import { ServiceCard } from "@/components/ServiceCard";
 import { HorizontalScrollRow } from "@/components/HorizontalScrollRow";
 
@@ -47,13 +47,15 @@ const contestEntries = [
 ];
 
 
+// 공개 데이터만 쓰는 페이지라 정적으로 만들어 두고 60초마다 다시 만든다 (ISR).
+export const revalidate = 60;
+
 export default async function HomePage() {
-  const [categories, allServices, expertsResult] = await Promise.all([
-    getCategories(),
-    getServices(20),
-    getExperts(20),
+  const [categories, allServices, experts] = await Promise.all([
+    getPublicCategories(),
+    getPublicServices(20),
+    getPublicExperts(20),
   ]);
-  const experts = expertsResult.experts;
 
   // 시드 기반 셔플 (매 시간 변경)
   const seed = Math.floor(Date.now() / 3600000);

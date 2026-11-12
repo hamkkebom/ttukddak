@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getServiceByIdDB, updateService, deleteService } from "@/lib/db-server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -53,6 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const ok = await updateService(id, body);
   if (!ok) return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  // 상세 페이지는 캐시되므로, 수정한 내용이 다음 방문에 바로 보이도록 무효화한다.
+  revalidatePath(`/service/${id}`);
   return NextResponse.json({ success: true });
 }
 
@@ -78,5 +81,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const ok = await deleteService(id);
   if (!ok) return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
+  revalidatePath(`/service/${id}`);
   return NextResponse.json({ success: true });
 }
