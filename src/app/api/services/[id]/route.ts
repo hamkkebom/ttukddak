@@ -50,12 +50,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
-  if (body.status && !["draft", "pending_review", "deleted"].includes(body.status)) {
+  if (body.status !== undefined && !["draft", "pending_review", "deleted"].includes(body.status)) {
     return NextResponse.json({ error: "Invalid service status" }, { status: 400 });
   }
   // 정지는 관리자가 건 조치다. 소유자는 내용 수정과 삭제는 할 수 있지만,
   // 심사 신청 등으로 상태를 되돌릴 수는 없다. 해제는 관리자만 한다.
-  if (service.status === "suspended" && body.status && body.status !== "deleted") {
+  if (service.status === "suspended" && body.status !== undefined && body.status !== "deleted") {
     return NextResponse.json({ error: "정지된 서비스는 관리자만 해제할 수 있습니다" }, { status: 409 });
   }
   const ok = await updateService(id, body);
