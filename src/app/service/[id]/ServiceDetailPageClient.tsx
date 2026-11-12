@@ -34,7 +34,10 @@ export default function ServiceDetailPageClient({
   expertServices: Service[];
 }) {
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedPackage, setSelectedPackage] = useState(1);
+  // 패키지가 여러 개면 가운데(스탠다드)를 기본으로 고르고, 하나뿐이면 그 패키지를 고른다.
+  // (대부분의 서비스는 패키지가 하나다. 없는 두 번째 패키지를 고르면 화면 전체가 오류로 바뀐다.)
+  const [selectedPackage, setSelectedPackage] = useState(() => (service.packages.length > 1 ? 1 : 0));
+  const currentPackage = service.packages[selectedPackage] ?? service.packages[0];
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [reviewFilter, setReviewFilter] = useState<number | null>(null);
@@ -626,7 +629,7 @@ export default function ServiceDetailPageClient({
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-5 w-5 text-blue-500 shrink-0" />
                   <div>
-                    <p className="font-semibold text-slate-700">평균 {service.packages[selectedPackage].deliveryDays}일 납품</p>
+                    <p className="font-semibold text-slate-700">평균 {currentPackage?.deliveryDays ?? 0}일 납품</p>
                     <p className="text-xs text-slate-400">일정 초과 시 자동 환불</p>
                   </div>
                 </div>
@@ -634,7 +637,7 @@ export default function ServiceDetailPageClient({
                 <div className="flex items-center gap-3 text-sm">
                   <RefreshCw className="h-5 w-5 text-orange-500 shrink-0" />
                   <div>
-                    <p className="font-semibold text-slate-700">수정 {service.packages[selectedPackage].revisions}회 보장</p>
+                    <p className="font-semibold text-slate-700">수정 {currentPackage?.revisions ?? 0}회 보장</p>
                     <p className="text-xs text-slate-400">만족할 때까지 수정 가능</p>
                   </div>
                 </div>
@@ -675,6 +678,9 @@ function PackageSection({
   packageColors: string[];
   onInquiry: () => void;
 }) {
+  const currentPackage = service.packages[selectedPackage] ?? service.packages[0];
+  if (!currentPackage) return null;
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       {/* Package tabs */}
@@ -706,28 +712,28 @@ function PackageSection({
         <div className="flex items-end justify-between mb-4">
           <div>
             <p className="text-2xl font-bold text-slate-900">
-              {formatPrice(service.packages[selectedPackage].price)}
+              {formatPrice(currentPackage.price)}
               <span className="text-sm font-normal text-slate-400">원</span>
             </p>
           </div>
         </div>
 
-        <p className="text-sm text-slate-500 mb-4">{service.packages[selectedPackage].name}</p>
+        <p className="text-sm text-slate-500 mb-4">{currentPackage.name}</p>
 
         <div className="flex items-center gap-4 text-sm text-slate-500 mb-5">
           <span className="flex items-center gap-1.5">
             <Clock className="h-4 w-4" />
-            {service.packages[selectedPackage].deliveryDays}일 작업
+            {currentPackage.deliveryDays}일 작업
           </span>
           <span className="flex items-center gap-1.5">
             <RefreshCw className="h-4 w-4" />
-            수정 {service.packages[selectedPackage].revisions}회
+            수정 {currentPackage.revisions}회
           </span>
         </div>
 
         {/* Features */}
         <ul className="space-y-2.5 mb-6">
-          {service.packages[selectedPackage].features.map((feature: string) => (
+          {currentPackage.features.map((feature: string) => (
             <li key={feature} className="flex items-start gap-2.5 text-sm">
               <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
               <span className="text-slate-600">{feature}</span>
