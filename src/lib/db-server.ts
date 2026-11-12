@@ -12,7 +12,7 @@ const DEFAULT_PACKAGES = (price: number) => [
   { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"] },
 ];
 
-function dbServiceToApp(s: DBService, packages?: any[]): Service {
+export function dbServiceToApp(s: DBService, packages?: any[]): Service {
   const pkgs = packages && packages.length > 0
     ? packages.map((p: any) => ({
         name: p.name,
@@ -46,7 +46,7 @@ function dbServiceToApp(s: DBService, packages?: any[]): Service {
   };
 }
 
-function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
+export function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
   const parts = (e.title || "").split(" - ");
   const name = profile?.name || parts[0] || "전문가";
   const title = parts.slice(1).join(" - ") || parts[0] || "";
@@ -70,7 +70,7 @@ function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
   };
 }
 
-function dbCategoryToApp(c: DBCategory): Category {
+export function dbCategoryToApp(c: DBCategory): Category {
   return {
     id: c.id,
     name: c.name,

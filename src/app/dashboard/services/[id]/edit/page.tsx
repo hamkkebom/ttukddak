@@ -181,7 +181,7 @@ export default function EditServicePage({
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/service/${id}`}><Eye className="h-4 w-4 mr-2" /> 미리보기</Link>
+              <Link href={`/dashboard/services/${id}/preview`}><Eye className="h-4 w-4 mr-2" /> 미리보기</Link>
             </Button>
             <Button variant="destructive" size="icon" onClick={async () => {
               if (!confirm("정말 이 서비스를 삭제하시겠습니까?")) return;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
@@ -42,6 +43,9 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: "Failed to approve service" }, { status: 500 });
   }
+
+  // 공개 상세 페이지는 캐시된다. 승인 직후부터 보이도록 무효화한다.
+  revalidatePath(`/service/${id}`);
 
   // Notify the expert
   await createNotification({
