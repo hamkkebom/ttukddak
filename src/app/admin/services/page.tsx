@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, CheckCircle, XCircle, Trash2, PauseCircle, Eye } from "lucide-react";
+import { Search, CheckCircle, XCircle, Trash2, PauseCircle, PlayCircle, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -98,16 +98,23 @@ export default function AdminServicesPage() {
   };
 
   const handleSuspend = async (svcId: string) => {
-    const res = await fetch(`/api/services/${svcId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "suspended" }),
-    });
+    if (!confirm("이 서비스를 정지하시겠습니까? 정지하면 목록과 상세 페이지에서 내려갑니다.")) return;
+    const res = await fetch(`/api/admin/services/${svcId}/suspend`, { method: "POST" });
     if (res.ok) {
       setServices((prev) => prev.map((s) => s.id === svcId ? { ...s, adminStatus: "정지", status: "suspended" } : s));
       toast.success("서비스가 정지되었습니다");
     } else {
       toast.error("정지 처리에 실패했습니다");
+    }
+  };
+
+  const handleResume = async (svcId: string) => {
+    const res = await fetch(`/api/admin/services/${svcId}/suspend`, { method: "DELETE" });
+    if (res.ok) {
+      setServices((prev) => prev.map((s) => s.id === svcId ? { ...s, adminStatus: "활성", status: "active" } : s));
+      toast.success("서비스 정지가 해제되었습니다");
+    } else {
+      toast.error("정지 해제에 실패했습니다");
     }
   };
 
@@ -249,6 +256,17 @@ export default function AdminServicesPage() {
                             onClick={() => handleSuspend(svc.id)}
                           >
                             <PauseCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {svc.adminStatus === "정지" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-green-600"
+                            title="정지 해제"
+                            onClick={() => handleResume(svc.id)}
+                          >
+                            <PlayCircle className="h-4 w-4" />
                           </Button>
                         )}
                         <Button

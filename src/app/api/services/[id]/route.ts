@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getServiceByIdDB, updateService, deleteService } from "@/lib/db-server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isAdminUser } from "@/lib/api/auth";
 
 export async function GET(
   _request: NextRequest,
@@ -75,7 +76,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .single();
 
   if (!service) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (service.expert_id !== user.id) {
+  // 소유자 본인 또는 관리자만 삭제할 수 있다.
+  if (service.expert_id !== user.id && !(await isAdminUser(user.id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
