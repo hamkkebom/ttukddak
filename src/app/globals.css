@@ -67,7 +67,6 @@
   --color-ring: hsl(var(--ring));
   --radius: 0.5rem;
   --font-sans: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-  --font-inter: var(--font-inter), 'Inter', sans-serif;
 }
 
 body {
@@ -76,9 +75,10 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Inter font utility for numbers/prices */
+/* Number/price utility: same Pretendard as body text, with tabular figures.
+   Pretendard's Latin and digit glyphs are Inter-based, so a separate Inter download is not needed. */
 .font-number {
-  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-feature-settings: 'tnum' on, 'lnum' on;
 }
 
