@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceByIdDB, updateService, deleteService } from "@/lib/db-server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function GET(
   _request: NextRequest,
@@ -34,7 +35,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   // Verify user is the expert who owns the service
-  const { data: service } = await sb
+  const admin = createAdminSupabaseClient();
+  const { data: service } = await admin
     .from("services")
     .select("expert_id")
     .eq("id", id)
@@ -46,6 +48,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
+  if (body.status && !["draft", "pending_review", "deleted"].includes(body.status)) {
+    return NextResponse.json({ error: "Invalid service status" }, { status: 400 });
+  }
   const ok = await updateService(id, body);
   if (!ok) return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   return NextResponse.json({ success: true });
@@ -59,7 +64,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
 
   // Verify user is the expert who owns the service
-  const { data: service } = await sb
+  const admin = createAdminSupabaseClient();
+  const { data: service } = await admin
     .from("services")
     .select("expert_id")
     .eq("id", id)

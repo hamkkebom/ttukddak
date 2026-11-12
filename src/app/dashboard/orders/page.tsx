@@ -17,13 +17,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getOrdersClient } from "@/lib/db-client";
+import { uploadFile } from "@/lib/storage";
 import type { Order } from "@/types";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "요구사항 확인",
   paid: "요구사항 확인",
   in_progress: "작업중",
+  delivered: "검수 대기",
   review: "검수 대기",
+  revision_requested: "수정 요청",
   completed: "완료",
   cancelled: "취소",
   refunded: "환불",
@@ -40,7 +43,7 @@ const statusColors: Record<string, string> = {
 };
 
 const PROGRESS_BY_STATUS: Record<string, number> = {
-  pending: 10, paid: 15, in_progress: 60, review: 90, completed: 100, cancelled: 0, refunded: 0,
+  pending: 10, paid: 15, in_progress: 60, delivered: 90, review: 90, revision_requested: 50, completed: 100, cancelled: 0, refunded: 0,
 };
 
 export default function DashboardOrdersPage() {
@@ -48,6 +51,7 @@ export default function DashboardOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deliveryUploading, setDeliveryUploading] = useState(false);
 
   const fmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -90,6 +94,35 @@ export default function DashboardOrdersPage() {
       toast.success("상태가 변경되었습니다");
     } catch {
       toast.error("상태 변경에 실패했습니다");
+    }
+  };
+
+  const handleDeliveryUpload = async (order: Order, file: File) => {
+    setDeliveryUploading(true);
+    try {
+      const uploaded = await uploadFile("deliveries", file, `orders/${order.id}`);
+      const res = await fetch(`/api/orders/${order.id}/deliveries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "최종 납품물",
+          files: [uploaded.url],
+          fileNames: [file.name],
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || "납품물 등록에 실패했습니다");
+        return;
+      }
+
+      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: "delivered" } : o));
+      toast.success("납품물이 등록되었습니다", { description: "고객이 검수 후 구매확정할 수 있습니다." });
+    } catch {
+      toast.error("납품물 업로드에 실패했습니다");
+    } finally {
+      setDeliveryUploading(false);
     }
   };
 
@@ -251,16 +284,35 @@ export default function DashboardOrdersPage() {
                     <Package className="h-4 w-4 mr-2" /> 작업 시작하기
                   </Button>
                 )}
-                {selected.status === "review" && (
+                {(selected.status === "delivered" || selected.status === "review") && (
                   <div className="p-4 bg-amber-50 rounded-lg text-sm text-amber-800 flex items-center gap-2">
                     <Clock className="h-4 w-4 shrink-0" />
                     고객이 검수 중입니다. 수정 요청이 오면 알려드립니다.
                   </div>
                 )}
-                {selected.status !== "completed" && selected.status !== "cancelled" && selected.status !== "refunded" && (
-                  <Button variant="outline" className="w-full" onClick={() => handleStatusChange(selected.id, "review")}>
-                    <Upload className="h-4 w-4 mr-2" /> 최종 납품물 업로드
-                  </Button>
+                {selected.status !== "completed" && selected.status !== "cancelled" && selected.status !== "refunded" && selected.status !== "delivered" && (
+                  <>
+                    <input
+                      type="file"
+                      id="final-delivery-upload"
+                      className="hidden"
+                      accept="video/*,image/*,.zip,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.currentTarget.value = "";
+                        if (file) void handleDeliveryUpload(selected, file);
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={deliveryUploading}
+                      onClick={() => document.getElementById("final-delivery-upload")?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {deliveryUploading ? "업로드 중..." : "최종 납품물 업로드"}
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { Suspense } from "react";
 
 export default function LoginPage() {
@@ -23,7 +24,8 @@ export default function LoginPage() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/";
+  // 사이트 안의 경로만 허용한다 (외부 주소로의 리다이렉트 방지).
+  const redirectTo = safeRedirectPath(searchParams.get("redirect"));
   const supabase = createClient();
 
   const [formData, setFormData] = useState({

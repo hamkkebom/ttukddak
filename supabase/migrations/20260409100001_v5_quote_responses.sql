@@ -6,6 +6,7 @@ create table if not exists public.quote_responses (
   id uuid primary key default gen_random_uuid(),
   quote_request_id uuid not null references public.quote_requests(id) on delete cascade,
   expert_id uuid not null references public.profiles(id) on delete cascade,
+  service_id uuid references public.services(id) on delete set null,
   price integer not null,
   message text not null,
   estimated_days integer not null default 7,
@@ -13,9 +14,13 @@ create table if not exists public.quote_responses (
   created_at timestamptz not null default now()
 );
 
+alter table public.quote_responses
+  add column if not exists service_id uuid references public.services(id) on delete set null;
+
 -- 2. Indexes
 create index if not exists quote_responses_quote_request_id_idx on public.quote_responses(quote_request_id);
 create index if not exists quote_responses_expert_id_idx on public.quote_responses(expert_id);
+create index if not exists quote_responses_service_id_idx on public.quote_responses(service_id);
 
 -- 3. Row Level Security
 alter table public.quote_responses enable row level security;

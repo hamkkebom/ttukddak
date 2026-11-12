@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   DollarSign, Calendar, Clock, CheckCircle, XCircle, User,
@@ -43,6 +44,7 @@ interface RequestWithResponses {
 }
 
 export default function QuoteResponsesPage() {
+  const router = useRouter();
   const [items, setItems] = useState<RequestWithResponses[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
@@ -95,6 +97,7 @@ export default function QuoteResponsesPage() {
         return;
       }
 
+      const json = await res.json().catch(() => ({}));
       toast.success(action === "accepted" ? "견적을 수락했습니다!" : "견적을 거절했습니다");
 
       // Update local state
@@ -116,6 +119,9 @@ export default function QuoteResponsesPage() {
           return { request: updatedRequest, responses: updatedResponses };
         })
       );
+      if (action === "accepted" && json.orderId) {
+        router.push(`/order/${json.orderId}`);
+      }
     } catch {
       toast.error("네트워크 오류가 발생했습니다");
     } finally {
@@ -236,6 +242,11 @@ export default function QuoteResponsesPage() {
                           <span>{response.estimatedDays}일 소요</span>
                         </div>
                       </div>
+                      {response.serviceTitle && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {response.serviceTitle}
+                        </Badge>
+                      )}
 
                       <p className="text-sm text-muted-foreground line-clamp-3">
                         {response.message}

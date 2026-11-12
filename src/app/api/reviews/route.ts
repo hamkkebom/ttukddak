@@ -26,11 +26,19 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Force reviewerId from authenticated user
-    body.reviewerId = user.id;
-
-    const ok = await createReview(body);
-    if (!ok) return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
+    // 작성자는 로그인 사용자로 고정하고, 서비스·전문가는 주문에서 가져온다.
+    const result = await createReview({
+      orderId: body?.orderId,
+      reviewerId: user.id,
+      rating: body?.rating,
+      qualityRating: body?.qualityRating,
+      communicationRating: body?.communicationRating,
+      deliveryRating: body?.deliveryRating,
+      content: body?.content,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ success: false, error: "Invalid body" }, { status: 400 });

@@ -17,6 +17,7 @@ ALTER TABLE public.orders
     'virtual_account_issued',
     'paid',
     'in_progress',
+    'delivered',
     'review_pending',
     'revision_requested',
     'completed',

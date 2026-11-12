@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
 
   // Force expertId from authenticated user
   body.expertId = user.id;
+  if (body.status && !["draft", "pending_review"].includes(body.status)) {
+    return NextResponse.json({ error: "Invalid service status" }, { status: 400 });
+  }
 
   const id = await createService(body);
   if (!id) return NextResponse.json({ error: "Failed to create service" }, { status: 500 });

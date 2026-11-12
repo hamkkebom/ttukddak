@@ -188,9 +188,9 @@ export default function SignUpPage() {
           </div>
 
           <p className="text-sm text-slate-400">
-            "뚝딱 덕분에 고품질 영상을 빠르게 만들 수 있었습니다."
+            &quot;뚝딱 덕분에 고품질 영상을 빠르게 만들 수 있었습니다.&quot;
             <br />
-            <span className="text-white">— 김OO, 스타트업 대표</span>
+            <span className="text-white">- 김OO, 스타트업 대표</span>
           </p>
         </div>
       </div>

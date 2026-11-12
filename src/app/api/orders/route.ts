@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     buyerId: user.id,
     serviceId,
     expertId: computed.data.expertId,
+    packageId: computed.data.packageId,
     packageName: computed.data.packageName ?? body.packageName ?? "",
     price: computed.data.totalAmount,
     requirements: body.requirements,

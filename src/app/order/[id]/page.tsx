@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { getServiceByIdClient, getExpertByIdClient, getCategoryByIdClient } from "@/lib/db-client";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { Service, Expert, Category, Coupon } from "@/types";
+import type { Service, Expert, Category, Coupon, Order } from "@/types";
 
 type PaymentMethod = "card" | "kakao" | "naver" | "bank";
 
@@ -32,6 +32,7 @@ export default function OrderPage({
   const [service, setService] = useState<Service | null>(null);
   const [expert, setExpert] = useState<Expert | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
+  const [existingOrder, setExistingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
@@ -43,7 +44,28 @@ export default function OrderPage({
   const [ordering, setOrdering] = useState(false);
 
   useEffect(() => {
-    getServiceByIdClient(id).then(async (svc) => {
+    async function load() {
+      const orderRes = await fetch(`/api/orders/${id}`);
+      if (orderRes.ok) {
+        const order = await orderRes.json() as Order;
+        setExistingOrder(order);
+        const svc = await getServiceByIdClient(order.serviceId);
+        if (!svc) {
+          setLoading(false);
+          return;
+        }
+        setService(svc);
+        const [exp, cat] = await Promise.all([
+          getExpertByIdClient(order.expertId),
+          getCategoryByIdClient(svc.categoryId),
+        ]);
+        setExpert(exp);
+        setCategory(cat);
+        setLoading(false);
+        return;
+      }
+
+      const svc = await getServiceByIdClient(id);
       if (!svc) {
         setLoading(false);
         return;
@@ -56,7 +78,8 @@ export default function OrderPage({
       setExpert(exp);
       setCategory(cat);
       setLoading(false);
-    });
+    }
+    load();
   }, [id]);
 
   const formatPrice = (price: number) =>
@@ -81,12 +104,19 @@ export default function OrderPage({
     );
   }
 
-  const pkg = service.packages[selectedPackage];
-  const serviceFee = Math.round(pkg.price * 0.05);
-  const baseTotal = pkg.price + serviceFee;
+  const pkg = service.packages[selectedPackage] || service.packages[0];
+  const isDealOrder = !!existingOrder;
+  const isTestPayment = process.env.NEXT_PUBLIC_PAYMENT_MODE !== "live";
+  const serviceFee = isDealOrder ? 0 : Math.round(pkg.price * 0.05);
+  const baseTotal = isDealOrder ? existingOrder.price : pkg.price + serviceFee;
   const totalPrice = Math.max(0, baseTotal - discountAmount);
+  const canPay = !existingOrder || existingOrder.status === "pending";
 
   const handleApplyCoupon = async () => {
+    if (isDealOrder) {
+      toast.info("협의견적 주문은 합의된 금액으로 결제됩니다");
+      return;
+    }
     if (!couponCode.trim()) {
       toast.error("쿠폰 코드를 입력해주세요");
       return;
@@ -136,26 +166,36 @@ export default function OrderPage({
         return;
       }
 
-      // 1. 주문 생성 (서버에서 금액/할인 재계산)
-      const orderRes = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: service.id,
-          packageName: pkg.name,
-          couponCode: appliedCoupon?.code ?? null,
-        }),
-      });
-
-      if (!orderRes.ok) {
-        toast.error("주문 생성에 실패했습니다");
-        setOrdering(false);
+      if (existingOrder && existingOrder.status !== "pending") {
+        toast.info("이미 결제 처리된 주문입니다");
+        router.push(`/order/${existingOrder.id}/tracking`);
         return;
       }
 
-      const newOrder = await orderRes.json();
-      // API는 Order 객체를 그대로 반환하거나 { data } 형태 모두 가능성이 있어 방어적으로 처리
-      const orderObj = (newOrder?.data ?? newOrder) as { id: string; price: number };
+      let orderObj: { id: string; price: number };
+      if (existingOrder) {
+        orderObj = { id: existingOrder.id, price: existingOrder.price };
+      } else {
+        // 1. 주문 생성 (서버에서 금액/할인 재계산)
+        const orderRes = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            serviceId: service.id,
+            packageName: pkg.name,
+            couponCode: appliedCoupon?.code ?? null,
+          }),
+        });
+
+        if (!orderRes.ok) {
+          toast.error("주문 생성에 실패했습니다");
+          setOrdering(false);
+          return;
+        }
+
+        const newOrder = await orderRes.json();
+        orderObj = (newOrder?.data ?? newOrder) as { id: string; price: number };
+      }
       if (!orderObj?.id) {
         toast.error("주문 생성 응답이 올바르지 않습니다");
         setOrdering(false);
@@ -183,7 +223,7 @@ export default function OrderPage({
         storeId,
         channelKey,
         paymentId: `payment-${orderObj.id}-${Date.now()}`,
-        orderName: service.title,
+        orderName: isDealOrder ? `${service.title} - 협의견적` : service.title,
         totalAmount: serverAmount,
         currency: "CURRENCY_KRW" as const,
         customer: {
@@ -191,7 +231,7 @@ export default function OrderPage({
           email: buyerEmail,
           phoneNumber: buyerPhone,
         },
-        customData: { orderId: orderObj.id },
+        customData: { orderId: orderObj.id, paymentMode: isTestPayment ? "test" : "live" },
       };
 
       // NOTE: @portone/browser-sdk v2의 PaymentRequest 타입이 `alipayPlus`를
@@ -307,6 +347,11 @@ export default function OrderPage({
 
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8">주문/결제</h1>
+        {isTestPayment && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            공개 테스트 운영판입니다. 결제는 PortOne 테스트 모드로만 검증하며 실거래와 실정산은 진행하지 않습니다.
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left: Order Info */}
@@ -341,49 +386,69 @@ export default function OrderPage({
               </CardContent>
             </Card>
 
-            {/* Package Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">패키지 선택</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {service.packages.map((p, i) => (
-                  <div
-                    key={p.name}
-                    onClick={() => setSelectedPackage(i)}
-                    className={cn(
-                      "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                      selectedPackage === i
-                        ? "border-primary bg-primary/5"
-                        : "border-transparent bg-muted/50 hover:border-muted-foreground/20"
+            {isDealOrder ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">합의견적 주문</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-lg border bg-muted/40 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{existingOrder.packageName || "협의견적"}</span>
+                      <span className="font-bold">{formatPrice(existingOrder.price)}원</span>
+                    </div>
+                    {existingOrder.requirements && (
+                      <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">
+                        {existingOrder.requirements}
+                      </p>
                     )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={cn(
-                            "h-4 w-4 rounded-full border-2",
-                            selectedPackage === i
-                              ? "border-primary bg-primary"
-                              : "border-muted-foreground/30"
-                          )}
-                        >
-                          {selectedPackage === i && (
-                            <CheckCircle className="h-3 w-3 text-white" />
-                          )}
-                        </div>
-                        <span className="font-semibold">{p.name}</span>
-                      </div>
-                      <span className="font-bold">{formatPrice(p.price)}원</span>
-                    </div>
-                    <div className="flex gap-4 text-xs text-muted-foreground ml-6">
-                      <span>납기 {p.deliveryDays}일</span>
-                      <span>수정 {p.revisions}회</span>
-                    </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">패키지 선택</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {service.packages.map((p, i) => (
+                    <div
+                      key={p.name}
+                      onClick={() => setSelectedPackage(i)}
+                      className={cn(
+                        "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        selectedPackage === i
+                          ? "border-primary bg-primary/5"
+                          : "border-transparent bg-muted/50 hover:border-muted-foreground/20"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-4 w-4 rounded-full border-2",
+                              selectedPackage === i
+                                ? "border-primary bg-primary"
+                                : "border-muted-foreground/30"
+                            )}
+                          >
+                            {selectedPackage === i && (
+                              <CheckCircle className="h-3 w-3 text-white" />
+                            )}
+                          </div>
+                          <span className="font-semibold">{p.name}</span>
+                        </div>
+                        <span className="font-bold">{formatPrice(p.price)}원</span>
+                      </div>
+                      <div className="flex gap-4 text-xs text-muted-foreground ml-6">
+                        <span>납기 {p.deliveryDays}일</span>
+                        <span>수정 {p.revisions}회</span>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Payment Method */}
             <Card>
@@ -425,15 +490,19 @@ export default function OrderPage({
                 <CardContent className="space-y-4">
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">서비스 금액</span>
-                      <span>{formatPrice(pkg.price)}원</span>
+                      <span className="text-muted-foreground">
+                        {isDealOrder ? "합의견적 금액" : "서비스 금액"}
+                      </span>
+                      <span>{formatPrice(isDealOrder ? existingOrder.price : pkg.price)}원</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">서비스 수수료</span>
-                      <span>{formatPrice(serviceFee)}원</span>
-                    </div>
+                    {!isDealOrder && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">서비스 수수료</span>
+                        <span>{formatPrice(serviceFee)}원</span>
+                      </div>
+                    )}
                     {/* 쿠폰 입력 */}
-                    {appliedCoupon ? (
+                    {!isDealOrder && appliedCoupon ? (
                       <div className="flex items-center justify-between p-2 bg-primary/10 rounded-md border border-primary/30">
                         <div className="text-sm">
                           <span className="font-mono font-medium text-primary">{appliedCoupon.code}</span>
@@ -450,7 +519,7 @@ export default function OrderPage({
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    ) : (
+                    ) : !isDealOrder ? (
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -471,7 +540,7 @@ export default function OrderPage({
                           {couponLoading ? "확인중..." : "적용"}
                         </Button>
                       </div>
-                    )}
+                    ) : null}
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>쿠폰 할인</span>
@@ -517,14 +586,18 @@ export default function OrderPage({
                     className="w-full h-12 text-base"
                     size="lg"
                     onClick={handleOrder}
-                    disabled={ordering}
+                    disabled={ordering || !canPay}
                   >
-                    {ordering ? "처리 중..." : `${formatPrice(totalPrice)}원 결제하기`}
+                    {ordering
+                      ? "처리 중..."
+                      : canPay
+                        ? `${formatPrice(totalPrice)}원 테스트 결제하기`
+                        : "결제 완료된 주문"}
                   </Button>
 
                   <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    <span>예상 납기: {pkg.deliveryDays}일</span>
+                    <span>{isDealOrder ? "합의된 조건으로 진행" : `예상 납기: ${pkg.deliveryDays}일`}</span>
                   </div>
                 </CardContent>
               </Card>

@@ -13,6 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   // Verify cron secret
   const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "CRON_SECRET is required in production" }, { status: 500 });
+  }
   if (cronSecret) {
     const authHeader = req.headers.get("authorization");
     if (authHeader !== `Bearer ${cronSecret}`) {
@@ -23,11 +26,11 @@ export async function GET(req: NextRequest) {
   const sb = createAdminSupabaseClient();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Find delivered (review_pending) orders past 7-day grace period
+  // Find delivered orders past 7-day grace period
   const { data: orders, error } = await sb
     .from("orders")
-    .select("id, buyer_id, expert_id, service_id, amount, coupon_id, delivered_at")
-    .eq("status", "review_pending")
+    .select("id, buyer_id, seller_id, service_id, amount, coupon_id, delivered_at")
+    .eq("status", "delivered")
     .lt("delivered_at", sevenDaysAgo);
 
   if (error) {
@@ -39,27 +42,36 @@ export async function GET(req: NextRequest) {
 
   for (const order of orders || []) {
     try {
-      // Update order to completed
-      const { error: updateErr } = await sb
+      // Update order to completed (조회 이후 상태가 바뀐 주문은 건너뛴다)
+      const now = new Date().toISOString();
+      const { data: updatedRows, error: updateErr } = await sb
         .from("orders")
-        .update({ status: "completed", updated_at: new Date().toISOString() })
-        .eq("id", order.id);
+        .update({ status: "completed", completed_at: now, updated_at: now })
+        .eq("id", order.id)
+        .eq("status", "delivered")
+        .select("id");
       if (updateErr) throw updateErr;
+      if ((updatedRows?.length ?? 0) === 0) {
+        results.push({ orderId: order.id, ok: false, error: "status changed" });
+        continue;
+      }
 
       // Mark coupon as used
       if (order.coupon_id) {
+        // 쿠폰은 결제 시점에 이미 사용 처리된다. 누락분만 보정한다.
         await sb
           .from("user_coupons")
-          .update({ is_used: true, used_at: new Date().toISOString() })
-          .eq("id", order.coupon_id);
+          .update({ is_used: true, used_at: now })
+          .eq("id", order.coupon_id)
+          .eq("is_used", false);
       }
 
       // Notify expert about settlement
-      if (order.expert_id) {
+      if (order.seller_id) {
         const { data: expertProfile } = await sb
           .from("profiles")
           .select("id")
-          .eq("id", order.expert_id)
+          .eq("id", order.seller_id)
           .maybeSingle();
         if (expertProfile?.id) {
           const fee = Math.round((order.amount || 0) * 0.05);

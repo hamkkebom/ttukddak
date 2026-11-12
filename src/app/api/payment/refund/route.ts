@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as PortOne from "@portone/server-sdk";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { releaseUserCouponForOrder } from "@/lib/payment/coupons";
 
 export const runtime = "nodejs";
 
@@ -210,6 +211,15 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 },
       );
+    }
+
+    // 입금 전에 취소된 가상계좌 주문은 돈이 오간 적이 없으므로 쿠폰을 되돌려 준다.
+    if (
+      order.coupon_id &&
+      order.status === "virtual_account_issued" &&
+      updatePayload.status === "refunded"
+    ) {
+      await releaseUserCouponForOrder(adminSb, order.coupon_id as string, order.id as string);
     }
 
     return NextResponse.json({
