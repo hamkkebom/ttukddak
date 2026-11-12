@@ -34,14 +34,20 @@ export async function POST(
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
-  // Update status to active and clear rejection reason
-  const { error } = await adminSb
+  // Update status to active and clear rejection reason.
+  // 승인 대기 상태일 때만 승인한다. 정지·삭제된 서비스가 승인으로 다시 공개되지 않게 한다.
+  const { data: approved, error } = await adminSb
     .from("services")
     .update({ status: "active", rejection_reason: null, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "pending_review")
+    .select("id");
 
   if (error) {
     return NextResponse.json({ error: "Failed to approve service" }, { status: 500 });
+  }
+  if (!approved || approved.length === 0) {
+    return NextResponse.json({ error: "승인 대기 중인 서비스만 승인할 수 있습니다" }, { status: 409 });
   }
 
   // 공개 상세 페이지는 캐시된다. 승인 직후부터 보이도록 무효화한다.

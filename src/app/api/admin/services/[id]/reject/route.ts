@@ -37,17 +37,23 @@ export async function POST(
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
-  // Update status to rejected with reason
-  const { error } = await adminSb
+  // Update status to rejected with reason.
+  // 승인 대기 상태일 때만 반려한다. 공개 중인 서비스를 내릴 때는 정지를 쓴다.
+  const { data: rejected, error } = await adminSb
     .from("services")
     .update({ status: "rejected", rejection_reason: reason, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "pending_review")
+    .select("id");
 
   if (error) {
     return NextResponse.json({ error: "Failed to reject service" }, { status: 500 });
   }
+  if (!rejected || rejected.length === 0) {
+    return NextResponse.json({ error: "승인 대기 중인 서비스만 반려할 수 있습니다" }, { status: 409 });
+  }
 
-  // 공개 중이던 서비스가 반려되면 캐시된 상세 페이지도 바로 내려가도록 무효화한다.
+  // 상태가 바뀌었으니 공개 상세 페이지 캐시를 무효화한다.
   revalidatePath(`/service/${id}`);
 
   // Notify the expert
