@@ -34,6 +34,14 @@ interface EnrichedService extends Service {
   adminStatus: AdminStatus;
 }
 
+// 상태가 맞지 않아 거절된 경우(409)에는 서버가 알려 준 사유를 그대로 보여 준다.
+// 예: 다른 관리자가 이미 처리했거나, 그 사이 전문가가 상태를 바꾼 경우.
+async function failureMessage(res: Response, fallback: string): Promise<string> {
+  if (res.status !== 409) return fallback;
+  const body = await res.json().catch(() => null);
+  return typeof body?.error === "string" ? `${body.error}. 새로고침 후 다시 확인해 주세요.` : fallback;
+}
+
 export default function AdminServicesPage() {
   const [services, setServices] = useState<EnrichedService[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +73,7 @@ export default function AdminServicesPage() {
       setServices((prev) => prev.map((s) => s.id === svcId ? { ...s, adminStatus: "활성", status: "active" } : s));
       toast.success("서비스가 승인되었습니다");
     } else {
-      toast.error("승인에 실패했습니다");
+      toast.error(await failureMessage(res, "승인에 실패했습니다"));
     }
   };
 
@@ -93,7 +101,7 @@ export default function AdminServicesPage() {
       toast.success("서비스가 반려되었습니다");
       setRejectDialogOpen(false);
     } else {
-      toast.error("반려 처리에 실패했습니다");
+      toast.error(await failureMessage(res, "반려 처리에 실패했습니다"));
     }
   };
 
@@ -104,7 +112,7 @@ export default function AdminServicesPage() {
       setServices((prev) => prev.map((s) => s.id === svcId ? { ...s, adminStatus: "정지", status: "suspended" } : s));
       toast.success("서비스가 정지되었습니다");
     } else {
-      toast.error("정지 처리에 실패했습니다");
+      toast.error(await failureMessage(res, "정지 처리에 실패했습니다"));
     }
   };
 
@@ -114,7 +122,7 @@ export default function AdminServicesPage() {
       setServices((prev) => prev.map((s) => s.id === svcId ? { ...s, adminStatus: "활성", status: "active" } : s));
       toast.success("서비스 정지가 해제되었습니다");
     } else {
-      toast.error("정지 해제에 실패했습니다");
+      toast.error(await failureMessage(res, "정지 해제에 실패했습니다"));
     }
   };
 

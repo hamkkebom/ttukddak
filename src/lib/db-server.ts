@@ -784,8 +784,13 @@ export async function updateService(id: string, updates: { title?: string; descr
   if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.rejectionReason !== undefined) dbUpdates.rejection_reason = updates.rejectionReason;
-  const { error } = await sb.from("services").update(dbUpdates).eq("id", id);
-  return !error;
+  let query = sb.from("services").update(dbUpdates).eq("id", id);
+  // 정지된 서비스의 상태는 여기서 바꾸지 않는다 (삭제는 예외). 정지 해제는 관리자 전용 경로로만 한다.
+  if (updates.status !== undefined && updates.status !== "deleted") {
+    query = query.neq("status", "suspended");
+  }
+  const { data, error } = await query.select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ============================================
