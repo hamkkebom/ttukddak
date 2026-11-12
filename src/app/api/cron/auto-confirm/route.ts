@@ -42,19 +42,28 @@ export async function GET(req: NextRequest) {
 
   for (const order of orders || []) {
     try {
-      // Update order to completed
-      const { error: updateErr } = await sb
+      // Update order to completed (조회 이후 상태가 바뀐 주문은 건너뛴다)
+      const now = new Date().toISOString();
+      const { data: updatedRows, error: updateErr } = await sb
         .from("orders")
-        .update({ status: "completed", updated_at: new Date().toISOString() })
-        .eq("id", order.id);
+        .update({ status: "completed", completed_at: now, updated_at: now })
+        .eq("id", order.id)
+        .eq("status", "delivered")
+        .select("id");
       if (updateErr) throw updateErr;
+      if ((updatedRows?.length ?? 0) === 0) {
+        results.push({ orderId: order.id, ok: false, error: "status changed" });
+        continue;
+      }
 
       // Mark coupon as used
       if (order.coupon_id) {
+        // 쿠폰은 결제 시점에 이미 사용 처리된다. 누락분만 보정한다.
         await sb
           .from("user_coupons")
-          .update({ is_used: true, used_at: new Date().toISOString() })
-          .eq("id", order.coupon_id);
+          .update({ is_used: true, used_at: now })
+          .eq("id", order.coupon_id)
+          .eq("is_used", false);
       }
 
       // Notify expert about settlement

@@ -119,24 +119,5 @@ export async function assertOrderParticipant(
   return { ok: true, order };
 }
 
-export function canTransitionOrderStatus(current: string, next: string, actor: "buyer" | "seller" | "admin") {
-  if (actor === "admin") return true;
-
-  const transitions: Record<string, string[]> = {
-    pending: ["cancelled", "paid"],
-    virtual_account_issued: ["paid", "cancelled", "failed"],
-    paid: actor === "seller" ? ["in_progress", "cancelled"] : ["cancelled"],
-    in_progress: actor === "seller" ? ["delivered"] : ["cancelled"],
-    delivered: actor === "buyer" ? ["completed", "review"] : [],
-    review_pending: actor === "buyer" ? ["completed", "revision_requested"] : [],
-    revision_requested: actor === "seller" ? ["delivered"] : [],
-    review: actor === "buyer" ? ["completed"] : actor === "seller" ? ["delivered"] : [],
-    completed: [],
-    cancelled: [],
-    failed: [],
-    refund_requested: [],
-    refunded: [],
-  };
-
-  return transitions[current]?.includes(next) ?? false;
-}
+// 주문 상태 전이 규칙은 테스트 가능한 순수 모듈에 있다.
+export { canTransitionOrderStatus } from "@/lib/order-status";

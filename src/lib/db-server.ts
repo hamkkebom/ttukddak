@@ -385,10 +385,30 @@ export async function createOrder(order: { buyerId: string; serviceId: string; e
   return { id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id, packageName: order.packageName || data.package_id || "협의견적", price: data.amount, status: data.status, paymentId: data.payment_id, requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at, dealOfferId: data.deal_offer_id };
 }
 
-export async function updateOrderStatus(id: string, status: string): Promise<boolean> {
-  const sb = await createServerSupabaseClient();
-  const { error } = await sb.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
-  return !error;
+/**
+ * 주문 상태를 바꾼다. 호출 전에 반드시 권한과 전이 규칙(canTransitionOrderStatus)을 확인해야 한다.
+ *
+ * orders 테이블에는 사용자 UPDATE 정책이 없으므로 service_role 로 쓴다.
+ * `expectedStatus` 일 때만 갱신하며, 실제로 바뀐 행이 있을 때만 true 를 돌려준다.
+ */
+export async function updateOrderStatus(id: string, status: string, expectedStatus: string): Promise<boolean> {
+  const sb = createAdminSupabaseClient();
+  const now = new Date().toISOString();
+  const update: Record<string, unknown> = { status, updated_at: now };
+  if (status === "completed") update.completed_at = now;
+
+  const { data, error } = await sb
+    .from("orders")
+    .update(update)
+    .eq("id", id)
+    .eq("status", expectedStatus)
+    .select("id");
+
+  if (error) {
+    console.error("[updateOrderStatus] failed:", error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
 }
 
 // ============================================
@@ -421,35 +441,98 @@ export async function getReviews(filters?: { serviceId?: string; reviewerId?: st
   };
 }
 
-export async function createReview(review: { orderId: string; serviceId: string; reviewerId: string; reviewerName: string; rating: number; qualityRating?: number; communicationRating?: number; deliveryRating?: number; content: string }): Promise<boolean> {
+export type CreateReviewResult = { ok: true } | { ok: false; status: number; error: string };
+
+// 납품을 받았거나 구매가 확정된 주문만 리뷰를 쓸 수 있다.
+const REVIEWABLE_ORDER_STATUSES = ["delivered", "review_pending", "completed"];
+
+function normalizeRating(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  // 1~5 의 정수만 허용한다 (반올림으로 값을 바꾸지 않는다).
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+/**
+ * 리뷰를 작성한다.
+ *
+ * 서비스·전문가는 클라이언트 입력이 아니라 주문에서 가져온다 (리뷰 대상은 주문의 서비스와 판매자).
+ * 작성자 이름도 프로필에서 가져온다. INSERT 는 세션 클라이언트로 수행해 RLS 가 한 번 더 검증한다.
+ */
+export async function createReview(review: { orderId: string; reviewerId: string; rating: unknown; qualityRating?: unknown; communicationRating?: unknown; deliveryRating?: unknown; content?: unknown }): Promise<CreateReviewResult> {
+  if (!review.orderId || typeof review.orderId !== "string") {
+    return { ok: false, status: 400, error: "주문 정보가 필요합니다" };
+  }
+
+  const rating = normalizeRating(review.rating);
+  if (rating === null) {
+    return { ok: false, status: 400, error: "별점은 1~5 사이여야 합니다" };
+  }
+  const qualityRating = normalizeRating(review.qualityRating) ?? rating;
+  const communicationRating = normalizeRating(review.communicationRating) ?? rating;
+  const deliveryRating = normalizeRating(review.deliveryRating) ?? rating;
+  const content = typeof review.content === "string" ? review.content.trim().slice(0, 5000) : "";
+
+  const admin = createAdminSupabaseClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("id, buyer_id, seller_id, service_id, status")
+    .eq("id", review.orderId)
+    .maybeSingle();
+
+  if (!order) return { ok: false, status: 404, error: "주문을 찾을 수 없습니다" };
+  if (order.buyer_id !== review.reviewerId) {
+    return { ok: false, status: 403, error: "본인 주문에만 리뷰를 작성할 수 있습니다" };
+  }
+  if (!REVIEWABLE_ORDER_STATUSES.includes(order.status as string)) {
+    return { ok: false, status: 409, error: "납품이 완료된 주문만 리뷰를 작성할 수 있습니다" };
+  }
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("name")
+    .eq("id", review.reviewerId)
+    .maybeSingle();
+
   const sb = await createServerSupabaseClient();
   const { error } = await sb.from("reviews").insert({
-    order_id: review.orderId,
-    service_id: review.serviceId,
+    order_id: order.id,
+    service_id: order.service_id,
     reviewer_id: review.reviewerId,
-    reviewer_name: review.reviewerName,
-    rating: review.rating,
-    quality_rating: review.qualityRating || review.rating,
-    communication_rating: review.communicationRating || review.rating,
-    delivery_rating: review.deliveryRating || review.rating,
-    content: review.content,
+    expert_id: order.seller_id,
+    reviewer_name: (profile?.name as string | undefined) || "사용자",
+    rating,
+    rating_overall: rating,
+    quality_rating: qualityRating,
+    communication_rating: communicationRating,
+    delivery_rating: deliveryRating,
+    content,
   });
-  if (error) return false;
 
-  // Update service rating and review_count aggregates
-  const { data: allReviews } = await sb
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, status: 409, error: "이미 이 주문에 리뷰를 작성했습니다" };
+    }
+    console.error("[createReview] insert failed:", error);
+    return { ok: false, status: 500, error: "리뷰 등록에 실패했습니다" };
+  }
+
+  // 서비스 평점·리뷰 수 집계 갱신 (작성자는 서비스 소유자가 아니므로 service_role 로 쓴다)
+  const { data: allReviews } = await admin
     .from("reviews")
     .select("rating")
-    .eq("service_id", review.serviceId);
-  const avgRating = allReviews && allReviews.length > 0
-    ? allReviews.reduce((s: number, r: any) => s + r.rating, 0) / allReviews.length
-    : 0;
-  await sb.from("services").update({
+    .eq("service_id", order.service_id);
+  const ratings = (allReviews ?? [])
+    .map((r: { rating: number | null }) => r.rating)
+    .filter((r): r is number => typeof r === "number");
+  const avgRating = ratings.length > 0 ? ratings.reduce((s, r) => s + r, 0) / ratings.length : 0;
+  const { error: aggregateError } = await admin.from("services").update({
     rating: Math.round(avgRating * 10) / 10,
-    review_count: allReviews?.length || 0,
-  }).eq("id", review.serviceId);
+    review_count: ratings.length,
+  }).eq("id", order.service_id);
+  if (aggregateError) console.error("[createReview] aggregate update failed:", aggregateError);
 
-  return true;
+  return { ok: true };
 }
 
 // ============================================
