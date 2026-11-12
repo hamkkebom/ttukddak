@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, CheckCircle, XCircle, Trash2, PauseCircle } from "lucide-react";
+import Link from "next/link";
+import { Search, CheckCircle, XCircle, Trash2, PauseCircle, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -212,6 +213,11 @@ export default function AdminServicesPage() {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500" title="미리보기" asChild>
+                          <Link href={`/dashboard/services/${svc.id}/preview`} target="_blank" rel="noopener noreferrer">
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
                         {svc.adminStatus === "승인대기" && (
                           <>
                             <Button
