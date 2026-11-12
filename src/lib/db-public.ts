@@ -18,6 +18,8 @@ import type { DBCategory, DBExpert, DBProfile, DBService } from "@/types/db";
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 카테고리 슬러그는 영문 소문자·숫자·하이픈만 쓴다. 그 밖의 값은 조회하지 않고 "없음"으로 처리한다.
+const SLUG = /^[a-z0-9-]{1,64}$/;
 
 type QueryResult<T> = { data: T | null; error: { message: string } | null };
 
@@ -48,6 +50,8 @@ export async function getPublicCategories(): Promise<Category[]> {
 }
 
 export async function getPublicCategoryBySlug(slug: string): Promise<Category | null> {
+  if (!SLUG.test(slug)) return null;
+
   const sb = createPublicSupabaseClient();
   const row = unwrap<DBCategory>(
     await sb.from("categories").select("*").eq("slug", slug).maybeSingle(),

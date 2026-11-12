@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getPublicCategoryBySlug, getPublicServicesByCategory, getPublicCategories } from "@/lib/db-public";
 import CategoryPageClient from "./CategoryPageClient";
 
@@ -41,7 +42,9 @@ export default async function CategoryPage({
     getPublicCategoryBySlug(slug),
     getPublicCategories(),
   ]);
-  const initialServices = category ? await getPublicServicesByCategory(category.id) : [];
+  // 없는 카테고리는 안내 화면(200)이 아니라 404 로 응답한다. 임의의 주소가 캐시에 쌓이는 것도 막는다.
+  if (!category) notFound();
+  const initialServices = await getPublicServicesByCategory(category.id);
 
   return (
     <CategoryPageClient
