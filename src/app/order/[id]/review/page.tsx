@@ -35,6 +35,48 @@ const ratingCategories: RatingCategory[] = [
   { id: "delivery", label: "납기 준수", description: "약속된 일정 이행" },
 ];
 
+// 페이지 컴포넌트 밖에 둔다. 안에서 정의하면 렌더링마다 새 컴포넌트가 되어 상태가 초기화된다.
+function StarRating({
+  value,
+  onChange,
+  size = "md",
+  hoverable = true,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  size?: "sm" | "md" | "lg";
+  hoverable?: boolean;
+}) {
+  const [localHover, setLocalHover] = useState(0);
+  const sizeClass = size === "lg" ? "h-10 w-10" : size === "md" ? "h-7 w-7" : "h-5 w-5";
+
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: 5 }).map((_, i) => {
+        const starValue = i + 1;
+        const filled = starValue <= (hoverable ? (localHover || value) : value);
+        return (
+          <button
+            key={i}
+            type="button"
+            onMouseEnter={() => hoverable && setLocalHover(starValue)}
+            onMouseLeave={() => hoverable && setLocalHover(0)}
+            onClick={() => onChange(starValue)}
+            className="transition-transform hover:scale-110"
+          >
+            <Star
+              className={cn(
+                sizeClass,
+                filled ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"
+              )}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ReviewPage({
   params,
 }: {
@@ -109,47 +151,6 @@ export default function ReviewPage({
     } else {
       toast.error("리뷰 등록에 실패했습니다");
     }
-  };
-
-  const StarRating = ({
-    value,
-    onChange,
-    size = "md",
-    hoverable = true,
-  }: {
-    value: number;
-    onChange: (v: number) => void;
-    size?: "sm" | "md" | "lg";
-    hoverable?: boolean;
-  }) => {
-    const [localHover, setLocalHover] = useState(0);
-    const sizeClass = size === "lg" ? "h-10 w-10" : size === "md" ? "h-7 w-7" : "h-5 w-5";
-
-    return (
-      <div className="flex gap-1">
-        {Array.from({ length: 5 }).map((_, i) => {
-          const starValue = i + 1;
-          const filled = starValue <= (hoverable ? (localHover || value) : value);
-          return (
-            <button
-              key={i}
-              type="button"
-              onMouseEnter={() => hoverable && setLocalHover(starValue)}
-              onMouseLeave={() => hoverable && setLocalHover(0)}
-              onClick={() => onChange(starValue)}
-              className="transition-transform hover:scale-110"
-            >
-              <Star
-                className={cn(
-                  sizeClass,
-                  filled ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"
-                )}
-              />
-            </button>
-          );
-        })}
-      </div>
-    );
   };
 
   return (
