@@ -1,7 +1,12 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Play } from "lucide-react";
-import { getPublicServices, countPublicExperts, countPublicServices } from "@/lib/db-public";
+import {
+  getPublicServices,
+  getPublicServiceById,
+  countPublicExpertsWithServices,
+  countPublicServices,
+} from "@/lib/db-public";
+import { SceneImage } from "@/components/SceneImage";
 import { streamFrameUrl } from "@/lib/stream";
 import type { Service } from "@/types";
 
@@ -40,20 +45,21 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  const [services, expertCount, serviceCount, typeCounts] = await Promise.all([
+  const [services, chosenHero, expertCount, serviceCount, typeCounts] = await Promise.all([
     getPublicServices(20),
-    countPublicExperts(),
+    getPublicServiceById(HERO_SERVICE_ID),
+    countPublicExpertsWithServices(),
     countPublicServices(),
     Promise.all(VIDEO_TYPES.map((type) => countPublicServices(type))),
   ]);
 
-  const heroService = services.find((s) => s.id === HERO_SERVICE_ID) ?? services[0];
+  const heroService = chosenHero ?? services[0];
   const popular = services.slice(0, 3);
   const videoTypes = VIDEO_TYPES.map((type, i) => ({ type, count: typeCounts[i] })).filter((t) => t.count > 0);
 
-  // 세 카드에 똑같이 붙은 태그는 서로를 구분해 주지 못하므로 뺀다.
+  // 카드마다 똑같이 붙은 태그는 서로를 구분해 주지 못하므로 뺀다. 카드가 하나뿐이면 뺄 것이 없다.
   const sharedTags = new Set(
-    (popular[0]?.tags ?? []).filter((tag) => popular.every((s) => s.tags.includes(tag)))
+    popular.length > 1 ? popular[0].tags.filter((tag) => popular.every((s) => s.tags.includes(tag))) : []
   );
 
   return (
@@ -62,21 +68,21 @@ export default async function HomePage() {
       <section className="relative flex min-h-[560px] items-end overflow-hidden bg-night text-[#F4F2EE] md:min-h-[660px]">
         {heroService && (
           <div className="absolute inset-y-0 left-[18%] w-full">
-            <Image
+            <SceneImage
               src={sceneOf(heroService, 1600, 900)}
+              fallbackSrc={heroService.thumbnail}
               alt={`${heroService.title}의 한 장면`}
               fill
-              priority
-              unoptimized
+              preload
               sizes="100vw"
               className="object-cover"
             />
           </div>
         )}
-        {/* 왼쪽 글자가 읽히도록 사진을 어둡게 덮는다. */}
+        {/* 글자가 읽히도록 사진을 어둡게 덮는다. 좁은 화면에서는 글자가 사진 위에 넓게 놓이므로 더 짙게 덮는다. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[linear-gradient(90deg,#0E0F11_0%,#0E0F11_20%,rgba(14,15,17,0.6)_46%,rgba(14,15,17,0.12)_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(90deg,#0E0F11_0%,rgba(14,15,17,0.86)_45%,rgba(14,15,17,0.7)_100%)] md:bg-[linear-gradient(90deg,#0E0F11_0%,#0E0F11_20%,rgba(14,15,17,0.6)_46%,rgba(14,15,17,0.12)_100%)]"
         />
         <div className="relative mx-auto flex w-full max-w-[1240px] flex-col gap-7 px-4 pb-14 pt-24 md:px-8">
           <p className="text-sm font-black tracking-[0.14em] text-brand">AI 영상 재능마켓</p>
@@ -86,7 +92,8 @@ export default async function HomePage() {
             뚝딱.
           </h1>
           <p className="max-w-[540px] text-[19px] text-[#DDDAD3]">
-            AI로 영상을 만드는 전문가 {expertCount}명의 실제 작업을 먼저 보고, 마음에 드는 사람에게 바로 맡기세요.
+            AI로 영상을 만드는 전문가{expertCount > 0 ? ` ${expertCount}명` : "들"}의 실제 작업을 먼저 보고, 마음에 드는 사람에게 바로
+            맡기세요.
           </p>
           <form action="/search" method="get" role="search" className="flex max-w-[560px] flex-wrap gap-2">
             <label htmlFor="home-search" className="sr-only">
@@ -97,11 +104,11 @@ export default async function HomePage() {
               name="q"
               type="search"
               placeholder="어떤 영상이 필요하세요?"
-              className="h-14 min-w-0 flex-[1_1_260px] rounded-[10px] border border-[#55585E] bg-[rgba(22,24,27,0.92)] px-5 text-base text-[#F4F2EE] placeholder:text-[#A8A6A0] focus:border-brand focus:outline-none"
+              className="h-14 min-w-0 flex-[1_1_260px] rounded-[10px] border border-[#55585E] bg-[rgba(22,24,27,0.92)] px-5 text-base text-[#F4F2EE] placeholder:text-[#A8A6A0] focus:border-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             />
             <button
               type="submit"
-              className="h-14 rounded-[10px] bg-brand px-7 text-base font-black text-[#1B0E03] transition-colors hover:bg-[#FF7A45]"
+              className="h-14 rounded-[10px] bg-brand px-7 text-base font-black text-[#1B0E03] transition-colors hover:bg-[#FF7A45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               찾아보기
             </button>
@@ -162,11 +169,11 @@ export default async function HomePage() {
               return (
                 <Link key={service.id} href={`/service/${service.id}`} className="group flex flex-col gap-[18px]">
                   <span className="relative block aspect-[4/3] overflow-hidden rounded-[28px] border-[3px] border-ink bg-paper">
-                    <Image
+                    <SceneImage
                       src={sceneOf(service, 800, 600)}
+                      fallbackSrc={service.thumbnail}
                       alt={`${service.title}의 한 장면`}
                       fill
-                      unoptimized
                       sizes="(max-width: 768px) 100vw, 400px"
                       className="object-cover"
                     />
@@ -193,7 +200,8 @@ export default async function HomePage() {
       )}
 
       {/* ===== 뚝. 딱. 끝. ===== */}
-      <section aria-label="이용 방법" className="mx-auto max-w-[1240px] px-4 pt-[88px] md:px-8">
+      <section className="mx-auto max-w-[1240px] px-4 pt-[88px] md:px-8">
+        <h2 className="sr-only">이용 방법</h2>
         <ol className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-5">
           {STEPS.map((step, i) => {
             const last = i === STEPS.length - 1;
