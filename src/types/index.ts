@@ -33,6 +33,9 @@ export interface ServicePackage {
   deliveryDays: number;
   revisions: number;
   features: string[];
+  // 전문가가 패키지를 등록하지 않아 코드가 대신 채운 기본 패키지.
+  // 이때의 작업 기간·수정 횟수·구성은 전문가가 정한 값이 아니므로 화면에 사실처럼 적지 않는다.
+  isPlaceholder?: boolean;
 }
 
 export interface Service {
@@ -67,6 +70,16 @@ export interface Review {
   content: string;
   helpfulCount?: number;
   createdAt: string;
+}
+
+// 서비스 상세 화면에 공개하는 리뷰. 작성자 이름은 서버에서 가린 상태로만 내려보낸다.
+export interface PublicReview {
+  id: string;
+  name: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+  reply?: string;
 }
 
 export interface Order {

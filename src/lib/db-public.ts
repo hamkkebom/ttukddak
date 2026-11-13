@@ -1,7 +1,7 @@
 import "server-only";
 import { createPublicSupabaseClient } from "@/lib/supabase/public";
 import { dbCategoryToApp, dbExpertToApp, dbServiceToApp } from "@/lib/db-server";
-import type { Category, Expert, Service } from "@/types";
+import type { Category, Expert, PublicReview, Service } from "@/types";
 import type { DBCategory, DBExpert, DBProfile, DBService } from "@/types/db";
 
 /**
@@ -141,6 +141,52 @@ export async function getPublicExpertById(id: string): Promise<Expert | null> {
     "expert by id"
   );
   return row ? toExpert(row) : null;
+}
+
+type ReviewRow = {
+  id: string;
+  rating: number | null;
+  content: string | null;
+  reviewer_name: string | null;
+  created_at: string;
+  expert_reply: string | null;
+};
+
+// 작성자 이름은 첫 글자만 남기고 가린다. 이름 전체가 공개 화면(과 그 HTML)에 실리지 않도록 서버에서 가린다.
+function maskName(name: string | null): string {
+  const first = Array.from((name ?? "").trim())[0];
+  return first ? `${first}**` : "구매자";
+}
+
+// 리뷰 날짜는 한국 시간 기준으로 적는다 (YYYY-MM-DD). 서버 시간대(UTC)로 자르면 오전에 쓴 리뷰가 전날로 보인다.
+const KST_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
+
+// 서비스에 달린 공개 리뷰. 최근 것부터 limit 개와 전체 개수를 돌려준다.
+export async function getPublicReviewsByService(
+  serviceId: string,
+  limit = 20
+): Promise<{ reviews: PublicReview[]; total: number }> {
+  if (!UUID.test(serviceId)) return { reviews: [], total: 0 };
+
+  const sb = createPublicSupabaseClient();
+  const { data, count, error } = await sb
+    .from("reviews")
+    .select("id, rating, content, reviewer_name, created_at, expert_reply", { count: "exact" })
+    .eq("service_id", serviceId)
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`공개 데이터 조회 실패 (reviews by service): ${error.message}`);
+
+  const reviews = ((data ?? []) as ReviewRow[]).map((row) => ({
+    id: row.id,
+    name: maskName(row.reviewer_name),
+    rating: Math.min(5, Math.max(0, Math.round(row.rating ?? 0))),
+    content: row.content ?? "",
+    createdAt: KST_DATE.format(new Date(row.created_at)),
+    ...(row.expert_reply ? { reply: row.expert_reply } : {}),
+  }));
+  return { reviews, total: count ?? reviews.length };
 }
 
 // 공개 서비스 수. keyword 를 주면 검색(searchServicesClient)과 같은 조건(제목·설명)으로 센다.

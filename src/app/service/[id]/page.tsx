@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPublicServiceById, getPublicExpertById, getPublicCategoryById, getPublicServicesByExpert } from "@/lib/db-public";
+import {
+  getPublicServiceById,
+  getPublicExpertById,
+  getPublicCategoryById,
+  getPublicServicesByExpert,
+  getPublicReviewsByService,
+} from "@/lib/db-public";
 import ServiceDetailPageClient from "./ServiceDetailPageClient";
 
 type ServicePageParams = {
@@ -46,20 +52,29 @@ export default async function ServiceDetailPage({
   const service = await getPublicServiceById(id);
   if (!service) notFound();
 
-  const [expert, category, expertServices] = await Promise.all([
+  const [expert, category, expertServices, { reviews, total: reviewTotal }] = await Promise.all([
     getPublicExpertById(service.expertId),
     getPublicCategoryById(service.categoryId),
     getPublicServicesByExpert(service.expertId),
+    // 리뷰는 없어도 되는 내용이다. 읽지 못했다고 서비스 화면 전체를 오류로 만들지 않고 리뷰 구역만 뺀다.
+    getPublicReviewsByService(service.id).catch((error) => {
+      console.error("[service detail] 리뷰를 읽지 못했습니다:", error);
+      return { reviews: [], total: 0 };
+    }),
   ]);
 
   if (!expert || !category) notFound();
 
   return (
     <ServiceDetailPageClient
+      // 다른 서비스로 넘어가면 고른 영상·패키지가 남지 않도록 새로 만든다.
+      key={service.id}
       service={service}
       expert={expert}
       category={category}
       expertServices={expertServices}
+      reviews={reviews}
+      reviewTotal={reviewTotal}
     />
   );
 }

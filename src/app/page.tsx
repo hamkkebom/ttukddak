@@ -8,6 +8,7 @@ import {
 } from "@/lib/db-public";
 import { SceneImage } from "@/components/SceneImage";
 import { streamFrameUrl } from "@/lib/stream";
+import { VIDEO_TYPES } from "@/lib/video-types";
 import type { Service } from "@/types";
 
 // 공개 데이터만 쓰는 페이지라 정적으로 만들어 두고 60초마다 다시 만든다 (ISR).
@@ -15,9 +16,6 @@ export const revalidate = 60;
 
 // 첫 화면에 보여 줄 작업. 이 서비스가 공개 상태가 아니면 가장 많이 팔린 서비스로 대신한다.
 const HERO_SERVICE_ID = "b2304722-6711-4a7b-bc4b-bb03cef2fec2";
-
-// 영상 종류 바로가기. 개수는 검색과 같은 조건(제목·설명)으로 세고, 하나도 없는 종류는 숨긴다.
-const VIDEO_TYPES = ["힐링", "운세", "소개", "브랜딩"];
 
 const formatPrice = (price: number) => new Intl.NumberFormat("ko-KR").format(price);
 

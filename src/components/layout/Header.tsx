@@ -29,7 +29,10 @@ export function Header() {
   const router = useRouter();
   const supabase = createClient();
   // 홈은 첫 화면이 어두워서 헤더도 어둡게 그린다. 홈에는 첫 화면에 검색창이 있어 헤더 검색창은 숨긴다.
-  const onDark = usePathname() === "/";
+  const pathname = usePathname();
+  const onDark = pathname === "/";
+  // 검색 화면에도 화면 안에 검색창이 있어 헤더 검색창을 숨긴다.
+  const hideSearch = onDark || pathname === "/search";
   const navText = onDark ? "text-white hover:bg-white/10 hover:text-white" : "text-slate-700";
   const iconText = onDark ? "text-white hover:bg-white/10 hover:text-white" : "text-slate-600";
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,14 +129,11 @@ export function Header() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+    const term = searchQuery.trim();
+    if (term) {
+      router.push(`/search?q=${encodeURIComponent(term)}`);
+      setSearchQuery("");
     }
-  };
-
-  const handleAIRecommend = () => {
-    // AI 추천 기능 - 검색어 기반으로 추천 페이지로 이동
-    window.location.href = `/search?ai=true${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
   };
 
   return (
@@ -154,32 +154,20 @@ export function Header() {
           {/* Search Bar - Desktop */}
           <form
             onSubmit={handleSearch}
-            className={cn("hidden flex-1 max-w-xl items-center gap-2", !onDark && "md:flex")}
+            className={cn("hidden flex-1 max-w-xl items-center gap-2", !hideSearch && "md:flex")}
             role="search"
           >
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#56606B]" aria-hidden="true" />
               <Input
                 type="text"
-                placeholder="어떤 영상 전문가가 필요하세요?"
+                placeholder="어떤 영상이 필요하세요?"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 rounded-full border-slate-200 bg-slate-50 focus:bg-white focus:border-primary/50 transition-all"
+                className="h-11 rounded-[10px] border-[#7B838D] bg-white pl-10 shadow-none focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-ink/15"
                 aria-label="서비스 검색"
               />
             </div>
-            {/* AI 추천 버튼 분리 */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAIRecommend}
-              className="h-11 px-4 rounded-full border-primary/30 text-primary hover:bg-primary hover:text-white gap-1.5 transition-all"
-              aria-label="AI 추천 서비스 보기"
-            >
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden lg:inline">AI 추천</span>
-            </Button>
           </form>
 
           {/* Desktop Navigation */}
