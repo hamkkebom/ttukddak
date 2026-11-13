@@ -67,6 +67,15 @@
   --color-ring: hsl(var(--ring));
   --radius: 0.5rem;
   --font-sans: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+
+  /* 새 디자인(2026-11) 규칙. 화면을 하나씩 옮기는 중이라 기존 토큰과 함께 둔다.
+     ink: 글자·기본 버튼 / night: 어두운 영역 바탕 / paper: 옅은 블록 바탕 /
+     brand: 강조색. 흰 바탕의 작은 글자에는 대비가 부족하니 어두운 바탕이나 큰 요소에만 쓴다. */
+  --font-display: var(--font-black-han), 'Pretendard Variable', Pretendard, sans-serif;
+  --color-ink: #141414;
+  --color-night: #0E0F11;
+  --color-paper: #F1F1EE;
+  --color-brand: #FF5A1F;
 }
 
 body {

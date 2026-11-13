@@ -1,18 +1,14 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t bg-slate-50">
+    <footer className="border-t bg-white">
       <div className="container mx-auto px-4 py-12">
         <div className="grid gap-8 md:grid-cols-4">
           {/* Brand */}
           <div>
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-orange-500">
-                <Sparkles className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-lg">뚝딱</span>
+            <Link href="/" className="mb-4 inline-flex items-center" aria-label="뚝딱 홈으로 이동">
+              <span className="font-display text-2xl leading-none">뚝딱</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               AI 영상 전문가를 만나는 가장 쉬운 방법

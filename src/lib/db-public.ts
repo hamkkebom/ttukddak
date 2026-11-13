@@ -142,3 +142,25 @@ export async function getPublicExpertById(id: string): Promise<Expert | null> {
   );
   return row ? toExpert(row) : null;
 }
+
+// 공개 서비스 수. keyword 를 주면 검색(searchServicesClient)과 같은 조건(제목·설명)으로 센다.
+// 홈의 영상 종류 버튼에 쓰는 숫자라서, 눌렀을 때 나오는 검색 결과 수와 같아야 한다.
+export async function countPublicServices(keyword?: string): Promise<number> {
+  const sb = createPublicSupabaseClient();
+  let query = sb.from("services").select("id", { count: "exact", head: true }).eq("status", "active");
+  if (keyword) {
+    const like = `%${keyword.replace(/[(),.*]/g, "")}%`;
+    query = query.or(`title.ilike.${like},description.ilike.${like}`);
+  }
+
+  const { count, error } = await query;
+  if (error) throw new Error(`공개 데이터 조회 실패 (service count): ${error.message}`);
+  return count ?? 0;
+}
+
+export async function countPublicExperts(): Promise<number> {
+  const sb = createPublicSupabaseClient();
+  const { count, error } = await sb.from("experts").select("id", { count: "exact", head: true });
+  if (error) throw new Error(`공개 데이터 조회 실패 (expert count): ${error.message}`);
+  return count ?? 0;
+}
