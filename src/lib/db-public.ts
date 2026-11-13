@@ -158,9 +158,13 @@ export async function countPublicServices(keyword?: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function countPublicExperts(): Promise<number> {
+// 공개된 서비스를 하나 이상 가진 전문가 수.
+// experts 표의 전체 행 수가 아니라 "작업을 볼 수 있는 전문가"를 세기 위해 공개 서비스에서 센다.
+export async function countPublicExpertsWithServices(): Promise<number> {
   const sb = createPublicSupabaseClient();
-  const { count, error } = await sb.from("experts").select("id", { count: "exact", head: true });
-  if (error) throw new Error(`공개 데이터 조회 실패 (expert count): ${error.message}`);
-  return count ?? 0;
+  const rows = unwrap<{ expert_id: string }[]>(
+    await sb.from("services").select("expert_id").eq("status", "active"),
+    "experts with services"
+  );
+  return new Set((rows ?? []).map((row) => row.expert_id)).size;
 }
