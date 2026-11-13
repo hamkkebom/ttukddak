@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Black_Han_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
@@ -10,6 +11,14 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
+// 큰 제목·번호·로고에만 쓰는 굵은 글꼴 (font-display). 본문은 Pretendard 를 그대로 쓴다.
+const displayFont = Black_Han_Sans({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-black-han",
+  display: "swap",
+});
 
 const SITE_URL = "https://ttukddak.kr";
 const SITE_NAME = "뚝딱";
@@ -61,7 +70,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className="font-sans antialiased min-h-screen flex flex-col"
+        className={`${displayFont.variable} font-sans antialiased min-h-screen flex flex-col`}
       >
         <ThemeProvider
           attribute="class"

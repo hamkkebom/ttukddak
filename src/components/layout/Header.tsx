@@ -21,12 +21,17 @@ import {
 
 import { getCategoriesClient } from "@/lib/db-client";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import type { Category } from "@/types";
 
 export function Header() {
   const router = useRouter();
   const supabase = createClient();
+  // 홈은 첫 화면이 어두워서 헤더도 어둡게 그린다. 홈에는 첫 화면에 검색창이 있어 헤더 검색창은 숨긴다.
+  const onDark = usePathname() === "/";
+  const navText = onDark ? "text-white hover:bg-white/10 hover:text-white" : "text-slate-700";
+  const iconText = onDark ? "text-white hover:bg-white/10 hover:text-white" : "text-slate-600";
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -133,29 +138,23 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm"
+      className={cn(
+        "sticky top-0 z-50 w-full border-b",
+        onDark ? "border-white/10 bg-night text-white" : "border-slate-200 bg-white"
+      )}
       role="banner"
     >
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 group"
-            aria-label="뚝딱 홈으로 이동"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-orange-500 shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-              <Sparkles className="h-5 w-5 text-white" aria-hidden="true" />
-            </div>
-            <span className="hidden font-bold text-xl sm:inline-block bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-              뚝딱
-            </span>
+          <Link href="/" className="flex items-center" aria-label="뚝딱 홈으로 이동">
+            <span className="font-display text-[30px] leading-none">뚝딱</span>
           </Link>
 
           {/* Search Bar - Desktop */}
           <form
             onSubmit={handleSearch}
-            className="hidden flex-1 max-w-xl md:flex items-center gap-2"
+            className={cn("hidden flex-1 max-w-xl items-center gap-2", !onDark && "md:flex")}
             role="search"
           >
             <div className="relative flex-1">
@@ -190,7 +189,7 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="gap-1 text-slate-700"
+                  className={cn("gap-1", navText)}
                   aria-haspopup="true"
                   aria-label="카테고리 메뉴 열기"
                 >
@@ -234,23 +233,23 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" asChild className="text-slate-700">
+            <Button variant="ghost" asChild className={navText}>
               <Link href="/expert/register">전문가 등록</Link>
             </Button>
             {!isLoggedIn && (
               <span></span>
             )}
 
-            <div className="w-px h-6 bg-slate-200 mx-2" aria-hidden="true" />
+            <div className={cn("mx-2 h-6 w-px", onDark ? "bg-white/20" : "bg-slate-200")} aria-hidden="true" />
 
             {isLoggedIn && user ? (
               <>
-                <Button variant="ghost" size="icon" asChild className="text-slate-600 relative">
+                <Button variant="ghost" size="icon" asChild className={cn(iconText, "relative")}>
                   <Link href="/favorites" aria-label="찜 목록">
                     <Heart className="h-4 w-4" />
                   </Link>
                 </Button>
-                <Button variant="ghost" size="icon" asChild className="text-slate-600 relative">
+                <Button variant="ghost" size="icon" asChild className={cn(iconText, "relative")}>
                   <Link href="/notifications" aria-label="알림">
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
@@ -260,7 +259,7 @@ export function Header() {
                     )}
                   </Link>
                 </Button>
-                <Button variant="ghost" size="icon" asChild className="text-slate-600">
+                <Button variant="ghost" size="icon" asChild className={iconText}>
                   <Link href="/messages" aria-label="메시지">
                     <MessageCircle className="h-4 w-4" />
                   </Link>
@@ -317,10 +316,13 @@ export function Header() {
               </>
             ) : (
               <>
-                <Button variant="ghost" asChild className="text-slate-700">
+                <Button variant="ghost" asChild className={navText}>
                   <Link href="/login">로그인</Link>
                 </Button>
-                <Button asChild className="rounded-full px-6 bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90 shadow-md shadow-primary/25">
+                <Button asChild className={cn(
+                    "rounded-[10px] px-5 font-bold shadow-none",
+                    onDark ? "bg-white text-ink hover:bg-white/90" : "bg-ink text-white hover:bg-black"
+                  )}>
                   <Link href="/signup">회원가입</Link>
                 </Button>
               </>
@@ -333,7 +335,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               asChild
-              className="text-slate-600"
+              className={iconText}
               aria-label="검색 페이지로 이동"
             >
               <Link href="/search">
@@ -345,7 +347,7 @@ export function Header() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-slate-600"
+                  className={iconText}
                   aria-label="메뉴 열기"
                 >
                   <Menu className="h-5 w-5" aria-hidden="true" />
@@ -354,7 +356,7 @@ export function Header() {
               <SheetContent side="right" className="w-80 p-0">
                 <div className="flex flex-col h-full">
                   {/* Mobile Header */}
-                  <div className="p-6 bg-gradient-to-br from-primary to-orange-500">
+                  <div className="p-6 bg-ink">
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                         {isLoggedIn && user ? (
