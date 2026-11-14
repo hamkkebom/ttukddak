@@ -2,6 +2,7 @@ import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { maskName } from "@/lib/mask-name";
+import { lowestPrice, type PackageInput } from "@/lib/service-packages";
 import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile, MessageType } from "@/types";
 import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 
@@ -149,7 +150,7 @@ export async function getServiceByIdDB(id: string): Promise<Service | null> {
   const sb = await createServerSupabaseClient();
   const [{ data }, { data: packages }] = await Promise.all([
     sb.from("services").select("*").eq("id", id).maybeSingle(),
-    sb.from("service_packages").select("*").eq("service_id", id).order("price"),
+    sb.from("service_packages").select("*").eq("service_id", id).order("price").order("sort_order"),
   ]);
 
   return data ? dbServiceToApp(data, packages || undefined) : null;
@@ -766,20 +767,52 @@ export async function updateProfile(id: string, updates: { name?: string; avatar
 // Service CRUD (for dashboard)
 // ============================================
 
-export async function createService(svc: { expertId: string; categoryId: string; title: string; description: string; price: number; tags?: string[]; images?: string[]; status?: string }): Promise<string | null> {
+export async function createService(svc: { expertId: string; categoryId: string; title: string; description: string; price: number; tags?: string[]; images?: string[]; status?: string; packages?: PackageInput[] }): Promise<string | null> {
   const sb = createAdminSupabaseClient();
+  // 패키지가 있으면 대표 가격은 가장 싼 패키지 가격이다. 화면이 보낸 price 는 쓰지 않는다.
+  const packagePrice = svc.packages ? lowestPrice(svc.packages) : null;
   const { data, error } = await sb.from("services").insert({
     expert_id: svc.expertId,
     category_id: svc.categoryId,
     title: svc.title,
     description: svc.description,
-    price: svc.price,
+    price: packagePrice ?? svc.price,
     tags: svc.tags || [],
     images: svc.images || [],
     status: svc.status || "pending_review",
   }).select("id").single();
   if (error || !data) return null;
+
+  if (svc.packages && svc.packages.length > 0) {
+    const saved = await replaceServicePackages(data.id, svc.packages);
+    if (!saved.ok) {
+      // 패키지 없이 서비스만 남으면 "심사중"인데 살 수 있는 패키지가 없는 서비스가 된다. 방금 만든 것을 지운다 (패키지 행은 ON DELETE CASCADE 로 함께 지워진다).
+      const { error: cleanupError } = await sb.from("services").delete().eq("id", data.id);
+      if (cleanupError) console.error("[createService] 패키지 저장 실패 후 서비스 정리 실패", data.id, cleanupError);
+      return null;
+    }
+  }
   return data.id;
+}
+
+export type ReplaceServicePackagesResult = { ok: true } | { ok: false; status: number; error: string };
+
+// 서비스의 패키지를 넘겨받은 목록과 같게 맞춘다. DB 함수 replace_service_packages 가 한 트랜잭션으로 처리한다:
+// 목록에 없는 이름의 패키지를 지우고, 나머지는 (service_id, name) 으로 고치거나 넣고 (sort_order = 목록 순번),
+// 목록이 비어 있지 않으면 services.price 를 가장 싼 패키지 가격으로 맞춘다. 중간에 실패하면 아무것도 바뀌지 않는다.
+// 기존 행을 고쳐 쓰는 이유: 주문(orders.package_id)이 가리키는 패키지는 지울 수 없어서, 매번 지우고 새로 넣을 수 없다.
+export async function replaceServicePackages(serviceId: string, packages: PackageInput[]): Promise<ReplaceServicePackagesResult> {
+  const sb = createAdminSupabaseClient();
+  const { error } = await sb.rpc("replace_service_packages", { p_service_id: serviceId, p_packages: packages });
+  if (!error) return { ok: true };
+  if (error.code === "23503") {
+    return { ok: false, status: 409, error: "이미 주문이 있는 패키지는 삭제할 수 없습니다" };
+  }
+  if (error.code === "23514" || error.code === "23505") {
+    return { ok: false, status: 400, error: "패키지 값이 허용 범위를 벗어났거나 같은 이름의 패키지가 겹칩니다" };
+  }
+  console.error("[replaceServicePackages] 패키지 저장 실패", serviceId, error);
+  return { ok: false, status: 500, error: "패키지를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요" };
 }
 
 export async function updateService(id: string, updates: { title?: string; description?: string; price?: number; tags?: string[]; categoryId?: string; status?: string; rejectionReason?: string | null }): Promise<boolean> {

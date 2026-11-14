@@ -123,7 +123,7 @@ export async function getServiceByIdClient(id: string): Promise<Service | null> 
   const sb = createClient();
   const [{ data }, { data: packages }] = await Promise.all([
     sb.from("services").select("*").eq("id", id).maybeSingle(),
-    sb.from("service_packages").select("*").eq("service_id", id).order("price"),
+    sb.from("service_packages").select("*").eq("service_id", id).order("price").order("sort_order"),
   ]);
 
   return data ? dbServiceToApp(data, packages || undefined) : null;

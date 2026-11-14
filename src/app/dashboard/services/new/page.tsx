@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getCategoriesClient } from "@/lib/db-client";
+import { parsePackages, lowestPrice } from "@/lib/service-packages";
 import type { Category } from "@/types";
 
 interface PackageData {
@@ -121,6 +122,9 @@ export default function NewServicePage() {
   const handleSubmit = async (submitForReview = false) => {
     if (!formData.title.trim()) { toast.error("서비스 제목을 입력해주세요"); return; }
     if (submitForReview && !formData.category) { toast.error("카테고리를 선택해주세요"); return; }
+    // 서버와 같은 규칙으로 먼저 확인한다. 심사 신청은 패키지가 하나 이상 있어야 하고, 임시 저장은 비어 있어도 된다.
+    const checked = parsePackages(packages, { requireOne: submitForReview });
+    if (!checked.ok) { toast.error(checked.error); return; }
 
     setSubmitting(true);
     try {
@@ -128,22 +132,29 @@ export default function NewServicePage() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { toast.error("로그인이 필요합니다"); return; }
 
-      const basePrice = parseInt(packages[0].price || "0", 10);
       const res = await fetch("/api/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          expertId: user.id,
           categoryId: formData.category,
           title: formData.title,
           description: formData.description,
-          price: basePrice,
+          // 패키지가 있으면 서버가 가장 싼 패키지 가격을 대표 가격으로 쓴다.
+          price: lowestPrice(checked.packages) ?? 0,
           tags: formData.tags,
           status: submitForReview ? "pending_review" : "draft",
+          // 세 등급을 화면에 있는 그대로 보낸다. 비워 둔 등급은 서버가 건너뛴다.
+          packages,
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create service");
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        // 입력 문제(400)나 전문가가 아닌 회원(403)이면 서버가 알려 준 이유를 그대로 보여 준다.
+        const explained = (res.status === 400 || res.status === 403) && typeof json?.error === "string";
+        toast.error(explained ? json.error : "서비스 등록에 실패했습니다");
+        return;
+      }
 
       if (submitForReview) {
         toast.success("심사 신청이 완료되었습니다!", { description: "관리자 검토 후 활성화됩니다." });
