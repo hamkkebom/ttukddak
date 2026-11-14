@@ -52,7 +52,10 @@ export default async function HomePage() {
   ]);
 
   const heroService = chosenHero ?? services[0];
+  // 판매가 많은 순, 같으면 최근에 올라온 순으로 받은 목록의 앞 세 개.
   const popular = services.slice(0, 3);
+  // 실제 판매 기록이 있을 때만 "인기"라고 부른다. 아직 판매가 없으면 같은 자리가 최근에 올라온 서비스다.
+  const hasSales = popular.some((service) => service.salesCount > 0);
   const videoTypes = VIDEO_TYPES.map((type, i) => ({ type, count: typeCounts[i] })).filter((t) => t.count > 0);
 
   // 카드마다 똑같이 붙은 태그는 서로를 구분해 주지 못하므로 뺀다. 카드가 하나뿐이면 뺄 것이 없다.
@@ -149,11 +152,13 @@ export default async function HomePage() {
         </div>
       </nav>
 
-      {/* ===== 지금 인기 ===== */}
+      {/* ===== 지금 인기 (판매 기록이 없으면 새로 올라온 서비스) ===== */}
       {popular.length > 0 && (
         <section className="mx-auto max-w-[1240px] px-4 pt-20 md:px-8">
           <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="font-display text-[clamp(44px,5.4vw,76px)] leading-none tracking-[-0.01em]">지금 인기</h2>
+            <h2 className="font-display text-[clamp(44px,5.4vw,76px)] leading-none tracking-[-0.01em]">
+              {hasSales ? "지금 인기" : "새로 올라온 서비스"}
+            </h2>
             <Link href="/search" className="border-b-[3px] border-ink py-3 text-[17px] font-black hover:text-[#C2410C]">
               서비스 {serviceCount}개 모두 보기
             </Link>

@@ -229,7 +229,6 @@ export default function EditServicePage({
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>조회 {formData.salesCount * 5}</span>
                   <span>판매 {formData.salesCount}건</span>
                   <span>평점 {formData.rating}</span>
                 </div>

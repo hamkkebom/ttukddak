@@ -63,7 +63,8 @@ export function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
     rating: e.rating || 0,
     reviewCount: e.review_count || 0,
     completionRate: e.completion_rate || 0,
-    responseTime: e.response_time || "1시간 이내",
+    // 측정한 값이 없으면 비워 둔다 (기본값을 지어내지 않는다).
+    responseTime: e.response_time || "",
     skills: e.skills || [],
     tools: e.tools || [],
     introduction: e.introduction || "",
@@ -135,7 +136,7 @@ export async function getServices(limit?: number): Promise<Service[]> {
     .from("services")
     .select("*")
     .eq("status", "active")
-    .order("sales_count", { ascending: false });
+    .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
 
   if (limit) query = query.limit(limit);
 
@@ -161,7 +162,7 @@ export async function getServicesByCategory(categoryId: string): Promise<Service
     .select("*")
     .eq("category_id", categoryId)
     .eq("status", "active")
-    .order("sales_count", { ascending: false });
+    .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
 
   return (data || []).map((s: any) => dbServiceToApp(s));
 }
@@ -225,7 +226,7 @@ export async function searchServicesDB(
       dataQuery = dataQuery.order("price", { ascending: false });
       break;
     default:
-      dataQuery = dataQuery.order("sales_count", { ascending: false });
+      dataQuery = dataQuery.order("sales_count", { ascending: false }).order("created_at", { ascending: false });
       break;
   }
 
