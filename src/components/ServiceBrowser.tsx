@@ -55,6 +55,10 @@ interface FiltersProps {
   onlyPrime: boolean;
   onlyFast: boolean;
   onlyMaster: boolean;
+  /** 지금 목록에 그 조건을 가진 서비스가 있어서 체크 상자를 보여 줄지 */
+  showPrime: boolean;
+  showFast: boolean;
+  showMaster: boolean;
   onTogglePrime: () => void;
   onToggleFast: () => void;
   onToggleMaster: () => void;
@@ -71,15 +75,19 @@ function Filters({
   onlyPrime,
   onlyFast,
   onlyMaster,
+  showPrime,
+  showFast,
+  showMaster,
   onTogglePrime,
   onToggleFast,
   onToggleMaster,
 }: FiltersProps) {
+  // 목록에 해당하는 서비스가 하나도 없는 조건은 골라도 결과가 없으므로 보여 주지 않는다.
   const badges = [
-    { label: "프라임", checked: onlyPrime, toggle: onTogglePrime },
-    { label: "빠른 응답", checked: onlyFast, toggle: onToggleFast },
-    { label: "마스터 전문가", checked: onlyMaster, toggle: onToggleMaster },
-  ];
+    showPrime && { label: "프라임", checked: onlyPrime, toggle: onTogglePrime },
+    showFast && { label: "빠른 응답", checked: onlyFast, toggle: onToggleFast },
+    showMaster && { label: "마스터 전문가", checked: onlyMaster, toggle: onToggleMaster },
+  ].filter((b): b is { label: string; checked: boolean; toggle: () => void } => Boolean(b));
 
   return (
     <div className="flex flex-col">
@@ -141,22 +149,24 @@ function Filters({
         </fieldset>
       )}
 
-      <fieldset className="border-t border-[#E2E5E9] py-5">
-        <legend className="float-left mb-3 w-full text-[15px] font-black">조건</legend>
-        <div className="clear-both flex flex-col">
-          {badges.map((badge) => (
-            <label key={badge.label} className="flex h-10 cursor-pointer items-center gap-3 text-[15px] text-[#3A3A37]">
-              <input
-                type="checkbox"
-                checked={badge.checked}
-                onChange={badge.toggle}
-                className="h-5 w-5 cursor-pointer accent-ink"
-              />
-              {badge.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {badges.length > 0 && (
+        <fieldset className="border-t border-[#E2E5E9] py-5">
+          <legend className="float-left mb-3 w-full text-[15px] font-black">조건</legend>
+          <div className="clear-both flex flex-col">
+            {badges.map((badge) => (
+              <label key={badge.label} className="flex h-10 cursor-pointer items-center gap-3 text-[15px] text-[#3A3A37]">
+                <input
+                  type="checkbox"
+                  checked={badge.checked}
+                  onChange={badge.toggle}
+                  className="h-5 w-5 cursor-pointer accent-ink"
+                />
+                {badge.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
     </div>
   );
 }
@@ -177,9 +187,9 @@ export function ServiceBrowser({
   const [sortBy, setSortBy] = useState<SortOption>(sortOptions[0]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPriceCap, setSelectedPriceCap] = useState<number | null>(null);
-  const [onlyPrime, setOnlyPrime] = useState(false);
-  const [onlyFast, setOnlyFast] = useState(false);
-  const [onlyMaster, setOnlyMaster] = useState(false);
+  const [selectedPrime, setOnlyPrime] = useState(false);
+  const [selectedFast, setOnlyFast] = useState(false);
+  const [selectedMaster, setOnlyMaster] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
 
   // 목록의 범위(검색어 등)가 바뀌면 그 목록에서 고른 카테고리와 가격 상한은 버린다.
@@ -214,6 +224,16 @@ export function ServiceBrowser({
     categoryOptions.length > 1 && categoryOptions.some((c) => c.id === selectedCategory) ? selectedCategory : "all";
   const priceCap =
     selectedPriceCap !== null && selectedPriceCap >= priceFloor && selectedPriceCap < priceCeil ? selectedPriceCap : null;
+
+  // 프라임·빠른 응답·마스터는 목록에 그런 서비스가 있을 때만 보여 준다.
+  // 켜 둔 조건의 체크 상자가 목록이 바뀌어 사라지면, 보이지 않는 조건이 결과를 가리지 않도록 꺼진 것으로 본다.
+  // 전문가 정보를 다 받기 전에는 마스터 여부를 알 수 없으므로 "마스터 전문가"는 보여 둔다.
+  const hasPrime = services.some((s) => s.isPrime);
+  const hasFast = services.some((s) => s.isFastResponse);
+  const hasMaster = !expertsReady || services.some((s) => expertMap[s.expertId]?.isMaster === true);
+  const onlyPrime = selectedPrime && hasPrime;
+  const onlyFast = selectedFast && hasFast;
+  const onlyMaster = selectedMaster && hasMaster;
 
   // "마스터 전문가" 필터는 전문가 정보가 있어야 가릴 수 있다. 정보가 오기 전에 걸러 버리면
   // 잠깐 "조건에 맞는 서비스가 없습니다"가 보이므로, 다 받을 때까지는 불러오는 중으로 둔다.
@@ -288,6 +308,9 @@ export function ServiceBrowser({
     onlyPrime,
     onlyFast,
     onlyMaster,
+    showPrime: hasPrime,
+    showFast: hasFast,
+    showMaster: hasMaster,
     onTogglePrime: () => setOnlyPrime((v) => !v),
     onToggleFast: () => setOnlyFast((v) => !v),
     onToggleMaster: () => setOnlyMaster((v) => !v),
