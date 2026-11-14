@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Check, ChevronRight, Heart, Link2, MessageCircle, Play } from "lucide-react";
 import { toast } from "sonner";
+import { ExpertAvatar } from "@/components/ExpertAvatar";
 import { InquiryModal } from "@/components/InquiryModal";
+import { ReviewSection } from "@/components/ReviewSection";
 import { SceneImage } from "@/components/SceneImage";
 import { ServiceCard } from "@/components/ServiceCard";
 import { useFavorites } from "@/contexts/FavoritesContext";
@@ -261,36 +262,6 @@ function OrderSteps() {
   );
 }
 
-/* ───────────────────────────────── 전문가 사진 ───────────────────────────────── */
-
-function ExpertAvatar({ expert }: { expert: Expert }) {
-  const [broken, setBroken] = useState(false);
-  // 등록한 사진이 없으면 자동으로 만든 그림 대신 이름 첫 글자를 보여 준다.
-  const hasPhoto = !broken && Boolean(expert.profileImage) && !expert.profileImage.includes("api.dicebear.com");
-
-  if (!hasPhoto) {
-    return (
-      <span
-        aria-hidden="true"
-        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-ink text-2xl font-black text-white"
-      >
-        {Array.from(expert.name)[0] ?? ""}
-      </span>
-    );
-  }
-  return (
-    <Image
-      src={expert.profileImage}
-      alt=""
-      width={64}
-      height={64}
-      unoptimized
-      onError={() => setBroken(true)}
-      className="h-16 w-16 shrink-0 rounded-full border border-[#D5D9DE] object-cover"
-    />
-  );
-}
-
 /* ───────────────────────────────────── 화면 ───────────────────────────────────── */
 
 export default function ServiceDetailPageClient({
@@ -526,46 +497,8 @@ export default function ServiceDetailPageClient({
             </section>
           )}
 
-          {/* ===== 리뷰 (실제로 등록된 리뷰가 있을 때만) ===== */}
-          {reviews.length > 0 && (
-            <section className="flex flex-col gap-4">
-              <h2 className={sectionTitle}>
-                리뷰 <span className="font-display text-[28px] font-normal">{reviewTotal}</span>
-              </h2>
-              <ul className="border-t border-[#E2E5E9]">
-                {reviews.map((review) => (
-                  <li key={review.id} className="flex flex-col gap-2.5 border-b border-[#E2E5E9] py-6">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px]">
-                      <span role="img" aria-label={`5점 만점에 ${review.rating}점`} className="font-black tracking-[0.08em]">
-                        {"★".repeat(review.rating)}
-                        <span className="text-[#B9BEC5]">{"★".repeat(5 - review.rating)}</span>
-                      </span>
-                      <span className="font-bold">{review.name}</span>
-                      <time dateTime={review.createdAt} className="text-[#56606B]">
-                        {review.createdAt.replaceAll("-", ".")}
-                      </time>
-                    </div>
-                    {review.content && (
-                      <p className="whitespace-pre-line text-[17px] leading-[1.7] text-[#3A3A37] [overflow-wrap:anywhere]">
-                        {review.content}
-                      </p>
-                    )}
-                    {review.reply && (
-                      <div className="mt-1 rounded-[20px] bg-paper p-5">
-                        <p className="text-sm font-black">{expert.name}님의 답글</p>
-                        <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.7] text-[#3A3A37] [overflow-wrap:anywhere]">
-                          {review.reply}
-                        </p>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {reviewTotal > reviews.length && (
-                <p className="text-[15px] text-[#56606B]">최근 리뷰 {reviews.length}개를 보여 드립니다.</p>
-              )}
-            </section>
-          )}
+          {/* ===== 리뷰 (실제로 등록된 리뷰가 있을 때만 그려진다) ===== */}
+          <ReviewSection reviews={reviews} total={reviewTotal} replyFrom={expert.name} />
         </div>
 
         {/* ===== 가격과 주문 (넓은 화면에서는 오른쪽에 붙어 따라온다) ===== */}
@@ -589,6 +522,7 @@ export default function ServiceDetailPageClient({
         expertId={expert.id}
         serviceName={service.title}
         expertName={expert.name}
+        returnPath={`/service/${service.id}`}
       />
     </div>
   );

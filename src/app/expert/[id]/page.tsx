@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPublicExpertById, getPublicServicesByExpert, getPublicCategoryById } from "@/lib/db-public";
+import {
+  getPublicExpertById,
+  getPublicServicesByExpert,
+  getPublicCategoryById,
+  getPublicReviewsByExpert,
+} from "@/lib/db-public";
 import ExpertProfilePageClient from "./ExpertProfilePageClient";
 
 type ExpertPageParams = {
@@ -46,18 +51,27 @@ export default async function ExpertProfilePage({
   const expert = await getPublicExpertById(id);
   if (!expert) notFound();
 
-  const [services, category] = await Promise.all([
+  const [services, category, { reviews, total: reviewTotal }] = await Promise.all([
     getPublicServicesByExpert(expert.id),
     getPublicCategoryById(expert.categoryId),
+    // 리뷰는 없어도 되는 내용이다. 읽지 못했다고 화면 전체를 오류로 만들지 않고 리뷰 구역만 뺀다.
+    getPublicReviewsByExpert(expert.id).catch((error) => {
+      console.error("[expert profile] review query failed:", error);
+      return { reviews: [], total: 0 };
+    }),
   ]);
 
   if (!category) notFound();
 
   return (
     <ExpertProfilePageClient
+      // 다른 전문가로 넘어가면 열려 있던 문의 창 상태가 남지 않도록 새로 만든다.
+      key={expert.id}
       expert={expert}
       services={services}
       category={category}
+      reviews={reviews}
+      reviewTotal={reviewTotal}
     />
   );
 }

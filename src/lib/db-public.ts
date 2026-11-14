@@ -37,7 +37,10 @@ const EXPERT_SELECT = "*, profiles(name, avatar_url)";
 
 function toExpert(row: ExpertRow): Expert {
   const { profiles, ...expert } = row;
-  return dbExpertToApp(expert as DBExpert, (profiles ?? undefined) as DBProfile | undefined);
+  const converted = dbExpertToApp(expert as DBExpert, (profiles ?? undefined) as DBProfile | undefined);
+  // 사진을 등록하지 않은 계정에는 자동으로 만든 그림의 주소가 들어 있다.
+  // 공개 화면은 그 그림을 쓰지 않으므로(이름 첫 글자를 보여 준다) 화면 데이터에 싣지 않는다.
+  return converted.profileImage.includes("api.dicebear.com") ? { ...converted, profileImage: "" } : converted;
 }
 
 export async function getPublicCategories(): Promise<Category[]> {
@@ -143,6 +146,24 @@ export async function getPublicExpertById(id: string): Promise<Expert | null> {
   return row ? toExpert(row) : null;
 }
 
+// 전문가 여러 명을 한 번에 읽는다 (목록 화면의 카드에 이름을 붙이는 용도).
+export async function getPublicExpertsByIds(ids: string[]): Promise<Expert[]> {
+  const validIds = [...new Set(ids)].filter((id) => UUID.test(id));
+  if (validIds.length === 0) return [];
+
+  // id 목록이 주소에 실리므로, 너무 길어지지 않게 100명씩 나눠 읽는다.
+  const chunks: string[][] = [];
+  for (let i = 0; i < validIds.length; i += 100) chunks.push(validIds.slice(i, i + 100));
+
+  const sb = createPublicSupabaseClient();
+  const results = await Promise.all(
+    chunks.map(async (chunk) =>
+      unwrap<ExpertRow[]>(await sb.from("experts").select(EXPERT_SELECT).in("id", chunk), "experts by ids")
+    )
+  );
+  return results.flatMap((rows) => (rows ?? []).map(toExpert));
+}
+
 type ReviewRow = {
   id: string;
   rating: number | null;
@@ -161,22 +182,21 @@ function maskName(name: string | null): string {
 // 리뷰 날짜는 한국 시간 기준으로 적는다 (YYYY-MM-DD). 서버 시간대(UTC)로 자르면 오전에 쓴 리뷰가 전날로 보인다.
 const KST_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
 
-// 서비스에 달린 공개 리뷰. 최근 것부터 limit 개와 전체 개수를 돌려준다.
-export async function getPublicReviewsByService(
-  serviceId: string,
-  limit = 20
-): Promise<{ reviews: PublicReview[]; total: number }> {
-  if (!UUID.test(serviceId)) return { reviews: [], total: 0 };
+type PublicReviews = { reviews: PublicReview[]; total: number };
+
+// 공개 리뷰. 최근 것부터 limit 개와 전체 개수를 돌려준다.
+async function fetchPublicReviews(column: "service_id" | "expert_id", id: string, limit: number): Promise<PublicReviews> {
+  if (!UUID.test(id)) return { reviews: [], total: 0 };
 
   const sb = createPublicSupabaseClient();
   const { data, count, error } = await sb
     .from("reviews")
     .select("id, rating, content, reviewer_name, created_at, expert_reply", { count: "exact" })
-    .eq("service_id", serviceId)
+    .eq(column, id)
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`공개 데이터 조회 실패 (reviews by service): ${error.message}`);
+  if (error) throw new Error(`공개 데이터 조회 실패 (reviews by ${column}): ${error.message}`);
 
   const reviews = ((data ?? []) as ReviewRow[]).map((row) => ({
     id: row.id,
@@ -187,6 +207,16 @@ export async function getPublicReviewsByService(
     ...(row.expert_reply ? { reply: row.expert_reply } : {}),
   }));
   return { reviews, total: count ?? reviews.length };
+}
+
+// 서비스에 달린 공개 리뷰
+export function getPublicReviewsByService(serviceId: string, limit = 20): Promise<PublicReviews> {
+  return fetchPublicReviews("service_id", serviceId, limit);
+}
+
+// 전문가가 받은 공개 리뷰 (그 전문가의 모든 서비스에 달린 것)
+export function getPublicReviewsByExpert(expertId: string, limit = 20): Promise<PublicReviews> {
+  return fetchPublicReviews("expert_id", expertId, limit);
 }
 
 // 공개 서비스 수. keyword 를 주면 검색(searchServicesClient)과 같은 조건(제목·설명)으로 센다.
@@ -202,6 +232,20 @@ export async function countPublicServices(keyword?: string): Promise<number> {
   const { count, error } = await query;
   if (error) throw new Error(`공개 데이터 조회 실패 (service count): ${error.message}`);
   return count ?? 0;
+}
+
+// 카테고리별 공개 서비스 수 (카테고리 id → 개수). 서비스가 없는 카테고리는 들어 있지 않다.
+// categories 표에 저장된 숫자(service_count)는 서비스의 카테고리가 바뀔 때 갱신되지 않아 어긋날 수 있으므로,
+// 화면에 보이는 개수는 공개 서비스에서 직접 센다.
+export async function countPublicServicesByCategory(): Promise<Record<string, number>> {
+  const sb = createPublicSupabaseClient();
+  const rows = unwrap<{ category_id: string }[]>(
+    await sb.from("services").select("category_id").eq("status", "active"),
+    "service counts by category"
+  );
+  const counts: Record<string, number> = {};
+  for (const row of rows ?? []) counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
+  return counts;
 }
 
 // 공개된 서비스를 하나 이상 가진 전문가 수.

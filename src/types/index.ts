@@ -27,6 +27,10 @@ export interface Expert {
   joinedAt: string;
 }
 
+// 서비스 카드와 목록에 필요한 전문가 정보만 추린 것.
+// 서버에서 화면으로 넘길 때 소개글·기술 목록 같은 나머지를 싣지 않기 위해 쓴다.
+export type ExpertSummary = Pick<Expert, "id" | "name" | "isMaster">;
+
 export interface ServicePackage {
   name: string;
   price: number;

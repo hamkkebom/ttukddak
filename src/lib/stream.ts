@@ -12,6 +12,9 @@ export function streamUid(source: string | undefined): string | null {
   return source?.match(STREAM_URL)?.[2] ?? null;
 }
 
+// Cloudflare 는 가로·세로가 홀수이면 400 을 돌려준다 (예: 880x495). 가장 가까운 짝수로 맞춘다.
+const toEven = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+
 export function streamFrameUrl(
   source: string | undefined,
   options: { width: number; height: number; time?: string }
@@ -23,8 +26,8 @@ export function streamFrameUrl(
     // 첫 프레임은 검은 화면이나 제목 화면인 경우가 많아 기본으로 3초 지점을 쓴다.
     // 영상이 그보다 짧으면 400 이 오므로, 쓰는 쪽에서 대신 보여 줄 이미지를 준비해야 한다 (SceneImage).
     time: options.time ?? "3s",
-    width: String(options.width),
-    height: String(options.height),
+    width: String(toEven(options.width)),
+    height: String(toEven(options.height)),
     fit: "crop",
   });
   return `${match[1]}/${match[2]}/thumbnails/thumbnail.jpg?${params}`;
