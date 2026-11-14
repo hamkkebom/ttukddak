@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Eye, EyeOff, Check, X, ArrowRight, Users, Shield, Zap } from "lucide-react";
+import { Eye, EyeOff, Check, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { AuthSidePanel } from "@/components/AuthSidePanel";
 
 export default function SignUpPage() {
   const supabase = createClient();
@@ -136,80 +137,26 @@ export default function SignUpPage() {
     router.push("/login");
   };
 
-  const features = [
-    { icon: Users, title: "300+ 전문가", desc: "검증된 영상 전문가" },
-    { icon: Shield, title: "안전 거래", desc: "에스크로 결제 시스템" },
-    { icon: Zap, title: "빠른 매칭", desc: "평균 1시간 내 응답" },
-  ];
-
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Visual */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/60 via-slate-800 to-slate-900" />
-        </div>
-
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-white">뚝딱</span>
-          </Link>
-
-          <div className="space-y-8">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-4">
-                지금 시작하세요
-                <br />
-                <span className="text-violet-400">무료 회원가입</span>
-              </h1>
-              <p className="text-lg text-slate-300">
-                뚝딱과 함께 당신의 아이디어를
-                <br />
-                현실로 만들어보세요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {features.map((feature, i) => (
-                <div key={i} className="flex items-center gap-4 bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                  <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                    <feature.icon className="h-6 w-6 text-violet-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white">{feature.title}</p>
-                    <p className="text-sm text-slate-400">{feature.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-sm text-slate-400">
-            &quot;뚝딱 덕분에 고품질 영상을 빠르게 만들 수 있었습니다.&quot;
+      {/* 왼쪽 안내 영역 (넓은 화면에서만) */}
+      <AuthSidePanel
+        title={
+          <>
+            가입하고
             <br />
-            <span className="text-white">- 김OO, 스타트업 대표</span>
-          </p>
-        </div>
-      </div>
+            물어보세요
+          </>
+        }
+        lead="가입하면 전문가에게 문의하고, 필요한 영상의 견적을 요청할 수 있습니다."
+      />
 
       {/* Right Side - Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8 bg-white overflow-y-auto">
         <div className="w-full max-w-md py-8">
-          {/* Mobile Logo */}
-          <div className="text-center mb-6 lg:hidden">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-orange-500">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <span className="font-bold text-2xl">뚝딱</span>
-            </Link>
-          </div>
 
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">회원가입</h2>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">회원가입</h1>
             <p className="text-slate-600">계정을 만들고 시작하세요</p>
           </div>
 

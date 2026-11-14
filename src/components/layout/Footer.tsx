@@ -32,7 +32,7 @@ export function Footer() {
               <li><Link href="/help" className="hover:text-foreground">고객센터</Link></li>
               <li><Link href="/faq" className="hover:text-foreground">자주 묻는 질문</Link></li>
               <li><Link href="/event" className="hover:text-foreground">이벤트</Link></li>
-              <li><Link href="/about" className="hover:text-foreground">회사 소개</Link></li>
+              <li><Link href="/about" className="hover:text-foreground">뚝딱 소개</Link></li>
             </ul>
           </div>
 
@@ -50,7 +50,7 @@ export function Footer() {
           <div className="text-xs text-muted-foreground space-y-1">
             <p className="font-medium text-slate-600">뚝딱 (TTUKDDAK)</p>
             <p>대표: [대표자명] | 사업자등록번호: [000-00-00000] | 통신판매업 신고번호: [제0000-서울XX-0000호]</p>
-            <p>주소: [사업장 주소] | 이메일: support@ttukddak.com</p>
+            <p>주소: [사업장 주소]</p>
             <p className="pt-2">&copy; {new Date().getFullYear()} 뚝딱. All rights reserved.</p>
           </div>
         </div>

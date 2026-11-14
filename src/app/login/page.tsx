@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Eye, EyeOff, ArrowRight, Play, Star } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { AuthSidePanel } from "@/components/AuthSidePanel";
 import { Suspense } from "react";
 
 export default function LoginPage() {
@@ -97,92 +98,25 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Visual */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/60 via-slate-800 to-slate-900" />
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-white">뚝딱</span>
-          </Link>
-
-          {/* Main Content */}
-          <div className="space-y-8">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-4">
-                아이디어를 영상으로,
-                <br />
-                <span className="text-primary">전문가와 함께</span>
-              </h1>
-              <p className="text-lg text-slate-300">
-                수백 명의 검증된 AI 영상 전문가가
-                <br />
-                당신의 프로젝트를 기다리고 있습니다.
-              </p>
-            </div>
-
-            {/* Feature Card */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Play className="h-5 w-5 text-primary fill-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white">실시간 프로젝트</p>
-                  <p className="text-sm text-slate-400">지금 바로 시작하세요</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6 text-sm text-slate-300">
-                <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span>평균 4.9점</span>
-                </div>
-                <div>수천 건의 완료 프로젝트</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Testimonial */}
-          <div className="flex items-center gap-4">
-            <div className="flex -space-x-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-400 border-2 border-slate-900"
-                />
-              ))}
-            </div>
-            <p className="text-sm text-slate-400">
-              <span className="text-white font-semibold">수천 명</span>의 만족한 고객
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* 왼쪽 안내 영역 (넓은 화면에서만) */}
+      <AuthSidePanel
+        title={
+          <>
+            보고 고르고,
+            <br />
+            바로 맡기세요
+          </>
+        }
+        lead="AI로 영상을 만드는 전문가의 실제 작업을 먼저 보고, 마음에 드는 사람에게 맡기는 곳입니다."
+      />
 
       {/* Right Side - Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="text-center mb-8 lg:hidden">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-orange-500">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <span className="font-bold text-2xl">뚝딱</span>
-            </Link>
-          </div>
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">로그인</h2>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">로그인</h1>
             <p className="text-slate-600">뚝딱에 오신 것을 환영합니다</p>
           </div>
 
