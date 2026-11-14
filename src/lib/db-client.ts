@@ -7,7 +7,7 @@ import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 // ============================================
 
 const DEFAULT_PACKAGES = (price: number) => [
-  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"] },
+  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"], isPlaceholder: true },
 ];
 
 function dbServiceToApp(s: DBService, packages?: any[]): Service {
@@ -141,6 +141,34 @@ export async function getExpertByIdClient(id: string): Promise<Expert | null> {
   return dbExpertToApp(data as any, profile);
 }
 
+// 전문가 여러 명을 한 번의 요청으로 읽는다. 목록 화면에서 카드마다 따로 요청하지 않기 위해서다.
+// 카드에 필요한 프로필 항목(이름·사진)만 가져온다.
+// 이 파일의 다른 조회와 달리 실패하면 예외를 던진다. 부르는 쪽이 "없는 전문가"와 "읽기 실패"를
+// 구분해서, 실패한 묶음을 다음에 다시 요청할 수 있어야 하기 때문이다.
+export async function getExpertsByIdsClient(ids: string[]): Promise<Expert[]> {
+  const validIds = [...new Set(ids)].filter((id) => uuidRegex.test(id));
+  if (validIds.length === 0) return [];
+
+  // id 목록이 주소에 실리므로, 너무 길어지지 않게 100명씩 나눠 읽는다.
+  const chunks: string[][] = [];
+  for (let i = 0; i < validIds.length; i += 100) chunks.push(validIds.slice(i, i + 100));
+
+  const sb = createClient();
+  const results = await Promise.all(
+    chunks.map((chunk) => sb.from("experts").select("*, profiles(name, avatar_url)").in("id", chunk))
+  );
+
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw new Error(`전문가 조회 실패: ${failed.error.message}`);
+
+  return results.flatMap(({ data }) =>
+    (data || []).map((row: any) => {
+      const { profiles, ...expert } = row;
+      return dbExpertToApp(expert, profiles ?? undefined);
+    })
+  );
+}
+
 export async function getServicesByExpertClient(expertId: string): Promise<Service[]> {
   const sb = createClient();
   const { data } = await sb
@@ -160,8 +188,9 @@ export async function searchServicesClient(query: string): Promise<Service[]> {
     .select("*")
     .eq("status", "active")
     .or(`title.ilike.${lower},description.ilike.${lower}`)
-    .order("sales_count", { ascending: false })
-    .limit(50);
+    // 개수를 따로 자르지 않는다. 영상 종류 버튼의 개수(전체에서 셈)와 결과 수가 같아야 하고,
+    // 검색어가 없을 때의 전체 목록(getServicesClient)도 자르지 않는다.
+    .order("sales_count", { ascending: false });
 
   return (data || []).map((s: any) => dbServiceToApp(s));
 }

@@ -1,761 +1,595 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
-import {
-  ChevronRight, ChevronDown, Star, Heart, Share2, Clock, Zap, Award,
-  CheckCircle, MessageCircle, Calendar, RefreshCw, Play, Shield,
-  Globe, User, ThumbsUp, Flag, ArrowRight, Bookmark, Copy
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import type { Service, Expert, Category } from "@/types";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { Check, ChevronRight, Heart, Link2, MessageCircle, Play } from "lucide-react";
+import { toast } from "sonner";
 import { InquiryModal } from "@/components/InquiryModal";
-import { extractStreamUid } from "@/components/VideoThumbnail";
+import { SceneImage } from "@/components/SceneImage";
+import { ServiceCard } from "@/components/ServiceCard";
+import { useFavorites } from "@/contexts/FavoritesContext";
+import { streamFrameUrl, streamUid } from "@/lib/stream";
+import { cn } from "@/lib/utils";
+import type { Category, Expert, PublicReview, Service } from "@/types";
 
-const cfIframe = (uid: string) => `https://iframe.videodelivery.net/${uid}`;
-const cfThumb = (uid: string) => `https://customer-6q1yzz06ggg2ef4g.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?width=640&height=360&fit=crop`;
-const cfThumbSmall = (uid: string) => `https://customer-6q1yzz06ggg2ef4g.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?width=192&height=108&fit=crop`;
+const formatPrice = (price: number) => new Intl.NumberFormat("ko-KR").format(price);
+
+/* ───────────────────────────────── 영상·이미지 ───────────────────────────────── */
+
+type Media = {
+  key: string;
+  /** Cloudflare Stream 영상이면 그 id, 일반 이미지면 null */
+  uid: string | null;
+  poster: string;
+  posterFallback: string;
+  thumb: string;
+  thumbFallback: string;
+};
+
+// 서비스에 등록된 영상과 이미지를 보여 줄 순서대로 만든다.
+// 영상은 3초 지점의 장면을 표지로 쓰고, 영상이 그보다 짧아 실패하면 첫 장면으로 대신한다.
+// 등록된 영상·이미지가 하나도 없을 때만 썸네일을 보여 준다.
+function buildMedia(service: Service): Media[] {
+  const seen = new Set<string>();
+  const media: Media[] = [];
+
+  for (const url of service.images) {
+    const uid = streamUid(url);
+    const key = uid ?? url;
+    if (!url || seen.has(key)) continue;
+    seen.add(key);
+
+    if (uid) {
+      media.push({
+        key,
+        uid,
+        poster: streamFrameUrl(url, { width: 1280, height: 720 }) ?? url,
+        posterFallback: streamFrameUrl(url, { width: 1280, height: 720, time: "0s" }) ?? url,
+        thumb: streamFrameUrl(url, { width: 212, height: 120 }) ?? url,
+        thumbFallback: streamFrameUrl(url, { width: 212, height: 120, time: "0s" }) ?? url,
+      });
+    } else {
+      media.push({ key, uid: null, poster: url, posterFallback: service.thumbnail, thumb: url, thumbFallback: service.thumbnail });
+    }
+  }
+
+  if (media.length === 0) {
+    const t = service.thumbnail;
+    media.push({ key: "thumbnail", uid: null, poster: t, posterFallback: t, thumb: t, thumbFallback: t });
+  }
+  return media;
+}
+
+function Gallery({ service }: { service: Service }) {
+  const media = useMemo(() => buildMedia(service), [service]);
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const current = media[index] ?? media[0];
+
+  const poster = (
+    <SceneImage
+      // 다른 영상으로 바꾸면 앞 영상의 실패 기록이 남지 않도록 새로 만든다.
+      key={current.key}
+      src={current.poster}
+      fallbackSrc={current.posterFallback}
+      alt={`${service.title}의 한 장면`}
+      fill
+      preload={index === 0}
+      sizes="(max-width: 1024px) 100vw, 800px"
+      className="object-cover"
+    />
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="relative aspect-video overflow-hidden rounded-[28px] border-[3px] border-ink bg-night">
+        {current.uid && playing ? (
+          <iframe
+            src={`https://iframe.videodelivery.net/${current.uid}?autoplay=true&muted=false`}
+            className="absolute inset-0 h-full w-full border-0"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            title={`${service.title} 영상`}
+          />
+        ) : current.uid ? (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            aria-label="영상 재생"
+            className="group absolute inset-0 block h-full w-full cursor-pointer focus-visible:outline-none"
+          >
+            {poster}
+            <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-ink bg-white text-ink transition-transform group-hover:scale-105 group-focus-visible:ring-[3px] group-focus-visible:ring-white group-focus-visible:outline-[3px] group-focus-visible:outline-offset-[3px] group-focus-visible:outline-ink">
+              <Play className="ml-1 h-7 w-7 fill-current" aria-hidden="true" />
+            </span>
+          </button>
+        ) : (
+          poster
+        )}
+      </div>
+
+      {media.length > 1 && (
+        <ul className="flex gap-2 overflow-x-auto pb-1">
+          {media.map((item, i) => (
+            <li key={item.key} className="shrink-0">
+              <button
+                type="button"
+                aria-label={`${i + 1}번째 ${item.uid ? "영상" : "이미지"} 보기`}
+                aria-pressed={i === index}
+                onClick={() => {
+                  setIndex(i);
+                  setPlaying(false);
+                }}
+                className={cn(
+                  "relative block h-[60px] w-[106px] overflow-hidden rounded-[10px] border-[3px] bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+                  i === index ? "border-ink" : "border-transparent hover:border-[#B9BEC5]"
+                )}
+              >
+                <SceneImage
+                  src={item.thumb}
+                  fallbackSrc={item.thumbFallback}
+                  alt=""
+                  fill
+                  sizes="106px"
+                  className="object-cover"
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────────────── 가격과 주문 ───────────────────────────────── */
+
+function PurchaseBox({
+  service,
+  selected,
+  onSelect,
+  onInquiry,
+}: {
+  service: Service;
+  selected: number;
+  onSelect: (index: number) => void;
+  onInquiry: () => void;
+}) {
+  const pkg = service.packages[selected] ?? service.packages[0];
+  if (!pkg) return null;
+
+  return (
+    <section aria-label="가격과 주문" className="flex flex-col gap-5 rounded-[28px] border border-[#D5D9DE] bg-white p-7">
+      {service.packages.length > 1 && (
+        <div role="group" aria-label="패키지 선택" className="flex gap-1">
+          {service.packages.map((p, i) => (
+            <button
+              key={`${p.name}-${i}`}
+              type="button"
+              aria-pressed={i === selected}
+              onClick={() => onSelect(i)}
+              className={cn(
+                "h-10 min-w-0 flex-1 truncate rounded-[10px] px-2 text-[15px]",
+                i === selected ? "bg-ink font-bold text-white" : "bg-paper font-medium text-[#3A3A37] hover:bg-[#E6E6E1]"
+              )}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {!pkg.isPlaceholder && <p className="text-[15px] font-bold text-[#3A3A37]">{pkg.name}</p>}
+        <p className="font-display text-[46px] leading-none">
+          {formatPrice(pkg.price)}
+          <span className="ml-1 font-sans text-xl font-black">원</span>
+        </p>
+      </div>
+
+      {pkg.isPlaceholder ? (
+        // 전문가가 패키지를 등록하지 않은 서비스. 코드가 채운 기본값(기간·수정 횟수)은 적지 않는다.
+        <p className="text-[15px] text-[#3A3A37]">작업 기간과 수정 횟수는 주문 전에 전문가에게 문의해 정할 수 있습니다.</p>
+      ) : (
+        <>
+          <dl className="grid grid-cols-2 gap-2">
+            <div className="rounded-[10px] bg-paper px-4 py-3">
+              <dt className="text-[13px] text-[#56606B]">작업 기간</dt>
+              <dd className="text-[17px] font-black">{pkg.deliveryDays}일</dd>
+            </div>
+            <div className="rounded-[10px] bg-paper px-4 py-3">
+              <dt className="text-[13px] text-[#56606B]">수정</dt>
+              <dd className="text-[17px] font-black">{pkg.revisions}회</dd>
+            </div>
+          </dl>
+          {pkg.features.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {pkg.features.map((feature, i) => (
+                <li key={`${i}-${feature}`} className="flex items-start gap-2.5 text-[15px] text-[#3A3A37]">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-ink" strokeWidth={3} aria-hidden="true" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <Link
+          href={`/order/${service.id}?package=${selected}`}
+          className="flex h-14 items-center justify-center rounded-[10px] bg-brand text-[17px] font-black text-[#1B0E03] transition-colors hover:bg-[#FF7A45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          바로 구매하기
+        </Link>
+        <button
+          type="button"
+          onClick={onInquiry}
+          className="flex h-12 items-center justify-center gap-2 rounded-[10px] border border-ink text-[15px] font-bold hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          문의하기
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// 주문한 뒤의 순서. 홈의 "뚝. 딱. 끝." 과 같은 흐름이다.
+const ORDER_STEPS = [
+  { word: "뚝.", body: "주문하고 결제합니다." },
+  { word: "딱.", body: "전문가가 작업해 결과물을 전달합니다." },
+  { word: "끝.", body: "결과물을 확인하고 구매를 확정합니다. 고칠 곳은 확정 전에 수정을 요청하세요." },
+];
+
+function OrderSteps() {
+  return (
+    <section aria-label="주문 뒤 진행 순서" className="rounded-[28px] bg-paper p-7">
+      <p className="text-[15px] font-black">주문하면 이렇게 진행됩니다</p>
+      <ol className="mt-4 flex flex-col gap-3.5">
+        {ORDER_STEPS.map((step) => (
+          <li key={step.word} className="flex items-baseline gap-3">
+            <span aria-hidden="true" className="w-11 shrink-0 font-display text-[26px] leading-none">
+              {step.word}
+            </span>
+            <span className="text-[15px] text-[#3A3A37]">{step.body}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ───────────────────────────────── 전문가 사진 ───────────────────────────────── */
+
+function ExpertAvatar({ expert }: { expert: Expert }) {
+  const [broken, setBroken] = useState(false);
+  // 등록한 사진이 없으면 자동으로 만든 그림 대신 이름 첫 글자를 보여 준다.
+  const hasPhoto = !broken && Boolean(expert.profileImage) && !expert.profileImage.includes("api.dicebear.com");
+
+  if (!hasPhoto) {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-ink text-2xl font-black text-white"
+      >
+        {Array.from(expert.name)[0] ?? ""}
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={expert.profileImage}
+      alt=""
+      width={64}
+      height={64}
+      unoptimized
+      onError={() => setBroken(true)}
+      className="h-16 w-16 shrink-0 rounded-full border border-[#D5D9DE] object-cover"
+    />
+  );
+}
+
+/* ───────────────────────────────────── 화면 ───────────────────────────────────── */
 
 export default function ServiceDetailPageClient({
   service,
   expert,
   category,
   expertServices,
+  reviews = [],
+  reviewTotal = reviews.length,
 }: {
   service: Service;
   expert: Expert;
   category: Category;
   expertServices: Service[];
+  /** 공개 리뷰 (최근 것부터). 미리보기 화면에서는 넘기지 않는다. */
+  reviews?: PublicReview[];
+  reviewTotal?: number;
 }) {
-  const [selectedImage, setSelectedImage] = useState(0);
-  // 패키지가 여러 개면 가운데(스탠다드)를 기본으로 고르고, 하나뿐이면 그 패키지를 고른다.
-  // (대부분의 서비스는 패키지가 하나다. 없는 두 번째 패키지를 고르면 화면 전체가 오류로 바뀐다.)
-  const [selectedPackage, setSelectedPackage] = useState(() => (service.packages.length > 1 ? 1 : 0));
-  const currentPackage = service.packages[selectedPackage] ?? service.packages[0];
-  const [isInquiryOpen, setIsInquiryOpen] = useState(false);
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [reviewFilter, setReviewFilter] = useState<number | null>(null);
-  const [showFullDesc, setShowFullDesc] = useState(false);
-  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
-  const [galleryPlaying, setGalleryPlaying] = useState(false);
+  // 패키지는 가격이 낮은 순서다. 셋 이상이면 가운데를, 아니면 가장 싼 것을 처음에 고른다.
+  // (둘뿐일 때 두 번째를 고르면 더 비싼 쪽을 권하는 셈이 된다. 없는 번호를 고르면 화면 전체가 오류로 바뀐다.)
+  const [selectedPackage, setSelectedPackage] = useState(() => (service.packages.length >= 3 ? 1 : 0));
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const liked = isFavorite(service.id);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("ko-KR").format(price);
+  const otherServices = expertServices.filter((s) => s.id !== service.id).slice(0, 3);
+  const longDescription = service.description.length > 600 || service.description.split("\n").length > 12;
+
+  const meta = [
+    expert.isMaster ? "마스터" : null,
+    service.reviewCount > 0 ? `★ ${service.rating.toFixed(1)} (${service.reviewCount})` : null,
+    service.salesCount > 0 ? `판매 ${formatPrice(service.salesCount)}회` : null,
+    service.isPrime ? "프라임" : null,
+    service.isFastResponse ? "빠른 응답" : null,
+  ].filter((item): item is string => Boolean(item));
+
+  const copyLink = async () => {
+    try {
+      // 미리보기 화면이나 임시 배포 주소에서 눌러도 대표 주소가 복사되게 한다.
+      const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, "");
+      await navigator.clipboard.writeText(`${siteUrl}/service/${service.id}`);
+      toast.success("링크를 복사했습니다");
+    } catch {
+      toast.error("링크를 복사하지 못했습니다");
+    }
   };
 
-  const images = [service.thumbnail, ...service.images];
-
-  // FAQ 데이터
-  const faqs = [
-    { q: "작업 진행 과정은 어떻게 되나요?", a: "결제 후 요구사항을 전달해주시면, 초안 작업 → 피드백 → 수정 → 최종 납품 순서로 진행됩니다. 각 단계별로 실시간 소통이 가능합니다." },
-    { q: "수정은 몇 번까지 가능한가요?", a: "선택하신 패키지에 따라 다릅니다. 기본 패키지는 1회, 스탠다드는 2회, 프리미엄은 무제한 수정이 가능합니다." },
-    { q: "소스 파일도 제공되나요?", a: "프리미엄 패키지에는 소스 파일(프로젝트 파일)이 포함되어 있습니다. 기본/스탠다드 패키지는 완성본(MP4)만 제공됩니다." },
-    { q: "급하게 필요한 경우 빠른 작업이 가능한가요?", a: "네, 급행 옵션을 추가하시면 표준 작업 기간의 50% 단축이 가능합니다. 추가 비용이 발생할 수 있으니 문의해주세요." },
-    { q: "촬영도 직접 해주시나요?", a: "본 서비스는 편집/제작 서비스입니다. 촬영이 필요한 경우 별도 협의가 필요합니다. 스톡 영상 활용은 가능합니다." },
-  ];
-
-  // 리뷰 데이터
-  const reviews = [
-    { name: "김**", rating: 5, date: "2024.03.15", text: "기대 이상의 퀄리티였습니다. 소통도 정말 빠르고, 수정 요청에도 친절하게 대응해주셨어요. 다음 프로젝트도 꼭 맡기고 싶습니다!", helpful: 24, package: "스탠다드" },
-    { name: "이**", rating: 5, date: "2024.03.08", text: "브랜드 영상을 의뢰했는데 정말 만족스럽습니다. 특히 모션그래픽 퀄리티가 탁월하네요. 주변에도 추천했습니다.", helpful: 18, package: "프리미엄" },
-    { name: "박**", rating: 4, date: "2024.02.28", text: "전체적으로 좋았으나 초안 작업에 시간이 조금 더 걸렸습니다. 하지만 최종 결과물은 매우 만족스러웠어요.", helpful: 12, package: "스탠다드" },
-    { name: "최**", rating: 5, date: "2024.02.20", text: "유튜브 인트로 영상을 맡겼는데, 구독자들 반응이 정말 좋아요! 센스 있는 편집이 돋보입니다. 강력 추천합니다.", helpful: 31, package: "기본" },
-    { name: "정**", rating: 5, date: "2024.02.14", text: "세 번째 의뢰인데 항상 만족합니다. 제 의도를 정확하게 파악하시고 기대 이상으로 작업해주세요.", helpful: 15, package: "프리미엄" },
-    { name: "한**", rating: 4, date: "2024.02.05", text: "가격 대비 좋은 퀄리티입니다. 다만 BGM 선택지가 좀 더 다양했으면 좋겠어요. 전반적으로 추천!", helpful: 8, package: "기본" },
-  ];
-
-  const filteredReviews = reviewFilter ? reviews.filter(r => r.rating === reviewFilter) : reviews;
-  const ratingDist = [5, 4, 3, 2, 1].map(r => ({ star: r, count: reviews.filter(rv => rv.rating === r).length }));
-
-  const packageLabels = ["기본", "스탠다드", "프리미엄"];
-  const packageColors = [
-    "border-slate-200 hover:border-slate-300",
-    "border-orange-300 ring-1 ring-orange-100",
-    "border-violet-300 hover:border-violet-400",
-  ];
+  const openInquiry = () => setInquiryOpen(true);
+  const actionButton =
+    "inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#D5D9DE] px-3.5 text-[15px] font-bold hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+  const sectionTitle = "text-2xl font-black tracking-[-0.03em]";
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* Breadcrumb */}
-      <div className="border-b bg-slate-50">
-        <div className="container mx-auto px-4 py-3">
-          <nav className="flex items-center gap-2 text-sm">
-            <Link href="/" className="text-slate-400 hover:text-slate-600 transition-colors">홈</Link>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <Link href={`/category/${category.slug}`} className="text-slate-400 hover:text-slate-600 transition-colors">{category.name}</Link>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <span className="text-slate-600 font-medium truncate max-w-[240px]">{service.title}</span>
-          </nav>
-        </div>
-      </div>
+    <div className="bg-white text-ink [word-break:keep-all]">
+      {/* ===== 현재 위치 ===== */}
+      <nav aria-label="현재 위치" className="border-b border-[#E2E5E9]">
+        <ol className="mx-auto flex max-w-[1240px] items-center gap-1.5 px-4 py-3 text-sm text-[#56606B] md:px-8">
+          <li className="shrink-0">
+            <Link href="/" className="hover:text-ink hover:underline">
+              홈
+            </Link>
+          </li>
+          <li aria-hidden="true" className="shrink-0">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </li>
+          <li className="shrink-0">
+            <Link href={`/category/${category.slug}`} className="hover:text-ink hover:underline">
+              {category.name}
+            </Link>
+          </li>
+          <li aria-hidden="true" className="shrink-0">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </li>
+          <li aria-current="page" className="min-w-0 truncate font-medium text-ink">
+            {service.title}
+          </li>
+        </ol>
+      </nav>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* ========== LEFT COLUMN ========== */}
-          <div className="flex-1 min-w-0 space-y-8">
+      <div className="mx-auto max-w-[1240px] px-4 pb-24 pt-8 md:px-8 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+        <div className="flex min-w-0 flex-col gap-14">
+          <div className="flex flex-col gap-6">
+            <Gallery service={service} />
 
-            {/* Image Gallery */}
-            <div className="space-y-3">
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 group cursor-pointer"
-                onClick={() => {
-                  const uid = extractStreamUid(images[selectedImage]);
-                  if (uid && !galleryPlaying) setGalleryPlaying(true);
-                }}
-              >
-                {(() => {
-                  const uid = extractStreamUid(images[selectedImage]);
-                  if (uid && galleryPlaying) {
-                    return (
-                      <iframe
-                        src={`${cfIframe(uid)}?autoplay=true&muted=false`}
-                        className="absolute inset-0 w-full h-full border-0"
-                        allow="autoplay; encrypted-media; fullscreen"
-                        title={service.title}
-                      />
-                    );
-                  }
-                  if (uid) {
-                    return (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cfThumb(uid)} alt={service.title} className="absolute inset-0 w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center opacity-70 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
-                            <Play className="h-7 w-7 text-slate-800 fill-slate-800 ml-1" />
-                          </div>
-                        </div>
-                      </>
-                    );
-                  }
-                  return (
-                    <>
-                      <Image src={images[selectedImage]} alt={service.title} fill className="object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
-                          <Play className="h-7 w-7 text-slate-800 fill-slate-800 ml-1" />
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-                {/* Badges */}
-                <div className="absolute top-4 left-4 flex gap-2 z-10">
-                  {service.isPrime && (
-                    <Badge className="bg-orange-500 text-white border-0 shadow-lg">
-                      <Zap className="h-3 w-3 mr-1" />프라임
-                    </Badge>
-                  )}
-                  {service.isFastResponse && (
-                    <Badge className="bg-emerald-500 text-white border-0 shadow-lg">
-                      <Zap className="h-3 w-3 mr-1" />빠른응답
-                    </Badge>
-                  )}
-                </div>
-                {/* Image counter */}
-                <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm z-10">
-                  {selectedImage + 1} / {images.length}
-                </div>
-              </div>
-              {/* Thumbnails */}
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {images.map((img, index) => {
-                  const uid = extractStreamUid(img);
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => { setSelectedImage(index); setGalleryPlaying(false); }}
-                      className={cn(
-                        "relative w-24 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all",
-                        selectedImage === index ? "border-orange-500 shadow-md" : "border-slate-200 hover:border-slate-300"
-                      )}
-                    >
-                      {uid ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={cfThumbSmall(uid)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <Image src={img} alt="" fill className="object-cover" />
-                      )}
-                      {uid && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <Play className="h-4 w-4 text-white fill-white" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Title & Meta */}
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight mb-4">{service.title}</h1>
-              <div className="flex flex-wrap items-center gap-4">
-                {/* Seller mini */}
-                <Link href={`/expert/${expert.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                  <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
-                    <AvatarImage src={expert.profileImage} alt={expert.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-500 text-white text-xs">{expert.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-semibold text-sm text-slate-700">{expert.name}</span>
-                  {expert.isMaster && (
-                    <Badge variant="outline" className="h-5 text-[10px] gap-0.5 px-1.5 bg-amber-50 border-amber-200 text-amber-700">
-                      <Award className="h-3 w-3" />마스터
-                    </Badge>
-                  )}
-                </Link>
-                <Separator orientation="vertical" className="h-4" />
-                {/* Rating */}
-                <div className="flex items-center gap-1.5">
-                  <div className="flex">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={cn("h-4 w-4", i < Math.round(service.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
-                    ))}
-                  </div>
-                  <span className="font-bold text-sm">{service.rating.toFixed(1)}</span>
-                  <span className="text-slate-400 text-sm">({service.reviewCount})</span>
-                </div>
-                <Separator orientation="vertical" className="h-4" />
-                <span className="text-slate-400 text-sm">{service.salesCount}회 판매</span>
-
-                {/* Actions */}
-                <div className="flex-1" />
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-500 gap-1.5 text-xs">
-                    <Heart className="h-4 w-4" /> 저장
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-600 gap-1.5 text-xs">
-                    <Share2 className="h-4 w-4" /> 공유
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* ===== Package Tabs (Mobile visible, Desktop hidden) ===== */}
-            <div className="lg:hidden">
-              <PackageSection
-                service={service}
-                selectedPackage={selectedPackage}
-                setSelectedPackage={setSelectedPackage}
-                formatPrice={formatPrice}
-                packageLabels={packageLabels}
-                packageColors={packageColors}
-                onInquiry={() => setIsInquiryOpen(true)}
-              />
-            </div>
-
-            {/* ===== Service Description ===== */}
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-4">서비스 설명</h2>
-              <div className={cn("relative", !showFullDesc && "max-h-[280px] overflow-hidden")}>
-                <div className="prose prose-sm prose-slate max-w-none">
-                  <div className="whitespace-pre-line text-slate-600 leading-relaxed">{service.description}</div>
-                </div>
-                {!showFullDesc && (
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent" />
-                )}
-              </div>
-              <button
-                onClick={() => setShowFullDesc(!showFullDesc)}
-                className="mt-2 text-orange-500 hover:text-orange-600 text-sm font-medium flex items-center gap-1 transition-colors"
-              >
-                {showFullDesc ? "접기" : "더보기"}
-                <ChevronDown className={cn("h-4 w-4 transition-transform", showFullDesc && "rotate-180")} />
-              </button>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mt-6">
-                {service.tags.map((tag) => (
-                  <Link key={tag} href={`/search?q=${tag}`}>
-                    <Badge variant="secondary" className="hover:bg-slate-200 cursor-pointer transition-colors">#{tag}</Badge>
+            {/* ===== 제목 ===== */}
+            <div className="flex flex-col gap-4">
+              <h1 className="text-[clamp(28px,3.4vw,42px)] font-black leading-[1.2] tracking-[-0.03em]">
+                {service.title}
+              </h1>
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-[#3A3A37]">
+                  <Link
+                    href={`/expert/${expert.id}`}
+                    className="font-black text-ink underline-offset-4 hover:underline"
+                  >
+                    {expert.name}
                   </Link>
+                  {meta.map((item) => (
+                    <span key={item} className="before:mr-2 before:content-['·']">
+                      {item}
+                    </span>
+                  ))}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={liked}
+                    onClick={() => {
+                      toggleFavorite(service.id);
+                      toast.success(liked ? "찜 목록에서 삭제되었습니다" : "찜 목록에 추가되었습니다");
+                    }}
+                    className={actionButton}
+                  >
+                    <Heart className={cn("h-4 w-4", liked && "fill-ink")} aria-hidden="true" />
+                    {liked ? "찜함" : "찜하기"}
+                  </button>
+                  <button type="button" onClick={copyLink} className={actionButton}>
+                    <Link2 className="h-4 w-4" aria-hidden="true" />
+                    링크 복사
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 좁은 화면에서는 가격과 주문을 제목 바로 아래에 둔다. */}
+            <div className="flex flex-col gap-4 lg:hidden">
+              <PurchaseBox
+                service={service}
+                selected={selectedPackage}
+                onSelect={setSelectedPackage}
+                onInquiry={openInquiry}
+              />
+              <OrderSteps />
+            </div>
+          </div>
+
+          {/* ===== 서비스 설명 ===== */}
+          <section className="flex flex-col gap-4">
+            <h2 className={sectionTitle}>서비스 설명</h2>
+            <p
+              id="service-description"
+              className={cn(
+                "whitespace-pre-line text-[17px] leading-[1.75] text-[#3A3A37] [overflow-wrap:anywhere]",
+                longDescription && !descriptionOpen && "line-clamp-12"
+              )}
+            >
+              {service.description}
+            </p>
+            {longDescription && (
+              <button
+                type="button"
+                aria-expanded={descriptionOpen}
+                aria-controls="service-description"
+                onClick={() => setDescriptionOpen((open) => !open)}
+                className="self-start border-b-2 border-ink py-1 text-[15px] font-black"
+              >
+                {descriptionOpen ? "접기" : "설명 모두 보기"}
+              </button>
+            )}
+            {service.tags.length > 0 && (
+              <ul aria-label="태그" className="mt-2 flex flex-wrap gap-2">
+                {service.tags.map((tag, i) => (
+                  <li
+                    key={`${i}-${tag}`}
+                    className="inline-flex h-9 items-center rounded-full border border-[#D5D9DE] px-3.5 text-sm font-medium text-[#3A3A37]"
+                  >
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* ===== 전문가 ===== */}
+          <section className="flex flex-col gap-4">
+            <h2 className={sectionTitle}>전문가</h2>
+            <div className="flex flex-col gap-5 rounded-[28px] bg-paper p-7 md:p-9">
+              <div className="flex items-center gap-4">
+                <ExpertAvatar expert={expert} />
+                <div className="min-w-0">
+                  <p className="text-xl font-black tracking-[-0.02em]">{expert.name}</p>
+                  {expert.title && <p className="text-[15px] text-[#3A3A37]">{expert.title}</p>}
+                </div>
+              </div>
+              {expert.introduction && (
+                <p className="whitespace-pre-line text-[17px] leading-[1.7] text-[#3A3A37]">{expert.introduction}</p>
+              )}
+              {(expert.skills.length > 0 || expert.tools.length > 0) && (
+                <dl className="flex flex-col gap-1.5 text-[15px]">
+                  {expert.skills.length > 0 && (
+                    <div className="flex gap-3">
+                      <dt className="w-10 shrink-0 font-black">분야</dt>
+                      <dd className="text-[#3A3A37]">{expert.skills.join(", ")}</dd>
+                    </div>
+                  )}
+                  {expert.tools.length > 0 && (
+                    <div className="flex gap-3">
+                      <dt className="w-10 shrink-0 font-black">도구</dt>
+                      <dd className="text-[#3A3A37]">{expert.tools.join(", ")}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/expert/${expert.id}`}
+                  className="inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black"
+                >
+                  프로필 보기
+                </Link>
+                <button
+                  type="button"
+                  onClick={openInquiry}
+                  className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-ink bg-white px-[22px] text-[15px] font-bold hover:bg-[#E6E6E1]"
+                >
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                  문의하기
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== 같은 전문가의 다른 서비스 ===== */}
+          {otherServices.length > 0 && (
+            <section className="flex flex-col gap-5">
+              <h2 className={sectionTitle}>{expert.name}님의 다른 서비스</h2>
+              <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+                {otherServices.map((other) => (
+                  <ServiceCard key={other.id} service={other} />
                 ))}
               </div>
-            </div>
+            </section>
+          )}
 
-            <Separator />
-
-            {/* ===== About the Seller ===== */}
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-6">전문가 소개</h2>
-              <div className="bg-slate-50 rounded-2xl p-6">
-                <div className="flex items-start gap-5">
-                  <Avatar className="h-20 w-20 ring-4 ring-white shadow-lg">
-                    <AvatarImage src={expert.profileImage} alt={expert.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-500 text-white text-xl">{expert.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-bold text-slate-900">{expert.name}</h3>
-                      {expert.isMaster && (
-                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
-                          <Award className="h-3 w-3" />마스터
-                        </Badge>
-                      )}
-                      {expert.isPrime && (
-                        <Badge className="bg-orange-100 text-orange-700 border-orange-200">프라임</Badge>
-                      )}
+          {/* ===== 리뷰 (실제로 등록된 리뷰가 있을 때만) ===== */}
+          {reviews.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className={sectionTitle}>
+                리뷰 <span className="font-display text-[28px] font-normal">{reviewTotal}</span>
+              </h2>
+              <ul className="border-t border-[#E2E5E9]">
+                {reviews.map((review) => (
+                  <li key={review.id} className="flex flex-col gap-2.5 border-b border-[#E2E5E9] py-6">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px]">
+                      <span role="img" aria-label={`5점 만점에 ${review.rating}점`} className="font-black tracking-[0.08em]">
+                        {"★".repeat(review.rating)}
+                        <span className="text-[#B9BEC5]">{"★".repeat(5 - review.rating)}</span>
+                      </span>
+                      <span className="font-bold">{review.name}</span>
+                      <time dateTime={review.createdAt} className="text-[#56606B]">
+                        {review.createdAt.replaceAll("-", ".")}
+                      </time>
                     </div>
-                    <p className="text-sm text-slate-500 mb-3">{expert.title}</p>
-                    <div className="flex items-center gap-1.5 mb-4">
-                      <div className="flex">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={cn("h-3.5 w-3.5", i < Math.round(expert.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
-                        ))}
-                      </div>
-                      <span className="font-bold text-sm">{expert.rating.toFixed(1)}</span>
-                      <span className="text-slate-400 text-sm">({expert.reviewCount})</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="bg-white rounded-xl p-3 text-center">
-                        <p className="font-bold text-slate-900">{expert.responseTime}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">평균 응답</p>
-                      </div>
-                      <div className="bg-white rounded-xl p-3 text-center">
-                        <p className="font-bold text-slate-900">{expert.completionRate}%</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">완료율</p>
-                      </div>
-                      <div className="bg-white rounded-xl p-3 text-center">
-                        <p className="font-bold text-slate-900">{expert.reviewCount}건</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">총 리뷰</p>
-                      </div>
-                      <div className="bg-white rounded-xl p-3 text-center">
-                        <p className="font-bold text-slate-900">{expert.joinedAt.slice(0, 4)}년</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">활동 시작</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-sm text-slate-600 mt-5 leading-relaxed">{expert.introduction}</p>
-
-                {/* Skills */}
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Skills</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {expert.skills.map((skill) => (
-                      <span key={skill} className="text-xs bg-white text-slate-600 px-2.5 py-1 rounded-full border border-slate-200">{skill}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tools */}
-                <div className="mt-3">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Tools</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {expert.tools.map((tool) => (
-                      <span key={tool} className="text-xs bg-white text-slate-600 px-2.5 py-1 rounded-full border border-slate-200">{tool}</span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5 flex gap-3">
-                  <Button variant="outline" className="flex-1" asChild>
-                    <Link href={`/expert/${expert.id}`}>프로필 보기</Link>
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-1.5" onClick={() => setIsInquiryOpen(true)}>
-                    <MessageCircle className="h-4 w-4" />문의하기
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* ===== 전문가 영상 포트폴리오 ===== */}
-            {(() => {
-              // 서비스의 thumbnail + images에서 CF Stream UID 추출
-              const extractUid = (url: string) => {
-                const match = url.match(/cloudflarestream\.com\/([a-f0-9]+)\//);
-                return match ? match[1] : null;
-              };
-              const allImageUrls = [service.thumbnail, ...service.images];
-              // 같은 전문가의 다른 서비스 영상도 포함
-              expertServices.forEach((s) => {
-                if (s.id !== service.id) {
-                  allImageUrls.push(s.thumbnail, ...s.images);
-                }
-              });
-              const videoUids = [...new Set(allImageUrls.map(extractUid).filter(Boolean))] as string[];
-
-              if (videoUids.length === 0) return null;
-
-              return (
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 mb-2">{expert.name}님의 영상 포트폴리오</h2>
-                  <p className="text-sm text-slate-500 mb-5">총 {videoUids.length}개의 영상</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {videoUids.map((uid) => (
-                      <div key={uid} className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 group cursor-pointer"
-                        onClick={() => setPlayingVideo(playingVideo === uid ? null : uid)}
-                      >
-                        {playingVideo === uid ? (
-                          <iframe
-                            src={`${cfIframe(uid)}?autoplay=true&loop=true&muted=true`}
-                            className="absolute inset-0 w-full h-full border-0"
-                            allow="autoplay; encrypted-media; fullscreen"
-                            title="영상 재생"
-                          />
-                        ) : (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={cfThumb(uid)}
-                              alt="영상 썸네일"
-                              className="absolute inset-0 w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-10">
-                              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center opacity-70 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 shadow-xl">
-                                <Play className="h-5 w-5 text-slate-800 fill-slate-800 ml-0.5" />
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <Separator />
-
-            {/* ===== FAQ ===== */}
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-4">자주 묻는 질문</h2>
-              <div className="space-y-2">
-                {faqs.map((faq, i) => (
-                  <div key={i} className="border border-slate-100 rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
-                      className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
-                    >
-                      <span className="font-medium text-sm text-slate-800">{faq.q}</span>
-                      <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0 ml-4", expandedFaq === i && "rotate-180")} />
-                    </button>
-                    {expandedFaq === i && (
-                      <div className="px-4 pb-4">
-                        <p className="text-sm text-slate-500 leading-relaxed">{faq.a}</p>
+                    {review.content && (
+                      <p className="whitespace-pre-line text-[17px] leading-[1.7] text-[#3A3A37] [overflow-wrap:anywhere]">
+                        {review.content}
+                      </p>
+                    )}
+                    {review.reply && (
+                      <div className="mt-1 rounded-[20px] bg-paper p-5">
+                        <p className="text-sm font-black">{expert.name}님의 답글</p>
+                        <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.7] text-[#3A3A37] [overflow-wrap:anywhere]">
+                          {review.reply}
+                        </p>
                       </div>
                     )}
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* ===== Reviews ===== */}
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-6">리뷰 ({service.reviewCount})</h2>
-
-              {/* Rating Summary */}
-              <div className="bg-slate-50 rounded-2xl p-6 mb-6">
-                <div className="flex items-start gap-8">
-                  <div className="text-center">
-                    <p className="text-5xl font-bold text-slate-900">{service.rating.toFixed(1)}</p>
-                    <div className="flex items-center gap-0.5 mt-2 justify-center">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} className={cn("h-4 w-4", i < Math.round(service.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
-                      ))}
-                    </div>
-                    <p className="text-sm text-slate-400 mt-1">{service.reviewCount}개 리뷰</p>
-                  </div>
-                  <div className="flex-1 space-y-1.5">
-                    {ratingDist.map((rd) => (
-                      <button
-                        key={rd.star}
-                        onClick={() => setReviewFilter(reviewFilter === rd.star ? null : rd.star)}
-                        className={cn(
-                          "flex items-center gap-3 w-full group hover:bg-white rounded-lg px-2 py-1 transition-colors",
-                          reviewFilter === rd.star && "bg-white"
-                        )}
-                      >
-                        <span className="text-sm font-medium text-slate-600 w-8">{rd.star}점</span>
-                        <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber-400 rounded-full transition-all"
-                            style={{ width: `${reviews.length > 0 ? (rd.count / reviews.length) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-slate-400 w-6 text-right">{rd.count}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* AI Summary */}
-                <div className="mt-5 pt-5 border-t border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm font-semibold text-slate-700">AI 리뷰 요약</span>
-                  </div>
-                  <p className="text-sm text-slate-500">고객들이 가장 많이 언급한 키워드:</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <Badge variant="outline" className="bg-white">퀄리티 우수</Badge>
-                    <Badge variant="outline" className="bg-white">빠른 작업</Badge>
-                    <Badge variant="outline" className="bg-white">친절한 소통</Badge>
-                    <Badge variant="outline" className="bg-white">가격 대비 만족</Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Filter pills */}
-              {reviewFilter && (
-                <div className="mb-4">
-                  <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setReviewFilter(null)}>
-                    {reviewFilter}점 필터 적용중 ✕
-                  </Badge>
-                </div>
+              </ul>
+              {reviewTotal > reviews.length && (
+                <p className="text-[15px] text-[#56606B]">최근 리뷰 {reviews.length}개를 보여 드립니다.</p>
               )}
-
-              {/* Review List */}
-              <div className="space-y-0">
-                {filteredReviews.map((review, i) => (
-                  <div key={i} className="py-5 border-b border-slate-100 last:border-0">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i}`} />
-                        <AvatarFallback className="text-xs bg-slate-200">{review.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-sm text-slate-900">{review.name}</span>
-                          <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-slate-400">{review.package}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex">
-                            {Array.from({ length: 5 }).map((_, j) => (
-                              <Star key={j} className={cn("h-3.5 w-3.5", j < review.rating ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
-                            ))}
-                          </div>
-                          <span className="text-xs text-slate-400">{review.date}</span>
-                        </div>
-                        <p className="text-sm text-slate-600 leading-relaxed">{review.text}</p>
-                        <div className="flex items-center gap-4 mt-3">
-                          <button className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-orange-500 transition-colors">
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                            도움이 됐어요 ({review.helpful})
-                          </button>
-                          <button className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors">
-                            <Flag className="h-3.5 w-3.5" />
-                            신고
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Load more */}
-              <div className="mt-6 text-center">
-                <Button variant="outline" className="px-8">
-                  리뷰 더보기
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* ========== RIGHT SIDEBAR (Desktop) ========== */}
-          <div className="hidden lg:block w-[380px] flex-shrink-0">
-            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto space-y-5 scrollbar-hide">
-              <PackageSection
-                service={service}
-                selectedPackage={selectedPackage}
-                setSelectedPackage={setSelectedPackage}
-                formatPrice={formatPrice}
-                packageLabels={packageLabels}
-                packageColors={packageColors}
-                onInquiry={() => setIsInquiryOpen(true)}
-              />
-
-              {/* Seller quick card */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="relative">
-                    <Avatar className="h-12 w-12 ring-2 ring-white shadow-md">
-                      <AvatarImage src={expert.profileImage} alt={expert.name} />
-                      <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-500 text-white">{expert.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-sm text-slate-900">{expert.name}</span>
-                      {expert.isMaster && <Award className="h-4 w-4 text-amber-500" />}
-                    </div>
-                    <p className="text-xs text-slate-400">{expert.title}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <div className="text-center bg-slate-50 rounded-lg py-2">
-                    <p className="text-xs font-bold text-slate-700">{expert.rating.toFixed(1)}</p>
-                    <p className="text-[10px] text-slate-400">평점</p>
-                  </div>
-                  <div className="text-center bg-slate-50 rounded-lg py-2">
-                    <p className="text-xs font-bold text-slate-700">{expert.responseTime}</p>
-                    <p className="text-[10px] text-slate-400">응답</p>
-                  </div>
-                  <div className="text-center bg-slate-50 rounded-lg py-2">
-                    <p className="text-xs font-bold text-slate-700">{expert.completionRate}%</p>
-                    <p className="text-[10px] text-slate-400">완료율</p>
-                  </div>
-                </div>
-                <Button variant="outline" className="w-full text-sm" onClick={() => setIsInquiryOpen(true)}>
-                  <MessageCircle className="h-4 w-4 mr-1.5" />
-                  판매자에게 연락하기
-                </Button>
-              </div>
-
-              {/* Trust signals */}
-              <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <Shield className="h-5 w-5 text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-slate-700">안심 거래 보장</p>
-                    <p className="text-xs text-slate-400">에스크로 결제로 납품 확인 전까지 결제금 보호</p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <Clock className="h-5 w-5 text-blue-500 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-slate-700">평균 {currentPackage?.deliveryDays ?? 0}일 납품</p>
-                    <p className="text-xs text-slate-400">일정 초과 시 자동 환불</p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <RefreshCw className="h-5 w-5 text-orange-500 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-slate-700">수정 {currentPackage?.revisions ?? 0}회 보장</p>
-                    <p className="text-xs text-slate-400">만족할 때까지 수정 가능</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            </section>
+          )}
         </div>
+
+        {/* ===== 가격과 주문 (넓은 화면에서는 오른쪽에 붙어 따라온다) ===== */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 flex max-h-[calc(100dvh-7.5rem)] flex-col gap-4 overflow-y-auto scrollbar-hide">
+            <PurchaseBox
+              service={service}
+              selected={selectedPackage}
+              onSelect={setSelectedPackage}
+              onInquiry={openInquiry}
+            />
+            <OrderSteps />
+          </div>
+        </aside>
       </div>
 
-      {/* Inquiry Modal */}
       <InquiryModal
-        open={isInquiryOpen}
-        onOpenChange={setIsInquiryOpen}
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
         serviceId={service.id}
         expertId={expert.id}
         serviceName={service.title}
         expertName={expert.name}
       />
-    </div>
-  );
-}
-
-/* ===== Package Selection Component ===== */
-function PackageSection({
-  service,
-  selectedPackage,
-  setSelectedPackage,
-  formatPrice,
-  packageLabels,
-  packageColors,
-  onInquiry,
-}: {
-  service: any;
-  selectedPackage: number;
-  setSelectedPackage: (i: number) => void;
-  formatPrice: (n: number) => string;
-  packageLabels: string[];
-  packageColors: string[];
-  onInquiry: () => void;
-}) {
-  const currentPackage = service.packages[selectedPackage] ?? service.packages[0];
-  if (!currentPackage) return null;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      {/* Package tabs */}
-      <div className="flex border-b border-slate-100">
-        {service.packages.map((pkg: any, i: number) => (
-          <button
-            key={pkg.name}
-            onClick={() => setSelectedPackage(i)}
-            className={cn(
-              "flex-1 py-3 text-sm font-semibold text-center transition-all relative",
-              selectedPackage === i
-                ? "text-orange-600 bg-orange-50/50"
-                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            {packageLabels[i] || pkg.name}
-            {selectedPackage === i && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />
-            )}
-            {i === 1 && (
-              <span className="absolute -top-0.5 right-2 text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-b-md font-bold">추천</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Selected package details */}
-      <div className="p-5">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <p className="text-2xl font-bold text-slate-900">
-              {formatPrice(currentPackage.price)}
-              <span className="text-sm font-normal text-slate-400">원</span>
-            </p>
-          </div>
-        </div>
-
-        <p className="text-sm text-slate-500 mb-4">{currentPackage.name}</p>
-
-        <div className="flex items-center gap-4 text-sm text-slate-500 mb-5">
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4" />
-            {currentPackage.deliveryDays}일 작업
-          </span>
-          <span className="flex items-center gap-1.5">
-            <RefreshCw className="h-4 w-4" />
-            수정 {currentPackage.revisions}회
-          </span>
-        </div>
-
-        {/* Features */}
-        <ul className="space-y-2.5 mb-6">
-          {currentPackage.features.map((feature: string) => (
-            <li key={feature} className="flex items-start gap-2.5 text-sm">
-              <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-              <span className="text-slate-600">{feature}</span>
-            </li>
-          ))}
-        </ul>
-
-        <Button className="w-full h-12 text-base font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20" size="lg" asChild>
-          <Link href={`/order/${service.id}?package=${selectedPackage}`}>
-            바로 구매하기
-          </Link>
-        </Button>
-        <Button variant="outline" className="w-full h-10 mt-2.5 gap-1.5" onClick={onInquiry}>
-          <MessageCircle className="h-4 w-4" />
-          문의하기
-        </Button>
-
-        {/* Compare link */}
-        <p className="text-center text-xs text-slate-400 mt-3">
-          패키지 비교 후 결정하세요
-        </p>
-      </div>
     </div>
   );
 }

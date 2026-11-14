@@ -9,7 +9,7 @@ import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 // ============================================
 
 const DEFAULT_PACKAGES = (price: number) => [
-  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"] },
+  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"], isPlaceholder: true },
 ];
 
 export function dbServiceToApp(s: DBService, packages?: any[]): Service {

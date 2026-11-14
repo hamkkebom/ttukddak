@@ -7,6 +7,11 @@
 // next.config.ts 의 images.remotePatterns 에 있어야 한다. 지금은 계정 하나만 등록되어 있다.
 const STREAM_URL = /^(https:\/\/[a-z0-9-]+\.cloudflarestream\.com)\/([a-f0-9]{32})\//;
 
+// 주소가 Cloudflare Stream 영상을 가리키면 그 영상의 id 를 돌려준다. 아니면 null.
+export function streamUid(source: string | undefined): string | null {
+  return source?.match(STREAM_URL)?.[2] ?? null;
+}
+
 export function streamFrameUrl(
   source: string | undefined,
   options: { width: number; height: number; time?: string }
