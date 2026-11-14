@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { Suspense, use, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import PortOne from "@portone/browser-sdk/v2";
 import {
@@ -21,20 +21,51 @@ import type { Service, Expert, Category, Coupon, Order } from "@/types";
 
 type PaymentMethod = "card" | "kakao" | "naver" | "bank";
 
+// 전문가가 패키지를 등록하지 않은 서비스에 보여 줄 안내. 상세 화면과 같은 문장이다.
+const PLACEHOLDER_TERMS_NOTICE = "작업 기간과 수정 횟수는 주문 전에 전문가에게 문의해 정할 수 있습니다.";
+
 export default function OrderPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    // useSearchParams 를 쓰는 부분은 Suspense 안에 있어야 한다.
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-16 text-center">
+          <p className="text-muted-foreground">로딩중...</p>
+        </div>
+      }
+    >
+      <OrderPageContent params={params} />
+    </Suspense>
+  );
+}
+
+function OrderPageContent({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
   const router = useRouter();
+  // 상세 화면에서 고른 패키지 순번 (?package=1). 회원이 이 화면에서 다시 고르기 전까지 쓴다.
+  const requestedPackage = useSearchParams().get("package");
 
   const [service, setService] = useState<Service | null>(null);
   const [expert, setExpert] = useState<Expert | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [existingOrder, setExistingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPackage, setSelectedPackage] = useState(1);
+  // null 이면 아직 이 화면에서 고르지 않았다는 뜻이다 (주소의 값이나 기본값을 쓴다).
+  const [pickedPackage, setPickedPackage] = useState<number | null>(null);
+  // 다른 서비스의 주문 화면으로 옮겨 가면 앞에서 고른 순번은 버린다 (그 서비스의 패키지가 아니다).
+  const [seenId, setSeenId] = useState(id);
+  if (id !== seenId) {
+    setSeenId(id);
+    setPickedPackage(null);
+  }
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -104,6 +135,14 @@ export default function OrderPage({
     );
   }
 
+  // 주소의 순번은 있는 패키지 범위 안으로 맞춘다. 없거나 잘못된 값이면 상세 화면과 같은 기본값을 쓴다.
+  const lastPackage = Math.max(0, service.packages.length - 1);
+  const requestedIndex =
+    requestedPackage !== null && /^\d+$/.test(requestedPackage)
+      ? Math.min(Number(requestedPackage), lastPackage)
+      : null;
+  const selectedPackage =
+    pickedPackage ?? requestedIndex ?? (service.packages.length >= 3 ? 1 : 0);
   const pkg = service.packages[selectedPackage] || service.packages[0];
   const isDealOrder = !!existingOrder;
   const isTestPayment = process.env.NEXT_PUBLIC_PAYMENT_MODE !== "live";
@@ -172,6 +211,15 @@ export default function OrderPage({
         return;
       }
 
+      // 결제창을 열 수 없으면 주문을 만들지 않는다. 먼저 만들면 결제되지 않은 주문만 남는다.
+      const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
+      const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+      if (!storeId || !channelKey) {
+        toast.error("결제 설정이 누락되었습니다. 관리자에게 문의해주세요.");
+        setOrdering(false);
+        return;
+      }
+
       let orderObj: { id: string; price: number };
       if (existingOrder) {
         orderObj = { id: existingOrder.id, price: existingOrder.price };
@@ -182,13 +230,18 @@ export default function OrderPage({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             serviceId: service.id,
-            packageName: pkg.name,
+            // 자리표시 패키지는 저장된 패키지가 아니다. 이름을 보내지 않으면 서버가 서비스 가격으로 계산한다.
+            packageName: pkg.isPlaceholder ? null : pkg.name,
             couponCode: appliedCoupon?.code ?? null,
           }),
         });
 
         if (!orderRes.ok) {
-          toast.error("주문 생성에 실패했습니다");
+          // 서버가 알려 준 이유(쿠폰 만료, 주문할 수 없는 서비스 등)가 있으면 보여 준다.
+          const errorJson = await orderRes.json().catch(() => null);
+          const showServerMessage =
+            typeof errorJson?.error === "string" && ![401, 403, 500].includes(orderRes.status);
+          toast.error(showServerMessage ? errorJson.error : "주문 생성에 실패했습니다");
           setOrdering(false);
           return;
         }
@@ -206,14 +259,6 @@ export default function OrderPage({
       const serverAmount = orderObj.price;
 
       // 2. 결제 수단별 요청 파라미터 구성
-      const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
-      const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
-      if (!storeId || !channelKey) {
-        toast.error("결제 설정이 누락되었습니다. 관리자에게 문의해주세요.");
-        setOrdering(false);
-        return;
-      }
-
       const buyerName = user.user_metadata?.name || "고객";
       const buyerEmail = user.email ?? undefined;
       const buyerPhone =
@@ -414,7 +459,7 @@ export default function OrderPage({
                   {service.packages.map((p, i) => (
                     <div
                       key={p.name}
-                      onClick={() => setSelectedPackage(i)}
+                      onClick={() => setPickedPackage(i)}
                       className={cn(
                         "p-4 rounded-lg border-2 cursor-pointer transition-all",
                         selectedPackage === i
@@ -440,10 +485,15 @@ export default function OrderPage({
                         </div>
                         <span className="font-bold">{formatPrice(p.price)}원</span>
                       </div>
-                      <div className="flex gap-4 text-xs text-muted-foreground ml-6">
-                        <span>납기 {p.deliveryDays}일</span>
-                        <span>수정 {p.revisions}회</span>
-                      </div>
+                      {p.isPlaceholder ? (
+                        // 패키지를 등록하지 않은 서비스. 코드가 채운 기본값(기간·수정 횟수)은 적지 않는다.
+                        <p className="text-xs text-muted-foreground ml-6">{PLACEHOLDER_TERMS_NOTICE}</p>
+                      ) : (
+                        <div className="flex gap-4 text-xs text-muted-foreground ml-6">
+                          <span>납기 {p.deliveryDays}일</span>
+                          <span>수정 {p.revisions}회</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </CardContent>
@@ -597,7 +647,13 @@ export default function OrderPage({
 
                   <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    <span>{isDealOrder ? "합의된 조건으로 진행" : `예상 납기: ${pkg.deliveryDays}일`}</span>
+                    <span>
+                      {isDealOrder
+                        ? "합의된 조건으로 진행"
+                        : pkg.isPlaceholder
+                          ? PLACEHOLDER_TERMS_NOTICE
+                          : `예상 납기: ${pkg.deliveryDays}일`}
+                    </span>
                   </div>
                 </CardContent>
               </Card>

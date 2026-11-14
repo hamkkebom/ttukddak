@@ -73,9 +73,13 @@ export async function proxy(request: NextRequest) {
 
   if (isProtected || isAdmin) {
     if (!user) {
+      // 로그인 뒤 원래 보던 주소로 돌아오게 한다. 고른 패키지 같은 쿼리도 함께 돌려준다.
+      // (예전에는 쿼리가 로그인 주소에 그대로 붙고 돌아갈 주소에서는 빠졌다.)
       const url = request.nextUrl.clone();
+      const target = pathname + request.nextUrl.search;
       url.pathname = "/login";
-      url.searchParams.set("redirect", pathname);
+      url.search = "";
+      url.searchParams.set("redirect", target);
       return NextResponse.redirect(url);
     }
 
