@@ -91,6 +91,20 @@ export async function computeOrderAmount(
     baseAmount = pkg.price as number;
     packageId = pkg.id as string;
     resolvedPackageName = pkg.name as string;
+  } else {
+    // 패키지를 등록한 서비스는 패키지를 골라야 한다. 이름 없이 오면 서비스 대표 가격(가장 싼 패키지)으로
+    // 더 비싼 패키지의 조건을 사는 셈이 될 수 있다. 패키지가 하나도 없는 서비스만 대표 가격으로 계산한다.
+    const { count, error: countError } = await admin
+      .from("service_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("service_id", params.serviceId);
+    if (countError) {
+      console.error("[computeOrderAmount] package count failed:", countError);
+      return TRANSIENT_FAILURE;
+    }
+    if ((count ?? 0) > 0) {
+      return { ok: false, error: "패키지를 선택해 주세요", status: 400 };
+    }
   }
 
   // 3. 서비스 수수료 (5%) - 프론트와 동일한 계산식
