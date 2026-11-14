@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getServiceByIdClient, getExpertByIdClient, getCategoryByIdClient } from "@/lib/db-client";
+import { PAYMENT_OPEN } from "@/lib/site-status";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import type { Service, Expert, Category, Coupon, Order } from "@/types";
@@ -145,7 +146,7 @@ function OrderPageContent({
     pickedPackage ?? requestedIndex ?? (service.packages.length >= 3 ? 1 : 0);
   const pkg = service.packages[selectedPackage] || service.packages[0];
   const isDealOrder = !!existingOrder;
-  const isTestPayment = process.env.NEXT_PUBLIC_PAYMENT_MODE !== "live";
+  const isTestPayment = !PAYMENT_OPEN;
   const serviceFee = isDealOrder ? 0 : Math.round(pkg.price * 0.05);
   const baseTotal = isDealOrder ? existingOrder.price : pkg.price + serviceFee;
   const totalPrice = Math.max(0, baseTotal - discountAmount);
