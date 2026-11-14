@@ -5,6 +5,7 @@
 // 비용: 건당 약 50원 (KCB/나이스 본인인증 PG 계약 필요)
 
 import PortOne from "@portone/browser-sdk/v2";
+import { buildIdentityCustomData } from "@/lib/portone/identity-binding";
 
 export interface VerificationResult {
   ok: boolean;
@@ -19,7 +20,8 @@ export interface VerificationResult {
   error?: string;
 }
 
-export async function requestIdentityVerification(): Promise<VerificationResult> {
+// userId: 지금 로그인한 회원의 id. 인증 결과를 이 회원에게 묶는 데 쓴다 (identity-binding 참고).
+export async function requestIdentityVerification(userId: string): Promise<VerificationResult> {
   const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
   const channelKey = process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY;
 
@@ -34,6 +36,8 @@ export async function requestIdentityVerification(): Promise<VerificationResult>
       storeId,
       channelKey,
       identityVerificationId,
+      // 서버가 "누가 시작한 인증인지" 확인할 수 있게 회원 id 를 함께 보낸다.
+      customData: buildIdentityCustomData(userId),
       // 선택 옵션:
       // operator: "KT" | "SKT" | "LGU" | "KTM" | "SKTM" | "LGUM",
       // method: "SMS" | "PASS",
