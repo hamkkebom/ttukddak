@@ -1,208 +1,127 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Sparkles, Zap, Layers, Box, Play, ShoppingBag,
-  Building, Music, Heart, GraduationCap, ArrowRight, Star, Users
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getPublicCategories, getPublicServicesByCategory } from "@/lib/db-public";
+import { SceneImage } from "@/components/SceneImage";
+import { getPublicCategories, getPublicServices } from "@/lib/db-public";
+import { streamFrameUrl } from "@/lib/stream";
+import type { Service } from "@/types";
 
 export const metadata: Metadata = {
-  title: "전체 카테고리 | 뚝딱",
-  description: "AI 영상 생성, 모션그래픽, 유튜브 편집 등 다양한 영상 서비스 카테고리를 둘러보세요.",
-};
-
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  Sparkles,
-  Zap,
-  Layers,
-  Box,
-  Play,
-  ShoppingBag,
-  Building,
-  Music,
-  Heart,
-  GraduationCap,
-};
-
-
-// 카테고리별 그라데이션
-const categoryGradients: Record<string, string> = {
-  "ai-video": "from-orange-500/90 to-red-600/90",
-  "motion-graphics": "from-purple-500/90 to-pink-600/90",
-  "2d-animation": "from-cyan-500/90 to-blue-600/90",
-  "3d-animation": "from-emerald-500/90 to-teal-600/90",
-  "youtube-shorts": "from-red-500/90 to-rose-600/90",
-  "product-ad": "from-amber-500/90 to-orange-600/90",
-  "corporate": "from-slate-600/90 to-slate-800/90",
-  "music-video": "from-violet-500/90 to-purple-600/90",
-  "wedding-event": "from-pink-400/90 to-rose-500/90",
-  "education": "from-blue-500/90 to-indigo-600/90",
+  title: "전체 카테고리",
+  description: "뚝딱의 영상 서비스 카테고리를 둘러보세요.",
 };
 
 // 공개 데이터만 쓰는 페이지라 정적으로 만들어 두고 60초마다 다시 만든다 (ISR).
 export const revalidate = 60;
 
-export default async function CategoriesPage() {
-  const categories = await getPublicCategories();
+const formatPrice = (price: number) => new Intl.NumberFormat("ko-KR").format(price);
 
-  // Fetch services for each category in parallel
-  const categoryServices = await Promise.all(
-    categories.map((cat) => getPublicServicesByCategory(cat.id))
-  );
+export default async function CategoriesPage() {
+  // 공개 서비스를 한 번에 읽어 카테고리별로 나눈다 (카테고리마다 따로 조회하지 않는다).
+  // 개수는 저장된 숫자가 아니라 실제 공개 서비스에서 센다.
+  const [categories, services] = await Promise.all([getPublicCategories(), getPublicServices()]);
+
+  const byCategory = new Map<string, Service[]>();
+  for (const service of services) {
+    const list = byCategory.get(service.categoryId);
+    if (list) list.push(service);
+    else byCategory.set(service.categoryId, [service]);
+  }
+
+  const filled = categories
+    .filter((c) => byCategory.has(c.id))
+    .map((c) => ({ category: c, services: byCategory.get(c.id) ?? [] }))
+    .sort((a, b) => b.services.length - a.services.length);
+  const empty = categories.filter((c) => !byCategory.has(c.id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Hero Header */}
-      <section className="relative bg-slate-900 py-16 overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-violet-500/20 rounded-full blur-[120px]" />
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-              backgroundSize: '40px 40px'
-            }}
-          />
-        </div>
-
-        <div className="container relative mx-auto px-4 text-center">
-          <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-            <Sparkles className="h-3 w-3 mr-1" />
+    <div className="min-h-screen bg-white text-ink [word-break:keep-all]">
+      <section className="border-b border-[#E2E5E9]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-3 px-4 pb-8 pt-12 md:px-8">
+          <h1 className="font-display text-[clamp(40px,5.4vw,72px)] leading-[1.05] tracking-[-0.01em]">
             전체 카테고리
-          </Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            AI 영상 제작의 <span className="text-primary">모든 분야</span>
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-            10개 카테고리에서 300명 이상의 검증된 전문가를 만나보세요.
-            <br className="hidden sm:block" />
-            당신의 프로젝트에 딱 맞는 전문가가 기다리고 있습니다.
+          <p className="text-[17px] text-[#3A3A37]">
+            {filled.length > 0
+              ? `서비스가 있는 카테고리 ${filled.length}개 · 공개된 서비스 ${services.length}개`
+              : "아직 공개된 서비스가 없습니다."}
           </p>
-
-          {/* Stats */}
-          <div className="flex justify-center gap-12 mt-10">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-white">10<span className="text-primary">+</span></p>
-              <p className="text-sm text-slate-400">카테고리</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-white">300<span className="text-primary">+</span></p>
-              <p className="text-sm text-slate-400">전문가</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-white">2,330<span className="text-primary">+</span></p>
-              <p className="text-sm text-slate-400">서비스</p>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* Category Grid */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category, index) => {
-              const Icon = iconMap[category.icon] || Sparkles;
-              const services = categoryServices[index] || [];
-              const avgRating = services.length > 0
-                ? (services.reduce((sum, s) => sum + s.rating, 0) / services.length).toFixed(1)
-                : "0.0";
-              const gradient = categoryGradients[category.slug] || "from-gray-500/90 to-gray-700/90";
-
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-16 px-4 pb-24 pt-10 md:px-8">
+        {/* ===== 서비스가 있는 카테고리 ===== */}
+        {filled.length > 0 && (
+          <ul className="flex flex-col gap-5">
+            {filled.map(({ category, services: list }, index) => {
+              // 목록은 많이 팔린 순서다. 맨 앞 서비스의 영상 장면을 카테고리의 얼굴로 쓴다.
+              const top = list[0];
+              const scene = streamFrameUrl(top.images[0], { width: 960, height: 540 }) ?? top.thumbnail;
+              const lowest = Math.min(...list.map((s) => s.price));
               return (
-                <Link key={category.id} href={`/category/${category.slug}`}>
-                  <Card className="group h-full overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                    {/* Image Header */}
-                    <div className="relative h-48 overflow-hidden">
-                      {/* Gradient Background */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-
-                      {/* Content Overlay */}
-                      <div className="absolute inset-0 p-6 flex flex-col justify-between">
-                        <div className="flex items-start justify-between">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-                            <Icon className="h-6 w-6 text-white" />
-                          </div>
-                          {index === 0 && (
-                            <Badge className="bg-white text-primary border-0 shadow-lg">
-                              <Sparkles className="h-3 w-3 mr-1" />
-                              HOT
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div>
-                          <h2 className="text-2xl font-bold text-white mb-1">
-                            {category.name}
-                          </h2>
-                          <p className="text-sm text-white/80 line-clamp-2">
-                            {category.description}
-                          </p>
-                        </div>
-                      </div>
+                <li key={category.id}>
+                  <Link
+                    href={`/category/${category.slug}`}
+                    className="group grid items-center gap-6 rounded-[28px] border border-[#D5D9DE] p-5 hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink md:grid-cols-[minmax(0,440px)_minmax(0,1fr)] md:gap-10 md:p-6"
+                  >
+                    <div className="relative aspect-video overflow-hidden rounded-[20px] bg-paper">
+                      <SceneImage
+                        src={scene}
+                        fallbackSrc={top.thumbnail}
+                        // 카드 전체가 하나의 링크라, 사진 설명까지 읽으면 링크 이름이 길어진다. 꾸밈으로 둔다.
+                        alt=""
+                        fill
+                        preload={index === 0}
+                        sizes="(max-width: 768px) 100vw, 440px"
+                        className="object-cover"
+                      />
                     </div>
-
-                    {/* Card Content */}
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-4 w-4 text-slate-400" />
-                            <span className="text-sm font-medium">{services.length}개</span>
-                            <span className="text-sm text-slate-400">서비스</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                            <span className="text-sm font-medium">{avgRating}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 text-primary font-medium text-sm group-hover:gap-2 transition-all">
-                          둘러보기
-                          <ArrowRight className="h-4 w-4" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                    <div className="flex min-w-0 flex-col items-start gap-3">
+                      <h2 className="font-display text-[clamp(32px,4vw,52px)] leading-[1.05] group-hover:underline">
+                        {category.name}
+                      </h2>
+                      {category.description && (
+                        <p className="text-[17px] text-[#3A3A37]">{category.description}</p>
+                      )}
+                      <p className="text-[17px] font-black">서비스 {list.length}개</p>
+                      <span className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-[15px] font-black text-white">
+                        {formatPrice(lowest)}원부터
+                      </span>
+                    </div>
+                  </Link>
+                </li>
               );
             })}
-          </div>
-        </div>
-      </section>
+          </ul>
+        )}
 
-      {/* Bottom CTA */}
-      <section className="py-16 bg-slate-900">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            원하는 카테고리를 찾지 못하셨나요?
-          </h2>
-          <p className="text-slate-400 mb-8 max-w-lg mx-auto">
-            직접 문의해주시면 최적의 전문가를 연결해 드리겠습니다.
-            <br />
-            모든 영상 제작 분야에 대응 가능합니다.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
+        {/* ===== 아직 서비스가 없는 카테고리 ===== */}
+        {empty.length > 0 && (
+          <section className="flex flex-col items-start gap-4">
+            <h2 className="text-2xl font-black tracking-[-0.03em]">아직 서비스가 없는 카테고리</h2>
+            <p className="max-w-[640px] text-base text-[#3A3A37]">
+              전문가가 서비스를 올리면 위 목록에 나타납니다. 필요한 영상이 있다면 견적을 요청해 보세요.
+            </p>
+            <ul className="flex flex-wrap gap-2">
+              {empty.map((category) => (
+                <li key={category.id}>
+                  <Link
+                    href={`/category/${category.slug}`}
+                    className="inline-flex h-11 items-center rounded-full border border-[#D5D9DE] px-4 text-[15px] font-medium text-[#3A3A37] hover:border-ink hover:text-ink"
+                  >
+                    {category.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
             <Link
-              href="/search"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-full transition-colors"
+              href="/request"
+              className="mt-2 inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black"
             >
-              <Sparkles className="h-4 w-4" />
-              서비스 검색하기
+              견적 요청하기
             </Link>
-            <Link
-              href="/faq"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors"
-            >
-              자주 묻는 질문
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

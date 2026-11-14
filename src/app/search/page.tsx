@@ -3,9 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ServiceCard } from "@/components/ServiceCard";
+import { Search, X } from "lucide-react";
+import { EmptyNotice, ServiceBrowser, type SortOption } from "@/components/ServiceBrowser";
 import {
   getCategoriesClient,
   getExpertsByIdsClient,
@@ -16,20 +15,8 @@ import { VIDEO_TYPES, matchesKeyword } from "@/lib/video-types";
 import { cn } from "@/lib/utils";
 import type { Category, Expert, Service } from "@/types";
 
-type SortOption = "relevance" | "popular" | "rating" | "price-low" | "price-high";
-
-const SORT_TABS: { value: SortOption; label: string }[] = [
-  { value: "relevance", label: "관련도순" },
-  { value: "popular", label: "인기순" },
-  { value: "rating", label: "평점순" },
-  { value: "price-low", label: "낮은 가격" },
-  { value: "price-high", label: "높은 가격" },
-];
-
-// 가격 필터를 움직이는 단위
-const PRICE_STEP = 10000;
-
-const formatPrice = (price: number) => new Intl.NumberFormat("ko-KR").format(price);
+// 검색 결과는 넘겨받은 순서(관련도순)를 처음 정렬로 쓴다.
+const SORT_OPTIONS: SortOption[] = ["relevance", "popular", "rating", "price-low", "price-high"];
 
 /* ───────────────────────────── 최근 검색어 (이 기기에만 저장) ───────────────────────────── */
 
@@ -193,125 +180,6 @@ function SearchBox({ query, onSubmit }: { query: string; onSubmit: (term: string
   );
 }
 
-/* ───────────────────────────────────── 필터 ───────────────────────────────────── */
-
-interface FiltersProps {
-  categoryOptions: { id: string; name: string; count: number }[];
-  category: string;
-  onCategoryChange: (id: string) => void;
-  priceFloor: number;
-  priceCeil: number;
-  priceCap: number | null;
-  onPriceCapChange: (cap: number | null) => void;
-  onlyPrime: boolean;
-  onlyFast: boolean;
-  onlyMaster: boolean;
-  onTogglePrime: () => void;
-  onToggleFast: () => void;
-  onToggleMaster: () => void;
-}
-
-function Filters({
-  categoryOptions,
-  category,
-  onCategoryChange,
-  priceFloor,
-  priceCeil,
-  priceCap,
-  onPriceCapChange,
-  onlyPrime,
-  onlyFast,
-  onlyMaster,
-  onTogglePrime,
-  onToggleFast,
-  onToggleMaster,
-}: FiltersProps) {
-  const badges = [
-    { label: "프라임", checked: onlyPrime, toggle: onTogglePrime },
-    { label: "빠른 응답", checked: onlyFast, toggle: onToggleFast },
-    { label: "마스터 전문가", checked: onlyMaster, toggle: onToggleMaster },
-  ];
-
-  return (
-    <div className="flex flex-col">
-      {/* 결과가 한 카테고리에만 있으면 고를 것이 없으므로 보여 주지 않는다. */}
-      {categoryOptions.length > 1 && (
-        <fieldset className="border-t border-[#E2E5E9] py-5">
-          <legend className="float-left mb-3 w-full text-[15px] font-black">카테고리</legend>
-          <ul className="clear-both flex flex-col gap-1">
-            {[{ id: "all", name: "전체", count: null as number | null }, ...categoryOptions].map((option) => {
-              const active = category === option.id;
-              return (
-                <li key={option.id}>
-                  <button
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => onCategoryChange(option.id)}
-                    className={cn(
-                      "flex h-10 w-full items-center justify-between gap-2 rounded-[10px] px-3 text-left text-[15px]",
-                      active ? "bg-ink font-bold text-white" : "text-[#3A3A37] hover:bg-paper"
-                    )}
-                  >
-                    <span className="truncate">{option.name}</span>
-                    {option.count !== null && (
-                      <span className={cn("shrink-0 text-sm", active ? "text-white" : "text-[#56606B]")}>
-                        {option.count}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </fieldset>
-      )}
-
-      {/* 가격 차이가 한 칸(1만원)에 못 미치면 범위를 고를 수 없으므로 보여 주지 않는다. */}
-      {priceCeil > priceFloor && (
-        <fieldset className="border-t border-[#E2E5E9] py-5">
-          <legend className="float-left mb-3 w-full text-[15px] font-black">가격</legend>
-          <div className="clear-both flex flex-col gap-3">
-            <input
-              type="range"
-              aria-label="가격 상한"
-              aria-valuetext={`${formatPrice(priceCap ?? priceCeil)}원 이하`}
-              min={priceFloor}
-              max={priceCeil}
-              step={PRICE_STEP}
-              value={priceCap ?? priceCeil}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                onPriceCapChange(next >= priceCeil ? null : next);
-              }}
-              className="h-6 w-full cursor-pointer accent-ink"
-            />
-            <p className="text-[15px] font-bold">
-              {priceCap === null ? "전체 가격" : `${formatPrice(priceCap)}원 이하`}
-            </p>
-          </div>
-        </fieldset>
-      )}
-
-      <fieldset className="border-t border-[#E2E5E9] py-5">
-        <legend className="float-left mb-3 w-full text-[15px] font-black">조건</legend>
-        <div className="clear-both flex flex-col">
-          {badges.map((badge) => (
-            <label key={badge.label} className="flex h-10 cursor-pointer items-center gap-3 text-[15px] text-[#3A3A37]">
-              <input
-                type="checkbox"
-                checked={badge.checked}
-                onChange={badge.toggle}
-                className="h-5 w-5 cursor-pointer accent-ink"
-              />
-              {badge.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-    </div>
-  );
-}
-
 /* ───────────────────────────────────── 화면 ───────────────────────────────────── */
 
 export default function SearchPage() {
@@ -336,14 +204,6 @@ function SearchPageContent() {
   const requestedExperts = useRef(new Set<string>());
   // 요청의 응답이 끝난 전문가 (성공이든 실패든). "마스터 전문가" 필터가 응답을 기다릴지 정하는 데 쓴다.
   const [settledExperts, setSettledExperts] = useState<ReadonlySet<string>>(new Set());
-
-  const [sortBy, setSortBy] = useState<SortOption>("relevance");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedPriceCap, setSelectedPriceCap] = useState<number | null>(null);
-  const [onlyPrime, setOnlyPrime] = useState(false);
-  const [onlyFast, setOnlyFast] = useState(false);
-  const [onlyMaster, setOnlyMaster] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
 
   // 전체 서비스와 카테고리는 한 번만 읽는다. 전체 서비스는 검색어가 없을 때의 목록이자 영상 종류 개수의 바탕이다.
   useEffect(() => {
@@ -398,16 +258,6 @@ function SearchPageContent() {
       });
   }, [base]);
 
-  // 검색어가 바뀌면 그 결과에서 고른 카테고리와 가격 상한은 버린다.
-  // 남겨 두면 나중에 조용히 다시 적용되거나, 고른 적 없는 값이 적용된 것처럼 보인다.
-  // (프라임·빠른 응답·마스터와 정렬은 검색어와 상관없는 조건이라 그대로 둔다.)
-  const [seenQuery, setSeenQuery] = useState(q);
-  if (q !== seenQuery) {
-    setSeenQuery(q);
-    setSelectedCategory("all");
-    setSelectedPriceCap(null);
-  }
-
   // 영상 종류 버튼. 개수는 전체 서비스에서 세고, 하나도 없는 종류는 숨긴다.
   const typeChips = useMemo(
     () =>
@@ -419,58 +269,6 @@ function SearchPageContent() {
           })).filter((chip) => chip.count > 0),
     [allServices]
   );
-
-  // 필터의 선택지는 지금 결과에서 만든다 (결과에 없는 카테고리나 닿지 않는 가격대를 보여 주지 않기 위해서다).
-  const categoryOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const s of base) counts.set(s.categoryId, (counts.get(s.categoryId) ?? 0) + 1);
-    return categories
-      .filter((c) => counts.has(c.id))
-      .map((c) => ({ id: c.id, name: c.name, count: counts.get(c.id) ?? 0 }));
-  }, [base, categories]);
-
-  const [priceFloor, priceCeil] = useMemo(() => {
-    if (base.length === 0) return [0, 0];
-    const prices = base.map((s) => s.price);
-    const roundUp = (n: number) => Math.ceil(n / PRICE_STEP) * PRICE_STEP;
-    return [roundUp(Math.min(...prices)), roundUp(Math.max(...prices))];
-  }, [base]);
-
-  // 지금 결과의 선택지에 없는 값은 적용하지 않는다.
-  const category = categoryOptions.length > 1 && categoryOptions.some((c) => c.id === selectedCategory) ? selectedCategory : "all";
-  const priceCap =
-    selectedPriceCap !== null && selectedPriceCap >= priceFloor && selectedPriceCap < priceCeil ? selectedPriceCap : null;
-
-  // "마스터 전문가" 필터는 전문가 정보가 있어야 가릴 수 있다. 응답이 오기 전에 걸러 버리면
-  // 잠깐 "조건에 맞는 서비스가 없습니다"가 보이므로, 응답이 끝날 때까지는 불러오는 중으로 둔다.
-  const waitingForExperts = onlyMaster && base.some((s) => !settledExperts.has(s.expertId));
-
-  const results = useMemo(() => {
-    const filtered = base.filter(
-      (s) =>
-        (category === "all" || s.categoryId === category) &&
-        (priceCap === null || s.price <= priceCap) &&
-        (!onlyPrime || s.isPrime) &&
-        (!onlyFast || s.isFastResponse) &&
-        (!onlyMaster || expertMap[s.expertId]?.isMaster === true)
-    );
-
-    switch (sortBy) {
-      case "popular":
-        filtered.sort((a, b) => b.salesCount - a.salesCount);
-        break;
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case "price-low":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case "price-high":
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-    }
-    return filtered;
-  }, [base, sortBy, category, priceCap, onlyPrime, onlyFast, onlyMaster, expertMap]);
 
   // 검색어가 이름·소개·기술에 걸리는 전문가 (지금 결과에 서비스가 있는 전문가 가운데)
   const matchedExperts = useMemo(() => {
@@ -493,54 +291,18 @@ function SearchPageContent() {
     return matched;
   }, [q, base, expertMap]);
 
-  const activeFilters = [
-    category !== "all" && {
-      key: "category",
-      label: categoryOptions.find((c) => c.id === category)?.name ?? "카테고리",
-      clear: () => setSelectedCategory("all"),
-    },
-    priceCap !== null && {
-      key: "price",
-      label: `${formatPrice(priceCap)}원 이하`,
-      clear: () => setSelectedPriceCap(null),
-    },
-    onlyPrime && { key: "prime", label: "프라임", clear: () => setOnlyPrime(false) },
-    onlyFast && { key: "fast", label: "빠른 응답", clear: () => setOnlyFast(false) },
-    onlyMaster && { key: "master", label: "마스터 전문가", clear: () => setOnlyMaster(false) },
-  ].filter((f): f is { key: string; label: string; clear: () => void } => Boolean(f));
-
-  const resetFilters = () => {
-    setSelectedCategory("all");
-    setSelectedPriceCap(null);
-    setOnlyPrime(false);
-    setOnlyFast(false);
-    setOnlyMaster(false);
-  };
-
   const goSearch = (term: string) => {
     if (term) rememberSearch(term);
     router.push(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
   };
 
-  const filterProps: FiltersProps = {
-    categoryOptions,
-    category,
-    onCategoryChange: setSelectedCategory,
-    priceFloor,
-    priceCeil,
-    priceCap,
-    onPriceCapChange: setSelectedPriceCap,
-    onlyPrime,
-    onlyFast,
-    onlyMaster,
-    onTogglePrime: () => setOnlyPrime((v) => !v),
-    onToggleFast: () => setOnlyFast((v) => !v),
-    onToggleMaster: () => setOnlyMaster((v) => !v),
-  };
-
   const chipBase = "inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px]";
   const chipOn = "bg-ink font-bold text-white hover:bg-black";
   const chipOff = "border border-[#D5D9DE] font-medium hover:border-ink";
+  const primaryLink =
+    "inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black";
+  const secondaryLink =
+    "inline-flex h-12 items-center rounded-[10px] border border-ink bg-white px-[22px] text-[15px] font-bold hover:bg-paper";
 
   return (
     <div className="min-h-screen bg-white text-ink [word-break:keep-all]">
@@ -623,179 +385,37 @@ function SearchPageContent() {
           </section>
         )}
 
-        <div className="flex gap-10">
-          {/* ===== 필터 (넓은 화면) ===== */}
-          <aside aria-label="필터" className="hidden w-60 shrink-0 lg:block">
-            <div className="flex h-10 items-center justify-between">
-              <h2 className="text-[17px] font-black">필터</h2>
-              {activeFilters.length > 0 && (
-                <button type="button" onClick={resetFilters} className="h-10 px-1 text-sm font-bold underline">
-                  초기화
-                </button>
-              )}
-            </div>
-            <div className="mt-3">
-              <Filters {...filterProps} />
-            </div>
-          </aside>
-
-          <div className="min-w-0 flex-1">
-            {/* ===== 정렬 · 필터 버튼 ===== */}
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div role="group" aria-label="정렬" className="-mx-1 flex items-center gap-1 overflow-x-auto px-1">
-                {SORT_TABS.map((tab) => {
-                  const active = sortBy === tab.value;
-                  return (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setSortBy(tab.value)}
-                      className={cn(
-                        "h-10 shrink-0 rounded-[10px] px-3.5 text-[15px]",
-                        active ? "bg-ink font-bold text-white" : "font-medium text-[#3A3A37] hover:bg-paper"
-                      )}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-10 shrink-0 items-center gap-2 rounded-[10px] border border-ink px-3.5 text-[15px] font-bold lg:hidden"
-                  >
-                    <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                    필터
-                    {activeFilters.length > 0 && (
-                      <span>
-                        {activeFilters.length}
-                        <span className="sr-only">개 적용됨</span>
-                      </span>
-                    )}
-                  </button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex w-80 flex-col p-0">
-                  <SheetHeader className="border-b border-[#E2E5E9] px-6 pb-4 pt-6">
-                    <SheetTitle className="text-[17px] font-black text-ink">필터</SheetTitle>
-                  </SheetHeader>
-                  <div className="flex-1 overflow-y-auto px-6">
-                    <div className="-mt-px">
-                      <Filters {...filterProps} />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 border-t border-[#E2E5E9] p-4">
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      className="h-12 rounded-[10px] border border-ink px-4 text-[15px] font-bold"
-                    >
-                      초기화
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFilterOpen(false)}
-                      className="h-12 flex-1 rounded-[10px] bg-ink px-4 text-[15px] font-bold text-white"
-                    >
-                      서비스 {results.length}개 보기
-                    </button>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-
-            {/* ===== 적용한 필터 ===== */}
-            {activeFilters.length > 0 && (
-              <div className="mb-5 flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-[15px] font-bold">{results.length}개</span>
-                {activeFilters.map((filter) => (
-                  <span
-                    key={filter.key}
-                    className="inline-flex h-9 items-center rounded-full border border-ink pl-3.5 text-sm font-bold"
-                  >
-                    {filter.label}
-                    <button
-                      type="button"
-                      aria-label={`${filter.label} 필터 지우기`}
-                      onClick={filter.clear}
-                      className="flex h-9 w-9 items-center justify-center rounded-full"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* ===== 결과 ===== */}
-            {loading || waitingForExperts ? (
-              <div aria-hidden="true" className="grid gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex animate-pulse flex-col gap-3.5">
-                    <div className="aspect-video rounded-[20px] bg-paper" />
-                    <div className="h-4 w-1/3 rounded bg-paper" />
-                    <div className="h-5 w-4/5 rounded bg-paper" />
-                    <div className="h-8 w-28 rounded-full bg-paper" />
-                  </div>
-                ))}
-              </div>
-            ) : results.length > 0 ? (
-              <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
-                {results.map((service) => (
-                  <ServiceCard key={service.id} service={service} expert={expertMap[service.expertId]} />
-                ))}
-              </div>
+        {/* ===== 필터 · 정렬 · 목록 ===== */}
+        <ServiceBrowser
+          services={base}
+          expertMap={expertMap}
+          sortOptions={SORT_OPTIONS}
+          loading={loading}
+          expertsReady={base.every((s) => settledExperts.has(s.expertId))}
+          categories={categories}
+          scopeKey={q}
+          empty={
+            q ? (
+              <EmptyNotice
+                title="검색 결과가 없습니다"
+                body="다른 낱말로 찾아보세요. 원하는 영상이 목록에 없다면 견적을 요청할 수 있습니다."
+              >
+                <Link href="/request" className={primaryLink}>
+                  견적 요청하기
+                </Link>
+                <Link href="/search" className={secondaryLink}>
+                  전체 서비스 보기
+                </Link>
+              </EmptyNotice>
             ) : (
-              <div className="flex flex-col items-start gap-3 rounded-[28px] bg-paper p-9">
-                <h2 className="text-2xl font-black tracking-[-0.03em]">
-                  {base.length > 0
-                    ? "조건에 맞는 서비스가 없습니다"
-                    : q
-                      ? "검색 결과가 없습니다"
-                      : "공개된 서비스가 아직 없습니다"}
-                </h2>
-                <p className="max-w-[520px] text-base text-[#3A3A37]">
-                  {base.length > 0
-                    ? "필터를 풀면 더 많은 서비스를 볼 수 있습니다."
-                    : q
-                      ? "다른 낱말로 찾아보세요. 원하는 영상이 목록에 없다면 견적을 요청할 수 있습니다."
-                      : "필요한 영상을 적어 견적을 요청할 수 있습니다."}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {base.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      className="h-12 rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black"
-                    >
-                      필터 초기화
-                    </button>
-                  ) : (
-                    <>
-                      <Link
-                        href="/request"
-                        className="inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black"
-                      >
-                        견적 요청하기
-                      </Link>
-                      {q && (
-                        <Link
-                          href="/search"
-                          className="inline-flex h-12 items-center rounded-[10px] border border-ink bg-white px-[22px] text-[15px] font-bold hover:bg-paper"
-                        >
-                          전체 서비스 보기
-                        </Link>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+              <EmptyNotice title="공개된 서비스가 아직 없습니다" body="필요한 영상을 적어 견적을 요청할 수 있습니다.">
+                <Link href="/request" className={primaryLink}>
+                  견적 요청하기
+                </Link>
+              </EmptyNotice>
+            )
+          }
+        />
       </div>
     </div>
   );

@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminSupabaseClient();
 
+  // 문의는 전문가에게만 보낼 수 있다. 서비스 없이 보내는 문의(전문가 화면)도 있으므로 여기서 확인한다.
+  const { data: expert } = await admin.from("experts").select("id").eq("id", expertId).maybeSingle();
+  if (!expert) return jsonError("전문가를 찾을 수 없습니다", 404);
+
   if (serviceId) {
     const { data: service } = await admin
       .from("services")

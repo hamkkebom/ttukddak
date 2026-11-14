@@ -1,266 +1,155 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Star, Clock, CheckCircle, Award, Zap, Calendar,
-  MessageCircle, ChevronRight
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
+import { ChevronRight, MessageCircle } from "lucide-react";
+import { ExpertAvatar } from "@/components/ExpertAvatar";
+import { InquiryModal } from "@/components/InquiryModal";
+import { ReviewSection } from "@/components/ReviewSection";
 import { ServiceCard } from "@/components/ServiceCard";
-import type { Expert, Service, Category } from "@/types";
-import { cn } from "@/lib/utils";
+import type { Category, Expert, PublicReview, Service } from "@/types";
 
 interface ExpertProfilePageClientProps {
   expert: Expert;
+  /** 이 전문가의 공개 서비스 */
   services: Service[];
   category: Category;
+  /** 이 전문가가 받은 공개 리뷰 (최근 것부터) */
+  reviews?: PublicReview[];
+  reviewTotal?: number;
 }
 
-export default function ExpertProfilePageClient({ expert, services, category }: ExpertProfilePageClientProps) {
-  const joinDate = new Date(expert.joinedAt);
-  const joinYear = joinDate.getFullYear();
-  const joinMonth = joinDate.getMonth() + 1;
+export default function ExpertProfilePageClient({
+  expert,
+  services,
+  category,
+  reviews = [],
+  reviewTotal = reviews.length,
+}: ExpertProfilePageClientProps) {
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+
+  // joinedAt 은 "YYYY-MM-DD" 형태다.
+  const [joinYear, joinMonth] = expert.joinedAt.split("-").map(Number);
+  const meta = [
+    expert.isMaster ? "마스터" : null,
+    expert.isPrime ? "프라임" : null,
+    joinYear && joinMonth ? `${joinYear}년 ${joinMonth}월부터 활동` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  // 서비스가 하나뿐이면 그 서비스에 대한 문의로 보낸다. 여러 개거나 없으면 서비스를 정하지 않은 문의로 보낸다.
+  const inquiryService = services.length === 1 ? services[0] : undefined;
+  const sectionTitle = "text-2xl font-black tracking-[-0.03em]";
 
   return (
-    <div className="min-h-screen pb-20">
-      {/* Breadcrumb */}
-      <div className="border-b bg-muted/30">
-        <div className="container mx-auto px-4 py-3">
-          <nav className="flex items-center gap-2 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
+    <div className="bg-white text-ink [word-break:keep-all]">
+      {/* ===== 현재 위치 ===== */}
+      <nav aria-label="현재 위치" className="border-b border-[#E2E5E9]">
+        <ol className="mx-auto flex max-w-[1240px] items-center gap-1.5 px-4 py-3 text-sm text-[#56606B] md:px-8">
+          <li className="shrink-0">
+            <Link href="/" className="hover:text-ink hover:underline">
               홈
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Link
-              href={`/category/${category.slug}`}
-              className="text-muted-foreground hover:text-foreground"
-            >
+          </li>
+          <li aria-hidden="true" className="shrink-0">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </li>
+          <li className="shrink-0">
+            <Link href={`/category/${category.slug}`} className="hover:text-ink hover:underline">
               {category.name}
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{expert.name}</span>
-          </nav>
-        </div>
-      </div>
+          </li>
+          <li aria-hidden="true" className="shrink-0">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </li>
+          <li aria-current="page" className="min-w-0 truncate font-medium text-ink">
+            {expert.name}
+          </li>
+        </ol>
+      </nav>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-20 space-y-6">
-              {/* Profile Card */}
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Avatar className="h-24 w-24 mx-auto mb-4">
-                    <AvatarImage src={expert.profileImage} alt={expert.name} />
-                    <AvatarFallback className="text-2xl">{expert.name[0]}</AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <h1 className="text-xl font-bold">{expert.name}</h1>
-                    {expert.isMaster && (
-                      <Badge variant="outline" className="gap-1">
-                        <Award className="h-3 w-3 text-amber-500" />
-                        마스터
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="text-muted-foreground mb-4">{expert.title}</p>
-
-                  {/* Badges */}
-                  <div className="flex flex-wrap justify-center gap-2 mb-6">
-                    {expert.isPrime && (
-                      <Badge className="bg-primary">프라임</Badge>
-                    )}
-                    <Badge variant="secondary" className="gap-1">
-                      <Zap className="h-3 w-3" />
-                      {expert.responseTime}
-                    </Badge>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 py-4 border-y">
-                    <div>
-                      <p className="text-2xl font-bold">{expert.rating.toFixed(1)}</p>
-                      <p className="text-xs text-muted-foreground">평점</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{expert.reviewCount}</p>
-                      <p className="text-xs text-muted-foreground">리뷰</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{expert.completionRate}%</p>
-                      <p className="text-xs text-muted-foreground">완료율</p>
-                    </div>
-                  </div>
-
-                  <Button className="w-full mt-6">
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    문의하기
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Info Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">전문가 정보</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">활동 시작</p>
-                      <p className="text-sm text-muted-foreground">
-                        {joinYear}년 {joinMonth}월
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">평균 응답 시간</p>
-                      <p className="text-sm text-muted-foreground">
-                        {expert.responseTime}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">작업 완료율</p>
-                      <p className="text-sm text-muted-foreground">
-                        {expert.completionRate}%
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Skills Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">보유 스킬</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {expert.skills.map((skill) => (
-                      <Badge key={skill} variant="secondary">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+      {/* ===== 이름 ===== */}
+      <section className="border-b border-[#E2E5E9]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 py-10 md:flex-row md:items-center md:gap-8 md:px-8">
+          <ExpertAvatar expert={expert} size={96} />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h1 className="font-display text-[clamp(40px,5.4vw,72px)] leading-[1.05] tracking-[-0.01em] [overflow-wrap:anywhere]">
+              {expert.name}
+            </h1>
+            {expert.title && <p className="text-[19px] text-[#3A3A37]">{expert.title}</p>}
+            {meta.length > 0 && <p className="text-[15px] text-[#56606B]">{meta.join(" · ")}</p>}
           </div>
+          <button
+            type="button"
+            onClick={() => setInquiryOpen(true)}
+            className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-ink px-7 text-base font-black text-white transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            문의하기
+          </button>
+        </div>
+      </section>
 
-          {/* Right Column - Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Introduction */}
-            <Card>
-              <CardHeader>
-                <CardTitle>소개</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground whitespace-pre-line">
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-14 px-4 pb-24 pt-10 md:px-8">
+        {/* ===== 소개 ===== */}
+        {(expert.introduction || expert.skills.length > 0 || expert.tools.length > 0) && (
+          <section className="flex flex-col gap-4">
+            <h2 className={sectionTitle}>소개</h2>
+            <div className="flex flex-col gap-5 rounded-[28px] bg-paper p-7 md:p-9">
+              {expert.introduction && (
+                <p className="max-w-[820px] whitespace-pre-line text-[17px] leading-[1.75] text-[#3A3A37] [overflow-wrap:anywhere]">
                   {expert.introduction}
                 </p>
-              </CardContent>
-            </Card>
-
-            {/* Services */}
-            <div>
-              <h2 className="text-xl font-bold mb-6">
-                제공 서비스 ({services.length})
-              </h2>
-              <div className="grid gap-6 sm:grid-cols-2">
-                {services.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    expert={expert}
-                  />
-                ))}
-              </div>
+              )}
+              {(expert.skills.length > 0 || expert.tools.length > 0) && (
+                <dl className="flex flex-col gap-1.5 text-[15px]">
+                  {expert.skills.length > 0 && (
+                    <div className="flex gap-3">
+                      <dt className="w-10 shrink-0 font-black">분야</dt>
+                      <dd className="text-[#3A3A37]">{expert.skills.join(", ")}</dd>
+                    </div>
+                  )}
+                  {expert.tools.length > 0 && (
+                    <div className="flex gap-3">
+                      <dt className="w-10 shrink-0 font-black">도구</dt>
+                      <dd className="text-[#3A3A37]">{expert.tools.join(", ")}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
             </div>
+          </section>
+        )}
 
-            {/* Reviews */}
-            <Card>
-              <CardHeader>
-                <CardTitle>받은 리뷰 ({expert.reviewCount})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Rating Overview */}
-                <div className="flex items-center gap-6 p-4 bg-muted/50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-4xl font-bold">{expert.rating.toFixed(1)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            "h-4 w-4",
-                            i < Math.round(expert.rating)
-                              ? "fill-amber-400 text-amber-400"
-                              : "text-muted"
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <Separator orientation="vertical" className="h-12" />
-                  <div>
-                    <p className="font-medium mb-1">고객 만족도</p>
-                    <p className="text-sm text-muted-foreground">
-                      {expert.reviewCount}개의 리뷰 기반
-                    </p>
-                  </div>
-                </div>
+        {/* ===== 서비스 ===== */}
+        <section className="flex flex-col gap-5">
+          <h2 className={sectionTitle}>
+            서비스 <span className="font-display text-[28px] font-normal">{services.length}</span>
+          </h2>
+          {services.length > 0 ? (
+            <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+              {/* 이 화면이 곧 전문가 소개이므로 카드에는 전문가 이름을 다시 적지 않는다. */}
+              {services.map((service) => (
+                <ServiceCard key={service.id} service={service} />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[28px] bg-paper p-9 text-[17px] text-[#3A3A37]">지금 공개된 서비스가 없습니다.</p>
+          )}
+        </section>
 
-                {/* Sample Reviews */}
-                <div className="space-y-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="border-b pb-4 last:border-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=reviewer${i}`} />
-                          <AvatarFallback>R</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-sm">구매자{i + 1}****</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex">
-                              {Array.from({ length: 5 }).map((_, j) => (
-                                <Star
-                                  key={j}
-                                  className="h-3 w-3 fill-amber-400 text-amber-400"
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              2024.01.{15 + i}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        정말 만족스러운 작업이었습니다. 소통도 잘 되고 퀄리티도 기대 이상이에요.
-                        특히 디테일한 부분까지 신경 써주셔서 감사합니다!
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* ===== 리뷰 (실제로 등록된 리뷰가 있을 때만 그려진다) ===== */}
+        <ReviewSection reviews={reviews} total={reviewTotal} replyFrom={expert.name} />
       </div>
+
+      <InquiryModal
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
+        expertId={expert.id}
+        expertName={expert.name}
+        serviceId={inquiryService?.id}
+        serviceName={inquiryService?.title}
+        returnPath={`/expert/${expert.id}`}
+      />
     </div>
   );
 }

@@ -7,11 +7,11 @@ import { SceneImage } from "@/components/SceneImage";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { streamFrameUrl } from "@/lib/stream";
 import { cn } from "@/lib/utils";
-import type { Service, Expert } from "@/types";
+import type { ExpertSummary, Service } from "@/types";
 
 interface ServiceCardProps {
   service: Service;
-  expert?: Expert;
+  expert?: ExpertSummary;
   className?: string;
 }
 
