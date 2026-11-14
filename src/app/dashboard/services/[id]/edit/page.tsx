@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { getServiceByIdClient, getCategoriesClient } from "@/lib/db-client";
+import { PACKAGE_TIERS, parsePackages } from "@/lib/service-packages";
 import type { Category } from "@/types";
 
 export default function EditServicePage({
@@ -46,6 +47,8 @@ export default function EditServicePage({
   });
 
   const [packages, setPackages] = useState<{ name: string; price: string; deliveryDays: string; revisions: string; features: string[] }[]>([]);
+  // 저장된 패키지가 없어 자리표시 패키지만 받은 서비스인지 (안내 문구를 보여 준다)
+  const [packagesUnsaved, setPackagesUnsaved] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -66,15 +69,35 @@ export default function EditServicePage({
           salesCount: service.salesCount,
           rating: service.rating,
         });
-        setPackages(
-          service.packages.map((p) => ({
-            name: p.name,
-            price: String(p.price),
-            deliveryDays: String(p.deliveryDays),
-            revisions: String(p.revisions),
-            features: p.features,
-          }))
-        );
+        // 세 등급을 늘 보여 주고, 저장된 패키지를 이름으로 맞춰 채운다.
+        // 패키지가 저장되지 않은 서비스는 읽을 때 자리표시 패키지(기간·수정 횟수·포함 사항을 코드가 채운 것)가 온다.
+        // 그 값은 전문가가 정한 것이 아니므로 채우지 않고, 베이직에 서비스 가격만 넣어 둔다.
+        const saved = service.packages.filter((p) => !p.isPlaceholder);
+        const onlyPlaceholder = saved.length === 0 && service.packages.some((p) => p.isPlaceholder);
+        setPackagesUnsaved(onlyPlaceholder);
+        const toForm = (p: (typeof saved)[number]) => ({
+          name: p.name,
+          price: String(p.price),
+          deliveryDays: String(p.deliveryDays),
+          revisions: String(p.revisions),
+          features: p.features.length > 0 ? p.features : [""],
+        });
+        const tierNames: readonly string[] = PACKAGE_TIERS;
+        setPackages([
+          ...PACKAGE_TIERS.map((name, i) => {
+            const found = saved.find((p) => p.name === name);
+            if (found) return toForm(found);
+            return {
+              name,
+              price: i === 0 && onlyPlaceholder ? String(service.price) : "",
+              deliveryDays: "",
+              revisions: String(i + 1),
+              features: [""],
+            };
+          }),
+          // 세 등급이 아닌 이름으로 저장된 패키지도 버리지 않고 뒤에 붙여 둔다.
+          ...saved.filter((p) => !tierNames.includes(p.name)).map(toForm),
+        ]);
       } catch (err) {
         console.error(err);
         setNotFound(true);
@@ -122,21 +145,38 @@ export default function EditServicePage({
     ));
   };
 
+  // 서버가 돌려준 안내 문구. 입력 문제(400)나 충돌(409)일 때만 그대로 보여 준다.
+  const serverMessage = async (res: Response, fallback: string) => {
+    const json = await res.json().catch(() => null);
+    return (res.status === 400 || res.status === 409) && typeof json?.error === "string" ? json.error : fallback;
+  };
+
+  // 화면에 있는 내용 전체. 저장과 심사 신청이 같은 내용을 보낸다.
+  // 대표 가격은 서버(DB 함수)가 가장 싼 패키지 가격으로 맞춘다.
+  const contentBody = () => ({
+    title: formData.title,
+    description: formData.description,
+    categoryId: formData.category,
+    tags: formData.tags,
+    packages,
+  });
+
   const handleSave = async () => {
+    // 서버와 같은 규칙으로 먼저 확인한다. 임시 저장 상태인 서비스만 패키지가 비어 있어도 된다.
+    const checked = parsePackages(packages, { requireOne: serviceStatus !== "draft" });
+    if (!checked.ok) { toast.error(checked.error); return; }
+
     setSaving(true);
     try {
       const res = await fetch(`/api/services/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          categoryId: formData.category,
-          tags: formData.tags,
-          price: parseInt(packages[0]?.price || "0", 10),
-        }),
+        body: JSON.stringify(contentBody()),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        toast.error(await serverMessage(res, "저장에 실패했습니다"));
+        return;
+      }
       toast.success("서비스가 수정되었습니다");
       router.push("/dashboard");
     } catch {
@@ -146,17 +186,25 @@ export default function EditServicePage({
     }
   };
 
+  // 심사 신청은 화면에 있는 내용을 저장하면서 함께 신청한다 (저장하지 않은 수정이 무시되지 않도록).
   const handleSubmitForReview = async () => {
+    const checked = parsePackages(packages, { requireOne: true });
+    if (!checked.ok) { toast.error(checked.error); return; }
+
     setSubmittingReview(true);
     try {
       const res = await fetch(`/api/services/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "pending_review", rejectionReason: null }),
+        body: JSON.stringify({ ...contentBody(), status: "pending_review", rejectionReason: null }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        toast.error(await serverMessage(res, "심사 신청에 실패했습니다"));
+        return;
+      }
       setServiceStatus("pending_review");
       setRejectionReason(undefined);
+      setPackagesUnsaved(false);
       toast.success("심사 신청이 완료되었습니다", { description: "관리자 검토 후 활성화됩니다." });
     } catch {
       toast.error("심사 신청에 실패했습니다");
@@ -222,7 +270,7 @@ export default function EditServicePage({
                       size="sm"
                       variant="outline"
                       onClick={handleSubmitForReview}
-                      disabled={submittingReview}
+                      disabled={saving || submittingReview}
                     >
                       {submittingReview ? "신청 중..." : "심사 신청"}
                     </Button>
@@ -291,6 +339,11 @@ export default function EditServicePage({
           <Card>
             <CardHeader><CardTitle className="text-base">패키지</CardTitle></CardHeader>
             <CardContent className="space-y-6">
+              {packagesUnsaved && (
+                <p className="text-sm text-muted-foreground">
+                  패키지 조건이 아직 저장돼 있지 않습니다. 작업 기간과 수정 횟수를 입력해 저장해 주세요. 가격은 지금 가격을 가져왔습니다.
+                </p>
+              )}
               {packages.map((pkg, pi) => (
                 <div key={pi}>
                   {pi > 0 && <Separator className="mb-6" />}
@@ -343,7 +396,7 @@ export default function EditServicePage({
             <Button variant="outline" asChild>
               <Link href="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" /> 취소</Link>
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || submittingReview}>
               <Save className="h-4 w-4 mr-2" /> {saving ? "저장 중..." : "저장"}
             </Button>
           </div>

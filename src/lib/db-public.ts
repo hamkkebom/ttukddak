@@ -93,7 +93,7 @@ export async function getPublicServiceById(id: string): Promise<Service | null> 
   const sb = createPublicSupabaseClient();
   const [serviceResult, packagesResult] = await Promise.all([
     sb.from("services").select("*").eq("id", id).eq("status", "active").maybeSingle(),
-    sb.from("service_packages").select("*").eq("service_id", id).order("price"),
+    sb.from("service_packages").select("*").eq("service_id", id).order("price").order("sort_order"),
   ]);
 
   const service = unwrap<DBService>(serviceResult, "service by id");
