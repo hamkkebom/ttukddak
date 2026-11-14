@@ -61,7 +61,8 @@ function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
     rating: e.rating || 0,
     reviewCount: e.review_count || 0,
     completionRate: e.completion_rate || 0,
-    responseTime: e.response_time || "1시간 이내",
+    // 측정한 값이 없으면 비워 둔다 (기본값을 지어내지 않는다).
+    responseTime: e.response_time || "",
     skills: e.skills || [],
     tools: e.tools || [],
     introduction: e.introduction || "",
@@ -100,7 +101,7 @@ export async function getServicesClient(limit?: number): Promise<Service[]> {
     .from("services")
     .select("*")
     .eq("status", "active")
-    .order("sales_count", { ascending: false });
+    .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
 
   if (limit) query = query.limit(limit);
 
@@ -191,7 +192,7 @@ export async function searchServicesClient(query: string): Promise<Service[]> {
     .or(`title.ilike.${lower},description.ilike.${lower}`)
     // 개수를 따로 자르지 않는다. 영상 종류 버튼의 개수(전체에서 셈)와 결과 수가 같아야 하고,
     // 검색어가 없을 때의 전체 목록(getServicesClient)도 자르지 않는다.
-    .order("sales_count", { ascending: false });
+    .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
 
   return (data || []).map((s: any) => dbServiceToApp(s));
 }

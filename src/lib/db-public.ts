@@ -79,7 +79,7 @@ export async function getPublicServices(limit?: number): Promise<Service[]> {
     .from("services")
     .select("*")
     .eq("status", "active")
-    .order("sales_count", { ascending: false });
+    .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
   if (limit) query = query.limit(limit);
 
   const rows = unwrap<DBService[]>(await query, "services");
@@ -110,7 +110,7 @@ export async function getPublicServicesByCategory(categoryId: string): Promise<S
       .select("*")
       .eq("category_id", categoryId)
       .eq("status", "active")
-      .order("sales_count", { ascending: false }),
+      .order("sales_count", { ascending: false }).order("created_at", { ascending: false }),
     "services by category"
   );
   return (rows ?? []).map((s) => dbServiceToApp(s));

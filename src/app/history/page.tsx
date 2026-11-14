@@ -188,11 +188,14 @@ export default function HistoryPage() {
                               {formatPrice(service.price)}
                               <span className="text-xs font-normal text-muted-foreground">원~</span>
                             </p>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                              <span className="text-xs font-medium">{service.rating.toFixed(1)}</span>
-                              <span className="text-xs text-muted-foreground">({service.reviewCount})</span>
-                            </div>
+                            {/* 리뷰가 있을 때만 평점을 보여 준다 (0.0 을 평점처럼 보이게 하지 않는다). */}
+                            {service.reviewCount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                <span className="text-xs font-medium">{service.rating.toFixed(1)}</span>
+                                <span className="text-xs text-muted-foreground">({service.reviewCount})</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
