@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { maskName } from "@/lib/mask-name";
 import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile, MessageType } from "@/types";
 import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 
@@ -242,7 +243,7 @@ export async function getExperts(limit?: number, offset?: number): Promise<{ exp
   const sb = await createServerSupabaseClient();
   let query = sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)", { count: "exact" })
+    .select("*, profiles(name, avatar_url)", { count: "exact" })
     .order("rating", { ascending: false });
 
   if (limit) query = query.limit(limit);
@@ -263,7 +264,7 @@ export async function getExpertByIdDB(id: string): Promise<Expert | null> {
   const sb = await createServerSupabaseClient();
   const { data } = await sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)")
+    .select("*, profiles(name, avatar_url)")
     .eq("id", id)
     .maybeSingle();
 
@@ -277,7 +278,7 @@ export async function searchExpertsDB(query: string): Promise<Expert[]> {
   const sb = await createServerSupabaseClient();
   const { data } = await sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)")
+    .select("*, profiles(name, avatar_url)")
     .or(
       `title.ilike.%${sanitizeFilterValue(query)}%,introduction.ilike.%${sanitizeFilterValue(query)}%`
     )
@@ -296,7 +297,7 @@ export async function getExpertsByCategory(categoryId: string, limit?: number, o
   const sb = await createServerSupabaseClient();
   let query = sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)", { count: "exact" })
+    .select("*, profiles(name, avatar_url)", { count: "exact" })
     .eq("category_id", categoryId)
     .order("rating", { ascending: false });
 
@@ -431,7 +432,7 @@ export async function getReviews(filters?: { serviceId?: string; reviewerId?: st
       serviceId: r.service_id,
       orderId: r.order_id,
       userId: r.reviewer_id,
-      userName: r.reviewer_name || "사용자",
+      userName: maskName(r.reviewer_name),
       rating: r.rating,
       content: r.content || "",
       helpfulCount: r.helpful_count || 0,
@@ -493,6 +494,7 @@ export async function createReview(review: { orderId: string; reviewerId: string
     .select("name")
     .eq("id", review.reviewerId)
     .maybeSingle();
+  const reviewerName = typeof profile?.name === "string" ? profile.name.trim() : "";
 
   const sb = await createServerSupabaseClient();
   const { error } = await sb.from("reviews").insert({
@@ -500,7 +502,8 @@ export async function createReview(review: { orderId: string; reviewerId: string
     service_id: order.service_id,
     reviewer_id: review.reviewerId,
     expert_id: order.seller_id,
-    reviewer_name: (profile?.name as string | undefined) || "사용자",
+    // 이름 전체를 저장하지 않는다. 첫 글자만 남긴 표시 이름을 넣는다 (DB 도 같은 규칙으로 다시 정한다).
+    reviewer_name: reviewerName ? maskName(reviewerName) : null,
     rating,
     rating_overall: rating,
     quality_rating: qualityRating,
@@ -732,7 +735,11 @@ export async function createQuoteRequest(req: { userId: string; title: string; c
 
 export async function getProfiles(): Promise<Profile[]> {
   const sb = createAdminSupabaseClient();
-  const { data } = await sb.from("profiles").select("*").order("created_at", { ascending: false });
+  // 목록에 쓰는 칸만 읽는다 (전화번호·본인인증 값은 가져오지 않는다).
+  const { data } = await sb
+    .from("profiles")
+    .select("id, email, name, avatar_url, role, created_at, updated_at")
+    .order("created_at", { ascending: false });
   if (!data) return [];
   return data.map((p: any) => ({
     id: p.id,

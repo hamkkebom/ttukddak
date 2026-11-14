@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, email")
+    .select("name")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   const admin = createAdminSupabaseClient();
   const { data, error } = await admin
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: user.id,
       user_name: profile?.name ?? null,
-      user_email: profile?.email ?? user.email ?? null,
+      // 이메일은 로그인 정보에서 가져온다 (회원 표의 이메일 칸은 서버 전용이다).
+      user_email: user.email ?? null,
       subject,
       category: category ?? "general",
       message: message ?? null,
