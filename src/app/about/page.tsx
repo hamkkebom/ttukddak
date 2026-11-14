@@ -1,225 +1,166 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Sparkles, Users, Video, Award, Target, Heart,
-  ArrowRight, CheckCircle, TrendingUp
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { ChevronRight } from "lucide-react";
+import { PAYMENT_CLOSED_NOTICE, PAYMENT_OPEN } from "@/lib/site-status";
 
 export const metadata: Metadata = {
-  title: "회사 소개 | 뚝딱",
-  description: "뚝딱은 AI 영상 전문가와 의뢰인을 연결하는 재능마켓입니다.",
+  title: "소개",
+  description: "AI로 영상을 만드는 전문가를 찾고, 전문가가 올린 작업을 본 뒤 일을 맡기는 곳입니다.",
 };
 
-const stats = [
-  { label: "등록 전문가", value: "300+", suffix: "명" },
-  { label: "완료 프로젝트", value: "10,000+", suffix: "건" },
-  { label: "평균 평점", value: "4.9", suffix: "점" },
-  { label: "재구매율", value: "85", suffix: "%" },
-];
+const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const primaryLink = `inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black ${focusRing}`;
+const secondaryLink = `inline-flex h-12 items-center rounded-[10px] border border-ink bg-white px-[22px] text-[15px] font-bold hover:bg-paper ${focusRing}`;
+const textLink = `font-bold underline underline-offset-4 hover:text-black ${focusRing}`;
 
-const values = [
+// 홈 화면의 뚝. 딱. 끝. 과 같은 문장을 쓴다.
+const STEPS = [
   {
-    icon: Target,
-    title: "품질 우선",
-    description: "엄격한 심사를 통과한 전문가만 활동할 수 있습니다. 고객 만족을 최우선으로 생각합니다.",
+    word: "뚝.",
+    title: "고릅니다",
+    body: "전문가가 실제로 만든 영상을 보고 마음에 드는 서비스를 고르세요. 주문 전에 문의할 수 있습니다.",
   },
   {
-    icon: Heart,
-    title: "고객 중심",
-    description: "고객의 비전을 실현하기 위해 끊임없이 소통하고, 기대 이상의 결과물을 제공합니다.",
+    word: "딱.",
+    title: "맡깁니다",
+    body: "준비된 패키지를 고르거나, 전문가와 합의한 견적으로 주문합니다.",
   },
   {
-    icon: TrendingUp,
-    title: "혁신 추구",
-    description: "AI 기술의 최전선에서 새로운 가능성을 탐구하고, 영상 제작의 미래를 선도합니다.",
+    word: "끝.",
+    title: "받습니다",
+    body: "결과물을 확인하고 구매를 확정하면 끝입니다. 고칠 곳은 확정 전에 수정을 요청하세요.",
   },
-];
-
-const milestones = [
-  { year: "2023", event: "뚝딱 서비스 런칭" },
-  { year: "2023", event: "누적 거래 1,000건 달성" },
-  { year: "2024", event: "전문가 100명 돌파" },
-  { year: "2024", event: "누적 거래 10,000건 달성" },
-  { year: "2024", event: "AI 추천 시스템 도입" },
-  { year: "2025", event: "전문가 300명 돌파" },
 ];
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-primary/10 via-background to-primary/5 py-24">
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Sparkles className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-3xl">뚝딱</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            AI 영상 전문가를 만나는
-            <br />
-            가장 쉬운 방법
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            우리는 최고의 AI 영상 전문가와 고객을 연결하여
-            <br />
-            누구나 쉽게 고품질 영상을 만들 수 있도록 합니다
-          </p>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-16 border-b">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <p className="text-4xl md:text-5xl font-bold text-primary">
-                  {stat.value}
-                  <span className="text-2xl">{stat.suffix}</span>
-                </p>
-                <p className="text-muted-foreground mt-2">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Mission */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-6">우리의 미션</h2>
-            <p className="text-xl text-muted-foreground leading-relaxed">
-              AI 기술의 발전으로 영상 제작의 패러다임이 바뀌고 있습니다.
-              <br />
-              우리는 이 변화의 중심에서, <strong className="text-foreground">누구나 상상을 현실로</strong> 만들 수 있는 세상을 꿈꿉니다.
-              <br /><br />
-              뚝딱은 창작자와 고객 사이의 다리가 되어,
-              <br />
-              <strong className="text-foreground">아이디어가 영상이 되는 가장 빠른 길</strong>을 제공합니다.
+    <div className="min-h-screen bg-white text-ink [word-break:keep-all]">
+      <section className="border-b border-[#E2E5E9]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 pb-10 pt-4 md:px-8">
+          <nav aria-label="현재 위치">
+            <ol className="flex items-center gap-1.5 text-sm text-[#56606B]">
+              <li className="shrink-0">
+                <Link href="/" className={`inline-flex min-h-6 items-center hover:text-ink hover:underline ${focusRing}`}>
+                  홈
+                </Link>
+              </li>
+              <li aria-hidden="true" className="shrink-0">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </li>
+              <li aria-current="page" className="font-medium text-ink">
+                뚝딱 소개
+              </li>
+            </ol>
+          </nav>
+          <div className="flex flex-col gap-4 pt-4">
+            <h1 className="font-display text-[clamp(40px,5.4vw,72px)] leading-[1.05] tracking-[-0.01em]">뚝딱 소개</h1>
+            <p className="max-w-[720px] text-[17px] leading-relaxed text-[#3A3A37]">
+              뚝딱은 AI로 영상을 만드는 전문가를 찾는 곳입니다. 전문가가 올린 작업을 먼저 보고, 궁금한 점을 물어본 뒤,
+              마음에 드는 사람에게 일을 맡길 수 있습니다.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Values */}
-      <section className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">핵심 가치</h2>
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {values.map((value, index) => (
-              <Card key={index} className="text-center">
-                <CardContent className="p-8">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                    <value.icon className="h-8 w-8 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-3">{value.title}</h3>
-                  <p className="text-muted-foreground">{value.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Why Us */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-12">왜 뚝딱인가요?</h2>
-            <div className="grid md:grid-cols-2 gap-8">
-              {[
-                {
-                  title: "검증된 전문가",
-                  description: "포트폴리오 심사, 실력 검증, 인터뷰를 통과한 전문가만 활동합니다.",
-                },
-                {
-                  title: "안전한 거래",
-                  description: "에스크로 결제 시스템으로 작업 완료 전까지 결제금이 안전하게 보관됩니다.",
-                },
-                {
-                  title: "AI 특화",
-                  description: "Sora, Runway, Pika 등 최신 AI 도구를 활용하는 전문가들이 모여 있습니다.",
-                },
-                {
-                  title: "합리적인 가격",
-                  description: "중개 수수료를 최소화하여 전문가와 고객 모두에게 이익이 되도록 합니다.",
-                },
-                {
-                  title: "빠른 매칭",
-                  description: "평균 1시간 이내 전문가 응답, 최단 3일 내 결과물 수령이 가능합니다.",
-                },
-                {
-                  title: "만족 보장",
-                  description: "작업물에 만족하지 못하면 수정 요청 또는 환불이 가능합니다.",
-                },
-              ].map((item, index) => (
-                <div key={index} className="flex gap-4">
-                  <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Timeline */}
-      <section className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">히스토리</h2>
-          <div className="max-w-2xl mx-auto">
-            <div className="space-y-6">
-              {milestones.map((milestone, index) => (
-                <div key={index} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="h-3 w-3 rounded-full bg-primary" />
-                    {index < milestones.length - 1 && (
-                      <div className="w-0.5 flex-1 bg-border" />
-                    )}
-                  </div>
-                  <div className="pb-6">
-                    <span className="text-sm text-primary font-medium">
-                      {milestone.year}
-                    </span>
-                    <p className="font-medium">{milestone.event}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            함께 성장할 준비가 되셨나요?
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-20 px-4 pb-24 pt-14 md:px-8">
+        {/* ===== 할 수 있는 일 ===== */}
+        <section aria-labelledby="about-can-do" className="flex flex-col gap-6">
+          <h2 id="about-can-do" className="text-[28px] font-black tracking-[-0.03em]">
+            여기서 할 수 있는 일
           </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            뚝딱과 함께 새로운 가능성을 열어보세요
+          <dl className="flex max-w-[860px] flex-col">
+            <div className="grid gap-2 border-t border-[#E2E5E9] py-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
+              <dt className="text-[19px] font-black">영상 보고 고르기</dt>
+              <dd className="max-w-[640px] text-[17px] leading-relaxed text-[#3A3A37]">
+                서비스 화면에서 전문가가 올린 작업 영상과 이미지를 볼 수 있습니다.{" "}
+                <Link href="/search" className={textLink}>
+                  검색
+                </Link>
+                하거나{" "}
+                <Link href="/categories" className={textLink}>
+                  카테고리
+                </Link>
+                를 둘러보며 먼저 확인하세요.
+              </dd>
+            </div>
+            <div className="grid gap-2 border-t border-[#E2E5E9] py-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
+              <dt className="text-[19px] font-black">주문 전에 묻기</dt>
+              <dd className="max-w-[640px] text-[17px] leading-relaxed text-[#3A3A37]">
+                궁금한 점은 주문하기 전에 서비스 화면의 문의하기로 전문가에게 물어볼 수 있습니다. 문의를 보내면 메시지에서
+                대화가 이어집니다.
+              </dd>
+            </div>
+            <div className="grid gap-2 border-y border-[#E2E5E9] py-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
+              <dt className="text-[19px] font-black">견적 요청하기</dt>
+              <dd className="max-w-[640px] text-[17px] leading-relaxed text-[#3A3A37]">
+                원하는 영상이 목록에 없으면 필요한 내용을 적어{" "}
+                <Link href="/request" className={textLink}>
+                  견적을 요청
+                </Link>
+                하세요. 관심 있는 전문가가 보낸 견적은 알림에서 확인할 수 있고, 견적 하나를 수락하면 요청은 마감되고 그
+                전문가와 메시지에서 대화가 시작됩니다.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* ===== 뚝. 딱. 끝. ===== */}
+        <section aria-labelledby="about-steps" className="flex flex-col gap-6">
+          <h2 id="about-steps" className="text-[28px] font-black tracking-[-0.03em]">
+            맡기는 순서
+          </h2>
+          <ol className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-5">
+            {STEPS.map((step, i) => {
+              const last = i === STEPS.length - 1;
+              return (
+                <li
+                  key={step.word}
+                  className={`flex flex-col gap-3.5 rounded-[28px] p-9 ${last ? "bg-ink text-white" : "bg-paper"}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`font-display text-[clamp(72px,8vw,112px)] leading-none ${last ? "text-brand" : ""}`}
+                  >
+                    {step.word}
+                  </span>
+                  <h3 className="text-2xl font-black tracking-[-0.02em]">{step.title}</h3>
+                  <p className={`text-[17px] leading-relaxed ${last ? "text-[#E4E4E0]" : "text-[#3A3A37]"}`}>
+                    {step.body}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+          {!PAYMENT_OPEN && <p className="max-w-[720px] text-[17px] font-bold leading-relaxed">{PAYMENT_CLOSED_NOTICE}</p>}
+          <p className="text-[17px] text-[#3A3A37]">
+            단계마다 자세한 내용은{" "}
+            <Link href="/guide" className={textLink}>
+              이용 가이드
+            </Link>
+            에 있습니다.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Button size="lg" asChild>
-              <Link href="/signup">
-                지금 시작하기
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/expert/register">전문가로 등록하기</Link>
-            </Button>
-          </div>
+        </section>
+
+        {/* ===== 전문가 ===== */}
+        <section aria-labelledby="about-experts" className="flex flex-col gap-4">
+          <h2 id="about-experts" className="text-[28px] font-black tracking-[-0.03em]">
+            전문가로 참여하려면
+          </h2>
+          <p className="max-w-[720px] text-[17px] leading-relaxed text-[#3A3A37]">
+            전문가 등록은 회원이면 누구나 신청할 수 있습니다. 운영자가 신청 내용을 검토해 승인하면 서비스를 등록하고, 패키지마다
+            가격과 작업 기간, 수정 횟수를 정할 수 있습니다. 등록한 서비스는 검수를 거친 뒤 공개됩니다.
+          </p>
+        </section>
+
+        <div className="flex flex-wrap gap-2 border-t border-[#E2E5E9] pt-10">
+          <Link href="/search" className={primaryLink}>
+            서비스 둘러보기
+          </Link>
+          <Link href="/expert/register" className={secondaryLink}>
+            전문가로 등록하기
+          </Link>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

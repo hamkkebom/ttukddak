@@ -1,279 +1,270 @@
-"use client";
-
-import { useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronDown, Search, MessageCircle, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { PAYMENT_CLOSED_NOTICE, PAYMENT_OPEN } from "@/lib/site-status";
 
-type FAQCategory = "all" | "general" | "order" | "payment" | "expert" | "account";
+export const metadata: Metadata = {
+  title: "자주 묻는 질문",
+  description: "뚝딱 이용, 주문과 작업, 결제와 환불, 전문가 등록, 계정에 관한 질문과 답을 모았습니다.",
+};
 
-interface FAQItem {
-  id: string;
-  category: FAQCategory;
-  categoryLabel: string;
-  question: string;
-  answer: string;
-}
+const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const primaryLink = `inline-flex h-12 items-center rounded-[10px] bg-ink px-[22px] text-[15px] font-bold text-white hover:bg-black ${focusRing}`;
+const secondaryLink = `inline-flex h-12 items-center rounded-[10px] border border-ink bg-white px-[22px] text-[15px] font-bold hover:bg-paper ${focusRing}`;
+const textLink = `font-bold underline underline-offset-4 hover:text-black ${focusRing}`;
+const chipLink = `inline-flex h-11 items-center rounded-full border border-[#D5D9DE] px-4 text-[15px] font-medium hover:border-ink ${focusRing}`;
 
-const faqData: FAQItem[] = [
-  {
-    id: "1",
-    category: "general",
-    categoryLabel: "일반",
-    question: "뚝딱은 어떤 서비스인가요?",
-    answer:
-      "뚝딱은 AI 영상 전문가와 의뢰인을 연결하는 재능 마켓플레이스입니다. AI 영상 생성, 모션그래픽, 유튜브 편집, 3D 애니메이션 등 다양한 영상 서비스를 제공하는 300명 이상의 검증된 전문가가 활동하고 있습니다.",
-  },
-  {
-    id: "2",
-    category: "general",
-    categoryLabel: "일반",
-    question: "어떤 종류의 영상을 의뢰할 수 있나요?",
-    answer:
-      "AI 영상 생성(Sora, Runway, Pika 등), 모션그래픽, 2D/3D 애니메이션, 유튜브/숏폼 편집, 제품·광고 영상, 기업 IR 영상, 뮤직비디오, 웨딩·이벤트 영상, 교육 콘텐츠 등 10개 카테고리의 영상 서비스를 의뢰할 수 있습니다.",
-  },
-  {
-    id: "3",
-    category: "order",
-    categoryLabel: "주문/의뢰",
-    question: "서비스 의뢰는 어떻게 하나요?",
-    answer:
-      "1) 원하는 서비스를 찾아 상세 페이지를 확인합니다.\n2) 패키지를 선택하고 '문의하기'를 클릭합니다.\n3) 전문가와 프로젝트 요구사항을 협의합니다.\n4) 협의 완료 후 결제하면 작업이 시작됩니다.\n5) 중간 시안 확인 후 최종 결과물을 수령합니다.",
-  },
-  {
-    id: "4",
-    category: "order",
-    categoryLabel: "주문/의뢰",
-    question: "수정 요청은 몇 번까지 가능한가요?",
-    answer:
-      "수정 횟수는 선택한 패키지에 따라 다릅니다. 베이직 패키지는 보통 1~2회, 스탠다드 2~3회, 프리미엄 3~5회의 수정이 포함됩니다. 추가 수정이 필요한 경우 전문가와 별도 협의하여 추가 비용으로 진행할 수 있습니다.",
-  },
-  {
-    id: "5",
-    category: "order",
-    categoryLabel: "주문/의뢰",
-    question: "작업 기간은 얼마나 걸리나요?",
-    answer:
-      "패키지와 영상 종류에 따라 다르지만, 일반적으로 베이직 3~7일, 스탠다드 7~14일, 프리미엄 14~21일 정도 소요됩니다. 급행 옵션을 선택하면 더 빠른 결과물 수령이 가능합니다.",
-  },
-  {
-    id: "6",
-    category: "payment",
-    categoryLabel: "결제/환불",
-    question: "결제는 어떻게 이루어지나요?",
-    answer:
-      "신용카드, 체크카드, 무통장 입금, 카카오페이, 네이버페이 등 다양한 결제 수단을 지원합니다. 결제 금액은 에스크로 시스템에 의해 작업 완료 전까지 안전하게 보관됩니다.",
-  },
-  {
-    id: "7",
-    category: "payment",
-    categoryLabel: "결제/환불",
-    question: "환불은 가능한가요?",
-    answer:
-      "작업 시작 전이라면 100% 환불이 가능합니다. 작업이 시작된 후에는 진행 정도에 따라 부분 환불이 적용됩니다. 전문가의 귀책 사유로 작업이 완료되지 않은 경우에는 전액 환불됩니다. 자세한 사항은 환불 정책을 확인해주세요.",
-  },
-  {
-    id: "8",
-    category: "payment",
-    categoryLabel: "결제/환불",
-    question: "세금계산서 발행이 가능한가요?",
-    answer:
-      "네, 사업자 회원은 세금계산서 발행이 가능합니다. 결제 완료 후 마이페이지에서 세금계산서 발행을 요청하시면 영업일 기준 1~2일 내에 발행됩니다.",
-  },
-  {
-    id: "9",
-    category: "expert",
-    categoryLabel: "전문가",
-    question: "전문가로 등록하려면 어떻게 해야 하나요?",
-    answer:
-      "전문가 등록 페이지에서 기본 정보, 전문 분야, 포트폴리오를 등록하면 심사가 진행됩니다. 심사는 영업일 기준 1~3일 소요되며, 포트폴리오 퀄리티와 전문성을 기준으로 평가합니다. 승인 완료 후 바로 서비스를 등록하고 활동을 시작할 수 있습니다.",
-  },
-  {
-    id: "10",
-    category: "expert",
-    categoryLabel: "전문가",
-    question: "전문가 수수료는 어떻게 되나요?",
-    answer:
-      "거래 성사 시 거래 금액의 10~20%가 플랫폼 수수료로 차감됩니다. 프라임 및 마스터 등급 전문가는 더 낮은 수수료율이 적용됩니다. 정산은 작업 완료 확인 후 영업일 기준 3~5일 내에 등록된 계좌로 입금됩니다.",
-  },
-  {
-    id: "11",
-    category: "account",
-    categoryLabel: "계정",
-    question: "비밀번호를 잊어버렸어요. 어떻게 하나요?",
-    answer:
-      "로그인 페이지에서 '비밀번호 찾기'를 클릭하세요. 가입 시 등록한 이메일로 비밀번호 재설정 링크가 발송됩니다. 이메일을 받지 못한 경우 스팸 폴더를 확인하시거나 고객센터로 문의해주세요.",
-  },
-  {
-    id: "12",
-    category: "account",
-    categoryLabel: "계정",
-    question: "회원 탈퇴는 어떻게 하나요?",
-    answer:
-      "마이페이지 > 계정 설정 > 회원 탈퇴에서 진행할 수 있습니다. 진행 중인 거래가 있는 경우 모든 거래가 완료된 후 탈퇴가 가능합니다. 탈퇴 시 개인정보는 관련 법령에 따라 일정 기간 보관 후 파기됩니다.",
-  },
-];
+type Question = { q: string; a: ReactNode };
+type Group = { id: string; title: string; items: Question[] };
 
-const categoryFilters: { value: FAQCategory; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "general", label: "일반" },
-  { value: "order", label: "주문/의뢰" },
-  { value: "payment", label: "결제/환불" },
-  { value: "expert", label: "전문가" },
-  { value: "account", label: "계정" },
+const GROUPS: Group[] = [
+  {
+    id: "use",
+    title: "서비스 이용",
+    items: [
+      {
+        q: "뚝딱은 어떤 곳인가요?",
+        a: "AI로 영상을 만드는 전문가를 찾고, 전문가가 올린 작업을 본 뒤 일을 맡기는 곳입니다. 주문하기 전에 전문가에게 궁금한 점을 물어볼 수 있습니다.",
+      },
+      {
+        q: "어떤 영상을 맡길 수 있나요?",
+        a: (
+          <>
+            지금{" "}
+            <Link href="/search" className={textLink}>
+              공개된 서비스
+            </Link>
+            나{" "}
+            <Link href="/categories" className={textLink}>
+              카테고리
+            </Link>
+            에서 확인할 수 있습니다.
+          </>
+        ),
+      },
+      {
+        q: "원하는 서비스가 없으면 어떻게 하나요?",
+        a: (
+          <>
+            <Link href="/request" className={textLink}>
+              견적 요청
+            </Link>
+            에 필요한 영상을 적어 올리세요. 요청을 올리면 관심 있는 전문가가 견적을 보냅니다. 받은 견적은 알림에서 확인할
+            수 있습니다. 견적 하나를 수락하면 요청은 마감되고, 그 전문가와 메시지에서 대화가 시작됩니다.
+          </>
+        ),
+      },
+      {
+        q: "주문하기 전에 전문가에게 물어볼 수 있나요?",
+        a: (
+          <>
+            네. 서비스 화면의 문의하기로 문의를 보내면{" "}
+            <Link href="/messages" className={textLink}>
+              메시지
+            </Link>
+            에서 전문가와 대화가 이어집니다.
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    id: "order",
+    title: "주문과 작업",
+    items: [
+      {
+        q: "주문은 어떻게 하나요?",
+        a: PAYMENT_OPEN
+          ? "서비스에서 전문가가 정해 둔 패키지를 고르거나, 전문가와 합의한 견적으로 주문합니다."
+          : `서비스에서 전문가가 정해 둔 패키지를 고르거나, 전문가와 합의한 견적으로 주문합니다. ${PAYMENT_CLOSED_NOTICE}`,
+      },
+      {
+        q: "작업 기간과 수정 횟수는 어떻게 정해지나요?",
+        a: "작업 기간은 고른 패키지에 적힌 대로이고, 패키지에 적힌 수정 횟수가 전문가와 약속한 범위입니다. 아직 적혀 있지 않은 서비스는 주문하기 전에 전문가에게 물어보세요.",
+      },
+      {
+        q: "받은 결과물을 고치고 싶어요.",
+        a: "구매를 확정하기 전에 수정을 요청할 수 있습니다. 패키지에 적힌 수정 횟수가 전문가와 약속한 범위입니다.",
+      },
+      {
+        q: "구매 확정은 무엇인가요?",
+        a: "결과물을 받고 더 고칠 곳이 없을 때 구매를 확정합니다. 확정한 뒤에는 리뷰를 남길 수 있습니다.",
+      },
+    ],
+  },
+  {
+    id: "payment",
+    title: "결제와 환불",
+    items: [
+      {
+        q: "결제는 어떻게 하나요?",
+        a: PAYMENT_OPEN ? "카드, 카카오페이, 네이버페이, 가상계좌로 결제할 수 있습니다." : PAYMENT_CLOSED_NOTICE,
+      },
+      // 결제를 열기 전에는 수수료를 안내하지 않는다.
+      ...(PAYMENT_OPEN
+        ? [
+            {
+              q: "수수료가 있나요?",
+              a: "패키지로 주문하면 주문 금액에 서비스 수수료 5%가 더해집니다. 합의한 견적으로 주문하면 견적 금액 그대로 결제합니다.",
+            },
+          ]
+        : []),
+      {
+        q: "취소나 환불은 어떻게 하나요?",
+        a: (
+          <>
+            취소와 환불 기준은{" "}
+            <Link href="/terms" className={textLink}>
+              이용약관
+            </Link>
+            에 있습니다. 작업에 관한 문제라면 먼저 메시지에서 전문가와 이야기해 보세요.
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    id: "expert",
+    title: "전문가",
+    items: [
+      {
+        q: "전문가로 등록하려면 어떻게 하나요?",
+        a: (
+          <>
+            <Link href="/expert/register" className={textLink}>
+              전문가 등록
+            </Link>{" "}
+            화면에서 회원이면 누구나 신청할 수 있습니다. 운영자가 신청 내용을 검토해 승인하면 서비스를 등록할 수 있습니다.
+          </>
+        ),
+      },
+      {
+        q: "서비스는 어떻게 올리나요?",
+        a: "승인된 전문가는 서비스를 등록하고 패키지마다 가격과 작업 기간, 수정 횟수를 정합니다. 등록한 서비스는 검수를 거친 뒤 공개됩니다.",
+      },
+    ],
+  },
+  {
+    id: "account",
+    title: "계정",
+    items: [
+      {
+        q: "비밀번호를 잊어버렸어요.",
+        a: (
+          <>
+            <Link href="/forgot-password" className={textLink}>
+              비밀번호 찾기
+            </Link>
+            에서 비밀번호를 다시 설정할 수 있습니다.
+          </>
+        ),
+      },
+      {
+        q: "회원 탈퇴는 어떻게 하나요?",
+        a: (
+          <>
+            <Link href="/settings" className={textLink}>
+              설정
+            </Link>
+            의 &lsquo;개인정보 및 탈퇴&rsquo;에서 탈퇴할 수 있습니다.
+          </>
+        ),
+      },
+    ],
+  },
 ];
 
 export default function FAQPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<FAQCategory>("all");
-  const [openItems, setOpenItems] = useState<string[]>([]);
-
-  const toggleItem = (id: string) => {
-    setOpenItems((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const filteredFAQs = faqData.filter((faq) => {
-    const matchesCategory =
-      activeCategory === "all" || faq.category === activeCategory;
-    const matchesSearch =
-      !searchQuery ||
-      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-primary/5 via-background to-primary/5 py-16">
-        <div className="container mx-auto px-4 text-center">
-          <Badge className="mb-4">FAQ</Badge>
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">
-            자주 묻는 질문
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            궁금한 점을 빠르게 찾아보세요
-          </p>
-
-          {/* Search */}
-          <div className="max-w-xl mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="질문을 검색해보세요..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 rounded-full text-base"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Category Filter */}
-      <div className="border-b sticky top-16 z-40 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
-            {categoryFilters.map((cat) => (
-              <Badge
-                key={cat.value}
-                variant={activeCategory === cat.value ? "default" : "outline"}
-                className="cursor-pointer whitespace-nowrap px-4 py-1.5"
-                onClick={() => setActiveCategory(cat.value)}
-              >
-                {cat.label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* FAQ List */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto space-y-3">
-            {filteredFAQs.length > 0 ? (
-              filteredFAQs.map((faq) => (
-                <div
-                  key={faq.id}
-                  className="border rounded-xl overflow-hidden"
-                >
-                  <button
-                    className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/50 transition-colors"
-                    onClick={() => toggleItem(faq.id)}
-                  >
-                    <div className="flex items-center gap-3 pr-4">
-                      <Badge variant="secondary" className="shrink-0 text-xs">
-                        {faq.categoryLabel}
-                      </Badge>
-                      <span className="font-medium">{faq.question}</span>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
-                        openItems.includes(faq.id) && "rotate-180"
-                      )}
-                    />
-                  </button>
-                  {openItems.includes(faq.id) && (
-                    <div className="px-5 pb-5 pt-0">
-                      <div className="pl-[calc(theme(spacing.3)+theme(spacing.12))]">
-                        <p className="text-muted-foreground whitespace-pre-line text-sm leading-relaxed">
-                          {faq.answer}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground mb-4">
-                  검색 결과가 없습니다
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setActiveCategory("all");
-                  }}
-                >
-                  전체 보기
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4 text-center">
-          <Card className="max-w-lg mx-auto border-0 shadow-lg">
-            <CardContent className="p-8">
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="h-7 w-7 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">
-                원하는 답변을 찾지 못하셨나요?
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                고객센터로 문의해주시면 빠르게 답변해드립니다
-              </p>
-              <Button asChild>
-                <Link href="mailto:support@aivideo.market">
-                  문의하기
-                  <ArrowRight className="h-4 w-4 ml-2" />
+    <div className="min-h-screen bg-white text-ink [word-break:keep-all]">
+      <section className="border-b border-[#E2E5E9]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 pb-8 pt-4 md:px-8">
+          <nav aria-label="현재 위치">
+            <ol className="flex items-center gap-1.5 text-sm text-[#56606B]">
+              <li className="shrink-0">
+                <Link href="/" className={`inline-flex min-h-6 items-center hover:text-ink hover:underline ${focusRing}`}>
+                  홈
                 </Link>
-              </Button>
-            </CardContent>
-          </Card>
+              </li>
+              <li aria-hidden="true" className="shrink-0">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </li>
+              <li aria-current="page" className="font-medium text-ink">
+                자주 묻는 질문
+              </li>
+            </ol>
+          </nav>
+          <div className="flex flex-col gap-4 pt-4">
+            <h1 className="font-display text-[clamp(40px,5.4vw,72px)] leading-[1.05] tracking-[-0.01em]">
+              자주 묻는 질문
+            </h1>
+            <p className="max-w-[720px] text-[17px] leading-relaxed text-[#3A3A37]">
+              질문을 누르면 답이 펼쳐집니다. 이용 순서는{" "}
+              <Link href="/guide" className={textLink}>
+                이용 가이드
+              </Link>
+              에 정리해 두었습니다.
+            </p>
+          </div>
+          <nav aria-label="질문 분류" className="flex flex-wrap gap-2">
+            {GROUPS.map((group) => (
+              <a key={group.id} href={`#${group.id}`} className={chipLink}>
+                {group.title}
+              </a>
+            ))}
+          </nav>
         </div>
       </section>
+
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-16 px-4 pb-24 pt-12 md:px-8">
+        {GROUPS.map((group) => (
+          <section
+            key={group.id}
+            id={group.id}
+            aria-labelledby={`faq-${group.id}`}
+            className="flex max-w-[880px] scroll-mt-24 flex-col gap-4"
+          >
+            <h2 id={`faq-${group.id}`} className="text-[28px] font-black tracking-[-0.03em]">
+              {group.title}
+            </h2>
+            <div className="flex flex-col border-b border-[#E2E5E9]">
+              {group.items.map((item) => (
+                <details key={item.q} className="group border-t border-[#E2E5E9]">
+                  <summary
+                    className={`flex cursor-pointer list-none items-center justify-between gap-4 rounded-[10px] py-5 text-[19px] font-bold leading-[1.4] hover:underline [&::-webkit-details-marker]:hidden ${focusRing}`}
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="h-5 w-5 shrink-0 transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <p className="max-w-[680px] pb-6 text-[17px] leading-relaxed text-[#3A3A37]">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <section aria-labelledby="faq-more" className="flex flex-col items-start gap-3 rounded-[28px] bg-paper p-9">
+          <h2 id="faq-more" className="text-2xl font-black tracking-[-0.03em]">
+            찾는 답이 없나요?
+          </h2>
+          <p className="max-w-[640px] text-[17px] leading-relaxed text-[#3A3A37]">
+            서비스나 작업에 관한 질문은 서비스 화면의 문의하기로 전문가에게 물어보세요. 문의를 보내면 메시지에서 대화가
+            이어집니다.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link href="/search" className={primaryLink}>
+              서비스 둘러보기
+            </Link>
+            <Link href="/help" className={secondaryLink}>
+              고객센터
+            </Link>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
