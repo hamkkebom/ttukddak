@@ -360,8 +360,8 @@ export default function RequestPage() {
                   <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg">
                     <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      등록 후 평균 1시간 이내에 전문가들의 견적을 받아볼 수 있습니다.
-                      견적은 메시지로 확인할 수 있습니다.
+                      요청을 올리면 관심 있는 전문가가 견적을 보냅니다. 받은 견적은 알림에서 확인할 수 있습니다.
+                      견적 하나를 수락하면 요청은 마감되고, 그 전문가와 메시지에서 대화가 시작됩니다.
                     </p>
                   </div>
                 </div>
