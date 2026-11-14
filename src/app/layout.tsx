@@ -23,7 +23,8 @@ const displayFont = Black_Han_Sans({
 const SITE_URL = "https://ttukddak.kr";
 const SITE_NAME = "뚝딱";
 const DEFAULT_TITLE = "뚝딱 - AI 영상 전문가를 만나는 가장 쉬운 방법";
-const DEFAULT_DESC = "AI 영상 제작부터 모션그래픽, 유튜브 편집까지 300명 이상의 검증된 전문가가 기다리고 있습니다.";
+// 검색 결과와 공유 미리보기에 쓰이는 소개 글. 전문가 수 같은 숫자는 적지 않는다 (코드에 적은 숫자는 실제와 어긋난다).
+const DEFAULT_DESC = "AI로 영상을 만드는 전문가의 실제 작업을 먼저 보고, 마음에 드는 사람에게 바로 맡기세요.";
 
 export const metadata: Metadata = {
   title: {
