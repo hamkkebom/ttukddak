@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { maskName } from "@/lib/mask-name";
 import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile } from "@/types";
 import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
 
@@ -131,7 +132,7 @@ export async function getExpertByIdClient(id: string): Promise<Expert | null> {
   const sb = createClient();
   const { data } = await sb
     .from("experts")
-    .select("*, profiles(name, email, avatar_url, role)")
+    .select("*, profiles(name, avatar_url)")
     .eq("id", id)
     .maybeSingle();
 
@@ -263,7 +264,7 @@ export async function getReviewsClient(filters?: { serviceId?: string }): Promis
   if (!data) return [];
   return data.map((r: any) => ({
     id: r.id, serviceId: r.service_id, orderId: r.order_id, userId: r.reviewer_id,
-    userName: r.reviewer_name || "사용자", rating: r.rating, content: r.content || "",
+    userName: maskName(r.reviewer_name), rating: r.rating, content: r.content || "",
     helpfulCount: r.helpful_count || 0, createdAt: r.created_at,
   }));
 }
@@ -376,11 +377,9 @@ export async function updateProfileClient(id: string, updates: { name?: string; 
 }
 
 export async function getProfilesClient(): Promise<Profile[]> {
-  const sb = createClient();
-  const { data } = await sb.from("profiles").select("*").order("created_at", { ascending: false });
-  if (!data) return [];
-  return data.map((p: any) => ({
-    id: p.id, email: p.email || "", name: p.name || "", avatarUrl: p.avatar_url,
-    role: p.role || "user", createdAt: p.created_at, updatedAt: p.updated_at,
-  }));
+  // 회원 목록에는 이메일이 들어 있다. 브라우저에서 회원 표를 직접 읽지 않고(DB 가 막는다)
+  // 관리자만 쓸 수 있는 API 로 받는다.
+  const res = await fetch("/api/admin/users");
+  if (!res.ok) return [];
+  return res.json();
 }

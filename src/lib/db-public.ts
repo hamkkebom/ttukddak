@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicSupabaseClient } from "@/lib/supabase/public";
 import { dbCategoryToApp, dbExpertToApp, dbServiceToApp } from "@/lib/db-server";
+import { maskName } from "@/lib/mask-name";
 import type { Category, Expert, PublicReview, Service } from "@/types";
 import type { DBCategory, DBExpert, DBProfile, DBService } from "@/types/db";
 
@@ -173,12 +174,6 @@ type ReviewRow = {
   expert_reply: string | null;
 };
 
-// 작성자 이름은 첫 글자만 남기고 가린다. 이름 전체가 공개 화면(과 그 HTML)에 실리지 않도록 서버에서 가린다.
-function maskName(name: string | null): string {
-  const first = Array.from((name ?? "").trim())[0];
-  return first ? `${first}**` : "구매자";
-}
-
 // 리뷰 날짜는 한국 시간 기준으로 적는다 (YYYY-MM-DD). 서버 시간대(UTC)로 자르면 오전에 쓴 리뷰가 전날로 보인다.
 const KST_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -200,6 +195,7 @@ async function fetchPublicReviews(column: "service_id" | "expert_id", id: string
 
   const reviews = ((data ?? []) as ReviewRow[]).map((row) => ({
     id: row.id,
+    // 이름 전체가 공개 화면(과 그 HTML)에 실리지 않도록 서버에서 가린다.
     name: maskName(row.reviewer_name),
     rating: Math.min(5, Math.max(0, Math.round(row.rating ?? 0))),
     content: row.content ?? "",
