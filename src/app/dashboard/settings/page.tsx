@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  User, Lock, CreditCard, Bell, Building2, ArrowLeft, Eye, EyeOff, Camera, Loader2
+  User, CreditCard, Bell, Building2, ArrowLeft, Camera, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

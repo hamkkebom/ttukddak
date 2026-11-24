@@ -100,6 +100,18 @@ async function api(label, cookie, path, init = {}) {
   return body;
 }
 
+async function expectApiError(label, cookie, path, pattern, init = {}) {
+  try {
+    await api(label, cookie, path, init);
+  } catch (error) {
+    const matches = pattern.test(error.message);
+    assert(matches, `${label} blocked`, error.message);
+    return;
+  }
+
+  throw new Error(`${label}: expected request to fail`);
+}
+
 async function cleanup() {
   try {
     if (ids.order) await admin.from("deliveries").delete().eq("order_id", ids.order);
@@ -204,21 +216,47 @@ try {
   ids.order = accepted.orderId;
   assert(Boolean(ids.order), "order created from deal offer");
 
-  let blocked = false;
-  try {
-    await api("seller cannot accept deal offer", sellerCookie, `/api/deal-offers/${ids.offer}/accept`, { method: "PATCH" });
-  } catch (error) {
-    blocked = /HTTP 403|HTTP 409/.test(error.message);
-  }
-  assert(blocked, "seller accept blocked");
+  await expectApiError(
+    "seller cannot accept deal offer",
+    sellerCookie,
+    `/api/deal-offers/${ids.offer}/accept`,
+    /HTTP 403|HTTP 409/,
+    { method: "PATCH" },
+  );
+
+  await expectApiError(
+    "seller cannot deliver unpaid order",
+    sellerCookie,
+    `/api/orders/${ids.order}/deliveries`,
+    /HTTP 409/,
+    {
+      method: "POST",
+      body: JSON.stringify({ files: ["https://example.test/prepaid-check.zip"], fileNames: ["prepaid-check.zip"], message: "결제 전 납품 차단 확인" }),
+    },
+  );
 
   await supa("mark order paid", admin.from("orders").update({ status: "paid" }).eq("id", ids.order));
+  const paid = await supa("read paid order", admin.from("orders").select("status,payment_id").eq("id", ids.order).single());
+  assert(paid.status === "paid", "payment status staged", JSON.stringify(paid));
+
   await api("seller posts delivery", sellerCookie, `/api/orders/${ids.order}/deliveries`, {
     method: "POST",
     body: JSON.stringify({ files: ["https://example.test/final.zip"], fileNames: ["final.zip"], message: "최종 납품입니다." }),
   });
+
+  const deliveries = await api("buyer reads deliveries", buyerCookie, `/api/orders/${ids.order}/deliveries`);
+  assert(Array.isArray(deliveries) && deliveries[0]?.files?.includes("https://example.test/final.zip"), "delivery file listed for buyer");
+
   const delivered = await supa("read delivered order", admin.from("orders").select("status,delivered_at").eq("id", ids.order).single());
   assert(delivered.status === "delivered" && Boolean(delivered.delivered_at), "delivery updates order delivered", JSON.stringify(delivered));
+
+  const confirmed = await api("buyer confirms order", buyerCookie, `/api/orders/${ids.order}/confirm`, {
+    method: "POST",
+  });
+  assert(confirmed.success === true, "buyer confirm response success", JSON.stringify(confirmed));
+
+  const completed = await supa("read completed order", admin.from("orders").select("status").eq("id", ids.order).single());
+  assert(completed.status === "completed", "buyer confirmation completes order", JSON.stringify(completed));
 
   const quoteTitle = `Codex Gate Quote ${stamp}`;
   await api("buyer creates quote request", buyerCookie, "/api/quote-requests", {

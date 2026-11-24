@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, DollarSign, TrendingUp, CheckCircle, Clock, Calendar } from "lucide-react";
+import { Download, DollarSign, TrendingUp, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
 import { getOrdersClient } from "@/lib/db-client";
-import type { Order } from "@/types";
 
 const statusColors: Record<string, string> = {
   "정산완료": "bg-green-100 text-green-700",

@@ -1,6 +1,6 @@
 import "server-only";
 import { createPublicSupabaseClient } from "@/lib/supabase/public";
-import { dbCategoryToApp, dbExpertToApp, dbServiceToApp } from "@/lib/db-server";
+import { dbCategoryToApp, dbExpertToApp, dbServiceToApp, type DBServicePackageRow } from "@/lib/db-mappers";
 import { maskName } from "@/lib/mask-name";
 import type { Category, Expert, PublicReview, Service } from "@/types";
 import type { DBCategory, DBExpert, DBProfile, DBService } from "@/types/db";
@@ -98,7 +98,7 @@ export async function getPublicServiceById(id: string): Promise<Service | null> 
 
   const service = unwrap<DBService>(serviceResult, "service by id");
   if (!service) return null;
-  const packages = unwrap<Record<string, unknown>[]>(packagesResult, "service packages");
+  const packages = unwrap<DBServicePackageRow[]>(packagesResult, "service packages");
   return dbServiceToApp(service, packages ?? undefined);
 }
 
