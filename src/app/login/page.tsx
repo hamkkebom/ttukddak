@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { AuthSidePanel } from "@/components/AuthSidePanel";
+import { GOOGLE_LOGIN_ENABLED } from "@/lib/auth-providers";
 import { Suspense } from "react";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
@@ -155,6 +156,7 @@ function LoginContent() {
 
           {/* 소셜 로그인 */}
           <div className="space-y-3">
+            {GOOGLE_LOGIN_ENABLED && (
             <button
               type="button"
               onClick={() => handleSocialLogin("google")}
@@ -168,6 +170,7 @@ function LoginContent() {
               </svg>
               Google로 계속하기
             </button>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
