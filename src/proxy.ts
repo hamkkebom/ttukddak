@@ -1,8 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+declare global {
+  var __rateLimitCleanup: ReturnType<typeof setInterval> | undefined;
+}
+
+type RateLimitStoreEntry = { count: number; resetAt: number };
+
 // Simple in-memory rate limiter for API routes
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const rateLimitMap = new Map<string, RateLimitStoreEntry>();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 60; // 60 requests per minute per IP
 
@@ -20,7 +26,7 @@ function checkRateLimit(ip: string): boolean {
 // Periodically clean expired entries
 if (typeof globalThis !== "undefined") {
   const CLEAN_INTERVAL = 5 * 60_000;
-  (globalThis as any).__rateLimitCleanup ??= setInterval(() => {
+  globalThis.__rateLimitCleanup ??= setInterval(() => {
     const now = Date.now();
     for (const [key, val] of rateLimitMap) {
       if (now > val.resetAt) rateLimitMap.delete(key);

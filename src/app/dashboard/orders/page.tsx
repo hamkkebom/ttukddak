@@ -4,16 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Search, Upload, MessageCircle, CheckCircle, Clock, Eye,
-  FileText, Package, Calendar, ChevronRight, MoreVertical
+  Upload, MessageCircle, CheckCircle, Clock, Eye,
+  FileText, Package, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getOrdersClient } from "@/lib/db-client";

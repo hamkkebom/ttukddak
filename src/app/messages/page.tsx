@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -177,7 +178,7 @@ export default function MessagesPage() {
 
     const sb = createClient();
     const channel = sb
-      .channel(`messages:${selectedConv}`)
+      .channel(`messages:${selectedConv}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -233,7 +234,7 @@ export default function MessagesPage() {
 
     const sb = createClient();
     const channel = sb
-      .channel("conversations-updates")
+      .channel(`conversations-updates:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -706,7 +707,7 @@ export default function MessagesPage() {
                     >
                       {msg.messageType === "image" && msg.fileUrl ? (
                         <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
-                          <img src={msg.fileUrl} alt={msg.content} className="max-w-[200px] rounded" />
+                          <Image src={msg.fileUrl} alt={msg.content} width={200} height={200} className="max-w-[200px] rounded h-auto" unoptimized />
                         </a>
                       ) : msg.messageType === "file" && msg.fileUrl ? (
                         <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline flex items-center gap-1">

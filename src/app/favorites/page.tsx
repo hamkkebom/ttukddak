@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Heart, ArrowRight, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,13 @@ import type { Service, Expert } from "@/types";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
-  const [favoriteServices, setFavoriteServices] = useState<Service[]>([]);
+  const [serviceMap, setServiceMap] = useState<Record<string, Service>>({});
   const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const favoriteServices = useMemo(
+    () => favorites.map((id) => serviceMap[id]).filter((service): service is Service => Boolean(service)),
+    [favorites, serviceMap]
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -25,12 +29,11 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (favorites.length === 0) {
-      setFavoriteServices([]);
       return;
     }
     Promise.all(favorites.map((id) => getServiceByIdClient(id))).then((results) => {
       const svcs = results.filter((s): s is Service => s !== null);
-      setFavoriteServices(svcs);
+      setServiceMap(Object.fromEntries(svcs.map((service) => [service.id, service])));
 
       const expertIds = [...new Set(svcs.map((s) => s.expertId))];
       Promise.all(expertIds.map((id) => getExpertByIdClient(id).then((e) => ({ id, expert: e })))).then(

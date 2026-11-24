@@ -4,12 +4,10 @@ import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Star, ChevronRight, Camera, X } from "lucide-react";
+import { Star, ChevronRight, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getOrderByIdClient, getServiceByIdClient, getExpertByIdClient } from "@/lib/db-client";
 import { createClient } from "@/lib/supabase/client";
@@ -88,9 +86,7 @@ export default function ReviewPage({
   const [order, setOrder] = useState<Order | null>(null);
   const [service, setService] = useState<Service | null>(null);
   const [expert, setExpert] = useState<Expert | null>(null);
-  const [loading, setLoading] = useState(true);
   const [overallRating, setOverallRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
   const [categoryRatings, setCategoryRatings] = useState<Record<string, number>>({
     quality: 0,
     communication: 0,
@@ -112,7 +108,6 @@ export default function ReviewPage({
         setService(svc);
         setExpert(exp);
       }
-      setLoading(false);
     });
   }, [id]);
 

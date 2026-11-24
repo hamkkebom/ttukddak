@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Save, Plus, X, Image as ImageIcon,
+  ArrowLeft, Save, Plus, X,
   DollarSign, Clock, RefreshCw, Eye, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

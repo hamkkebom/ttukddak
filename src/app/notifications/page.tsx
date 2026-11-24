@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Bell, MessageCircle, ShoppingBag, Star, CreditCard,
@@ -75,25 +75,28 @@ export default function NotificationsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("all");
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(async () => {
-    const res = await fetch("/api/notifications?limit=50");
-    if (res.ok) {
-      const data = await res.json();
-      setNotifications(data);
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchNotifications();
+    let mounted = true;
 
     // Subscribe to realtime inserts for the current user
     const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const res = await fetch("/api/notifications?limit=50");
+      if (mounted && res.ok) {
+        const data = (await res.json()) as DbNotification[];
+        setNotifications(data);
+      }
+      if (mounted) {
+        setLoading(false);
+      }
 
+      const { data: { user } } = await supabase.auth.getUser();
+      // The effect may have been cleaned up while we were awaiting.
+      if (!user || !mounted) return;
+
+      // A unique topic per mount: supabase-js reuses channels by topic and
+      // throws if callbacks are added to one that is already subscribed.
       const channel = supabase
-        .channel("notifications-page")
+        .channel(`notifications-page:${crypto.randomUUID()}`)
         .on(
           "postgres_changes",
           {
@@ -112,12 +115,20 @@ export default function NotificationsPage() {
     };
 
     let channelRef: ReturnType<typeof supabase.channel> | undefined;
-    setupRealtime().then((ch) => { channelRef = ch; });
+    setupRealtime().then((ch) => {
+      // Cleanup already ran before the channel existed: remove it now.
+      if (!mounted) {
+        if (ch) supabase.removeChannel(ch);
+        return;
+      }
+      channelRef = ch;
+    });
 
     return () => {
+      mounted = false;
       if (channelRef) supabase.removeChannel(channelRef);
     };
-  }, [fetchNotifications, supabase]);
+  }, [supabase]);
 
   const filtered = notifications.filter(
     (n) => activeFilter === "all" || n.type === activeFilter
@@ -194,8 +205,6 @@ export default function NotificationsPage() {
             {filtered.length > 0 ? (
               filtered.map((notif) => {
                 const { Icon, colorClass } = getIconConfig(notif.type);
-                const Wrapper = notif.link ? Link : "div";
-                const wrapperProps = notif.link ? { href: notif.link } : {};
                 return (
                   <Card
                     key={notif.id}
@@ -204,43 +213,83 @@ export default function NotificationsPage() {
                       !notif.is_read && "border-primary/30 bg-primary/[0.02]"
                     )}
                   >
-                    <Wrapper {...(wrapperProps as any)} onClick={() => markRead(notif.id)}>
-                      <CardContent className="p-4 flex items-start gap-4">
-                        <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", colorClass)}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className={cn("text-sm", !notif.is_read && "font-semibold")}>
-                                {notif.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {notif.description}
-                              </p>
-                            </div>
-                            {!notif.is_read && (
-                              <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-1.5" />
-                            )}
+                    {notif.link ? (
+                      <Link href={notif.link} onClick={() => markRead(notif.id)}>
+                        <CardContent className="p-4 flex items-start gap-4">
+                          <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", colorClass)}>
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-2">
-                            {formatTime(notif.created_at)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            deleteNotification(notif.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </CardContent>
-                    </Wrapper>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className={cn("text-sm", !notif.is_read && "font-semibold")}>
+                                  {notif.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {notif.description}
+                                </p>
+                              </div>
+                              {!notif.is_read && (
+                                <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-1.5" />
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-2">
+                              {formatTime(notif.created_at)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              deleteNotification(notif.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </CardContent>
+                      </Link>
+                    ) : (
+                      <div onClick={() => markRead(notif.id)}>
+                        <CardContent className="p-4 flex items-start gap-4">
+                          <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", colorClass)}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className={cn("text-sm", !notif.is_read && "font-semibold")}>
+                                  {notif.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {notif.description}
+                                </p>
+                              </div>
+                              {!notif.is_read && (
+                                <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-1.5" />
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-2">
+                              {formatTime(notif.created_at)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              deleteNotification(notif.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </CardContent>
+                      </div>
+                    )}
                   </Card>
                 );
               })

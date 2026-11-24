@@ -1,85 +1,19 @@
 import { createClient } from "@/lib/supabase/client";
 import { maskName } from "@/lib/mask-name";
 import type { Service, Expert, Category, Order, Review, Conversation, Message, ExpertApplication, QuoteRequest, Profile } from "@/types";
-import type { DBService, DBExpert, DBCategory, DBProfile } from "@/types/db";
-
-// ============================================
-// Transform DB → App types
-// ============================================
-
-const DEFAULT_PACKAGES = (price: number) => [
-  { name: "베이직", price, deliveryDays: 7, revisions: 2, features: ["기본 제작"], isPlaceholder: true },
-];
-
-function dbServiceToApp(s: DBService, packages?: any[]): Service {
-  const pkgs = packages && packages.length > 0
-    ? packages.map((p: any) => ({
-        name: p.name,
-        price: p.price,
-        deliveryDays: p.delivery_days,
-        revisions: p.revisions,
-        features: p.features || [],
-      }))
-    : DEFAULT_PACKAGES(s.price);
-
-  return {
-    id: s.id,
-    title: s.title,
-    description: s.description || "",
-    thumbnail: s.thumbnail_url || "/thumbnails/svc-1.jpg",
-    images: s.images || [],
-    categoryId: s.category_id,
-    expertId: s.expert_id,
-    price: s.price,
-    rating: s.rating || 0,
-    reviewCount: s.review_count || 0,
-    salesCount: s.sales_count || 0,
-    viewCount: s.view_count || 0,
-    tags: s.tags || [],
-    isPrime: s.is_prime || false,
-    isFastResponse: s.is_fast_response || false,
-    packages: pkgs,
-    createdAt: s.created_at?.split("T")[0] || "2026-01-01",
-    status: (s.status as Service["status"]) || "active",
-    rejectionReason: s.rejection_reason || undefined,
-  };
-}
-
-function dbExpertToApp(e: DBExpert, profile?: DBProfile): Expert {
-  const parts = (e.title || "").split(" - ");
-  const name = profile?.name || parts[0] || "전문가";
-  const title = parts.slice(1).join(" - ") || parts[0] || "";
-
-  return {
-    id: e.id,
-    name,
-    title,
-    profileImage: profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-    categoryId: e.category_id,
-    isPrime: e.is_prime || false,
-    isMaster: e.is_master || false,
-    rating: e.rating || 0,
-    reviewCount: e.review_count || 0,
-    completionRate: e.completion_rate || 0,
-    // 측정한 값이 없으면 비워 둔다 (기본값을 지어내지 않는다).
-    responseTime: e.response_time || "",
-    skills: e.skills || [],
-    tools: e.tools || [],
-    introduction: e.introduction || "",
-    joinedAt: e.created_at?.split("T")[0] || "2026-01-01",
-  };
-}
-
-function dbCategoryToApp(c: DBCategory): Category {
-  return {
-    id: c.id,
-    name: c.name,
-    slug: c.slug,
-    description: c.description || "",
-    icon: c.icon || "Sparkles",
-    serviceCount: c.service_count || 0,
-  };
-}
+import {
+  dbCategoryToApp,
+  dbServiceToApp,
+  mapExpertApplicationRow,
+  mapExpertWithProfile,
+  mapOrderRow,
+  mapReviewRow,
+  type DBExpertApplicationRow,
+  type DBExpertWithProfileRow,
+  type DBOrderRow,
+  type DBReviewRow,
+  type DBServicePackageRow,
+} from "@/lib/db-mappers";
 
 // ============================================
 // Input sanitization helpers
@@ -106,7 +40,7 @@ export async function getServicesClient(limit?: number): Promise<Service[]> {
   if (limit) query = query.limit(limit);
 
   const { data } = await query;
-  return (data || []).map((s: any) => dbServiceToApp(s));
+  return (data || []).map((service) => dbServiceToApp(service));
 }
 
 export async function getAllServicesAdminClient(): Promise<Service[]> {
@@ -116,7 +50,7 @@ export async function getAllServicesAdminClient(): Promise<Service[]> {
     .select("*")
     .neq("status", "deleted")
     .order("created_at", { ascending: false });
-  return (data || []).map((s: any) => dbServiceToApp(s));
+  return (data || []).map((service) => dbServiceToApp(service));
 }
 
 export async function getServiceByIdClient(id: string): Promise<Service | null> {
@@ -126,7 +60,7 @@ export async function getServiceByIdClient(id: string): Promise<Service | null> 
     sb.from("service_packages").select("*").eq("service_id", id).order("price").order("sort_order"),
   ]);
 
-  return data ? dbServiceToApp(data, packages || undefined) : null;
+  return data ? dbServiceToApp(data, (packages as DBServicePackageRow[] | null) || undefined) : null;
 }
 
 export async function getExpertByIdClient(id: string): Promise<Expert | null> {
@@ -138,9 +72,7 @@ export async function getExpertByIdClient(id: string): Promise<Expert | null> {
     .maybeSingle();
 
   if (!data) return null;
-  const profile = (data as any).profiles;
-  delete (data as any).profiles;
-  return dbExpertToApp(data as any, profile);
+  return mapExpertWithProfile(data as DBExpertWithProfileRow);
 }
 
 // 전문가 여러 명을 한 번의 요청으로 읽는다. 목록 화면에서 카드마다 따로 요청하지 않기 위해서다.
@@ -164,10 +96,7 @@ export async function getExpertsByIdsClient(ids: string[]): Promise<Expert[]> {
   if (failed?.error) throw new Error(`전문가 조회 실패: ${failed.error.message}`);
 
   return results.flatMap(({ data }) =>
-    (data || []).map((row: any) => {
-      const { profiles, ...expert } = row;
-      return dbExpertToApp(expert, profiles ?? undefined);
-    })
+    (data || []).map((row) => mapExpertWithProfile(row as DBExpertWithProfileRow))
   );
 }
 
@@ -179,7 +108,7 @@ export async function getServicesByExpertClient(expertId: string): Promise<Servi
     .eq("expert_id", expertId)
     .eq("status", "active");
 
-  return (data || []).map((s: any) => dbServiceToApp(s));
+  return (data || []).map((service) => dbServiceToApp(service));
 }
 
 export async function searchServicesClient(query: string): Promise<Service[]> {
@@ -194,7 +123,7 @@ export async function searchServicesClient(query: string): Promise<Service[]> {
     // 검색어가 없을 때의 전체 목록(getServicesClient)도 자르지 않는다.
     .order("sales_count", { ascending: false }).order("created_at", { ascending: false });
 
-  return (data || []).map((s: any) => dbServiceToApp(s));
+  return (data || []).map((service) => dbServiceToApp(service));
 }
 
 export async function getCategoriesClient(): Promise<Category[]> {
@@ -231,25 +160,14 @@ export async function getOrdersClient(filters?: { buyerId?: string; expertId?: s
 
   const { data } = await query;
   if (!data) return [];
-  return data.map((o: any) => ({
-    id: o.id, buyerId: o.buyer_id, serviceId: o.service_id, expertId: o.seller_id,
-    packageName: o.package_id, price: o.amount, status: o.status, paymentId: o.payment_id,
-    requirements: o.requirements, createdAt: o.created_at, updatedAt: o.updated_at,
-    serviceName: o.services?.title, buyerName: o.profiles?.name, buyerAvatar: o.profiles?.avatar_url,
-  }));
+  return data.map((order) => mapOrderRow(order as DBOrderRow));
 }
 
 export async function getOrderByIdClient(id: string): Promise<Order | null> {
   const sb = createClient();
   const { data } = await sb.from("orders").select("*, services(title), profiles!orders_buyer_id_fkey(name, avatar_url)").eq("id", id).maybeSingle();
   if (!data) return null;
-  return {
-    id: data.id, buyerId: data.buyer_id, serviceId: data.service_id, expertId: data.seller_id,
-    packageName: data.package_id, price: data.amount, status: data.status, paymentId: data.payment_id,
-    requirements: data.requirements, createdAt: data.created_at, updatedAt: data.updated_at,
-    serviceName: (data as any).services?.title, buyerName: (data as any).profiles?.name,
-    buyerAvatar: (data as any).profiles?.avatar_url,
-  };
+  return mapOrderRow(data as DBOrderRow);
 }
 
 // ============================================
@@ -263,11 +181,7 @@ export async function getReviewsClient(filters?: { serviceId?: string }): Promis
 
   const { data } = await query;
   if (!data) return [];
-  return data.map((r: any) => ({
-    id: r.id, serviceId: r.service_id, orderId: r.order_id, userId: r.reviewer_id,
-    userName: maskName(r.reviewer_name), rating: r.rating, content: r.content || "",
-    helpfulCount: r.helpful_count || 0, createdAt: r.created_at,
-  }));
+  return data.map((review) => mapReviewRow(review as DBReviewRow, maskName));
 }
 
 // ============================================
@@ -323,12 +237,7 @@ export async function getExpertApplicationByUserClient(userId: string): Promise<
     .maybeSingle();
 
   if (!data) return null;
-  return {
-    id: data.id, userId: data.user_id, name: data.name, email: data.email,
-    phone: data.phone, category: data.category, skills: data.skills || [],
-    portfolioUrls: data.portfolio_urls || [], introduction: data.introduction,
-    status: data.status, createdAt: data.created_at,
-  };
+  return mapExpertApplicationRow(data as DBExpertApplicationRow);
 }
 
 export async function createExpertApplicationClient(app: { userId: string; name: string; email: string; phone?: string; category: string; skills: string[]; portfolioUrls: string[]; introduction?: string; idVerificationUrl?: string; businessRegistrationUrl?: string }): Promise<boolean> {
