@@ -9,7 +9,12 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { AuthSidePanel } from "@/components/AuthSidePanel";
-import { GOOGLE_LOGIN_ENABLED } from "@/lib/auth-providers";
+import {
+  ANY_SOCIAL_LOGIN_ENABLED,
+  GOOGLE_LOGIN_ENABLED,
+  KAKAO_LOGIN_ENABLED,
+  NAVER_LOGIN_ENABLED,
+} from "@/lib/auth-providers";
 import { Suspense } from "react";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
@@ -288,6 +293,8 @@ function SignUpContent() {
           </div>
 
           {/* 소셜 가입 */}
+          {ANY_SOCIAL_LOGIN_ENABLED && (
+          <>
           <div className="space-y-3">
             {GOOGLE_LOGIN_ENABLED && (
             <button
@@ -304,7 +311,9 @@ function SignUpContent() {
               Google로 시작하기
             </button>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            {(KAKAO_LOGIN_ENABLED || NAVER_LOGIN_ENABLED) && (
+            <div className={cn("grid gap-3", KAKAO_LOGIN_ENABLED && NAVER_LOGIN_ENABLED && "grid-cols-2")}>
+              {KAKAO_LOGIN_ENABLED && (
               <button
                 type="button"
                 onClick={() => handleSocialSignup("kakao")}
@@ -315,6 +324,8 @@ function SignUpContent() {
                 </svg>
                 카카오
               </button>
+              )}
+              {NAVER_LOGIN_ENABLED && (
               <button
                 type="button"
                 onClick={() => handleSocialSignup("naver")}
@@ -323,7 +334,9 @@ function SignUpContent() {
                 <span className="text-lg font-black" aria-hidden="true">N</span>
                 네이버
               </button>
+              )}
             </div>
+            )}
           </div>
 
           <div className="my-8 flex items-center gap-4 text-sm text-[#56606B]">
@@ -331,6 +344,8 @@ function SignUpContent() {
             또는 이메일로 가입
             <span className="h-px flex-1 bg-[#E2E5E9]" aria-hidden="true" />
           </div>
+          </>
+          )}
 
           {/* 이메일 가입 */}
           <form onSubmit={handleSubmit} className="space-y-5">

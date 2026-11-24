@@ -9,7 +9,12 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { AuthSidePanel } from "@/components/AuthSidePanel";
-import { GOOGLE_LOGIN_ENABLED } from "@/lib/auth-providers";
+import {
+  ANY_SOCIAL_LOGIN_ENABLED,
+  GOOGLE_LOGIN_ENABLED,
+  KAKAO_LOGIN_ENABLED,
+  NAVER_LOGIN_ENABLED,
+} from "@/lib/auth-providers";
 import { Suspense } from "react";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
@@ -155,6 +160,8 @@ function LoginContent() {
           <h1 className="mb-8 font-display text-[40px] leading-[1.1] tracking-[-0.01em]">로그인</h1>
 
           {/* 소셜 로그인 */}
+          {ANY_SOCIAL_LOGIN_ENABLED && (
+          <>
           <div className="space-y-3">
             {GOOGLE_LOGIN_ENABLED && (
             <button
@@ -171,7 +178,9 @@ function LoginContent() {
               Google로 계속하기
             </button>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            {(KAKAO_LOGIN_ENABLED || NAVER_LOGIN_ENABLED) && (
+            <div className={cn("grid gap-3", KAKAO_LOGIN_ENABLED && NAVER_LOGIN_ENABLED && "grid-cols-2")}>
+              {KAKAO_LOGIN_ENABLED && (
               <button
                 type="button"
                 onClick={() => handleSocialLogin("kakao")}
@@ -182,6 +191,8 @@ function LoginContent() {
                 </svg>
                 카카오
               </button>
+              )}
+              {NAVER_LOGIN_ENABLED && (
               <button
                 type="button"
                 onClick={() => handleSocialLogin("naver")}
@@ -190,7 +201,9 @@ function LoginContent() {
                 <span className="text-lg font-black" aria-hidden="true">N</span>
                 네이버
               </button>
+              )}
             </div>
+            )}
           </div>
 
           <div className="my-8 flex items-center gap-4 text-sm text-[#56606B]">
@@ -198,6 +211,8 @@ function LoginContent() {
             또는
             <span className="h-px flex-1 bg-[#E2E5E9]" aria-hidden="true" />
           </div>
+          </>
+          )}
 
           {/* 이메일 로그인 */}
           <form onSubmit={handleSubmit} className="space-y-5">
