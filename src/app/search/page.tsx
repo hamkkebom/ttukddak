@@ -9,8 +9,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -41,6 +39,16 @@ const SORT_TABS: { value: SortOption; label: string }[] = [
 ];
 
 const MAX_PRICE = 5000000;
+
+function loadRecentSearches(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem("recentSearches");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function SearchPage() {
   return (
@@ -224,7 +232,7 @@ function SearchPageContent() {
   const [query, setQuery] = useState(initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => loadRecentSearches());
   const [showRecent, setShowRecent] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [allServices, setAllServices] = useState<Service[]>([]);
@@ -240,15 +248,6 @@ function SearchPageContent() {
   const [onlyFast, setOnlyFast] = useState(false);
   const [onlyMaster, setOnlyMaster] = useState(false);
 
-  // Load recent searches from localStorage once
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("recentSearches");
-      if (stored) setRecentSearches(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-  }, []);
 
   const saveRecentSearch = (term: string) => {
     if (!term.trim()) return;
@@ -279,7 +278,6 @@ function SearchPageContent() {
 
   // Load services / search results when submittedQuery changes
   useEffect(() => {
-    setLoading(true);
     const fetchServices = submittedQuery
       ? searchServicesClient(submittedQuery)
       : getServicesClient();
@@ -313,6 +311,7 @@ function SearchPageContent() {
     e.preventDefault();
     setShowRecent(false);
     if (query.trim()) saveRecentSearch(query.trim());
+    setLoading(true);
     setSubmittedQuery(query);
   };
 
@@ -320,12 +319,14 @@ function SearchPageContent() {
     setQuery(keyword);
     setShowRecent(false);
     saveRecentSearch(keyword);
+    setLoading(true);
     setSubmittedQuery(keyword);
   };
 
   const handleRecentClick = (term: string) => {
     setQuery(term);
     setShowRecent(false);
+    setLoading(true);
     setSubmittedQuery(term);
   };
 
@@ -436,7 +437,7 @@ function SearchPageContent() {
                 <button
                   type="button"
                   className="px-2 text-slate-300 hover:text-slate-500 transition-colors"
-                  onClick={() => { setQuery(""); setSubmittedQuery(""); }}
+                  onClick={() => { setQuery(""); setLoading(true); setSubmittedQuery(""); }}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -471,8 +472,7 @@ function SearchPageContent() {
                       >
                         <Search className="h-3.5 w-3.5 text-slate-300 shrink-0" />
                         <span className="flex-1 truncate">{term}</span>
-                        <button
-                          type="button"
+                        <span
                           onMouseDown={(e) => {
                             e.stopPropagation();
                             const updated = recentSearches.filter((s) => s !== term);
@@ -486,7 +486,7 @@ function SearchPageContent() {
                           className="text-slate-300 hover:text-slate-500 transition-colors"
                         >
                           <X className="h-3 w-3" />
-                        </button>
+                        </span>
                       </button>
                     </li>
                   ))}

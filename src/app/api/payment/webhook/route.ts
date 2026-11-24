@@ -1,36 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import * as PortOne from "@portone/server-sdk";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { canTransition } from "./transition";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 주문 상태 전이: 되돌리기/상태 역행 방지
-// refunded/cancelled/completed는 webhook 늦게 도착해도 paid 등으로 되돌리지 않는다.
-const TERMINAL_STATES = new Set(["refunded", "cancelled", "completed"]);
-
-// paid 상태에서 허용되는 다음 상태
-const PAID_ALLOWED_NEXT = new Set([
-  "paid",
-  "in_progress",
-  "delivered",
-  "review",
-  "review_pending",
-  "revision_requested",
-  "completed",
-  "refund_requested",
-  "refunded",
-  "cancelled",
-]);
-
-function canTransition(current: string | null | undefined, next: string): boolean {
-  if (!current) return true;
-  if (current === next) return true;
-  if (TERMINAL_STATES.has(current)) return false;
-  if (current === "paid") return PAID_ALLOWED_NEXT.has(next);
-  // pending / virtual_account_issued / failed → 어떤 상태로든 진입 가능
-  return true;
-}
+export { PAID_ALLOWED_NEXT, TERMINAL_STATES, canTransition } from "./transition";
 
 // PortOne V2 webhook - Standard Webhooks spec (webhook-id, webhook-timestamp, webhook-signature)
 export async function POST(request: NextRequest) {

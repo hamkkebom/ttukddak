@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Search, Headphones, MessageCircle, FileText, ChevronRight,
+  Search, Headphones, MessageCircle, FileText,
   Phone, Mail, Clock, ArrowRight, HelpCircle, Shield, CreditCard,
   Users, Settings, Megaphone
 } from "lucide-react";

@@ -5,13 +5,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   BarChart3, Package, MessageCircle, Star, DollarSign,
-  TrendingUp, Eye, ShoppingBag, Plus, ChevronRight,
+  Eye, ShoppingBag, Plus, ChevronRight,
   Calendar, Clock, Users, ArrowUpRight, ArrowDownRight, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -55,6 +54,7 @@ export default function DashboardPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
+  const [relativeNow] = useState(() => Date.now());
 
   useEffect(() => {
     async function load() {
@@ -180,7 +180,7 @@ export default function DashboardPage() {
   };
 
   const getRelativeDate = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
+    const diff = relativeNow - new Date(iso).getTime();
     const days = Math.floor(diff / 86400000);
     if (days === 0) return "오늘";
     if (days === 1) return "1일 전";

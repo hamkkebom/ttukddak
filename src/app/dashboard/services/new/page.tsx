@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, Check, Plus, X, Upload,
-  Image as ImageIcon, DollarSign, Clock, RefreshCw
+  ArrowLeft, ArrowRight, Check, Plus, X,
+  DollarSign, Clock, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getCategoriesClient } from "@/lib/db-client";
 import type { Category } from "@/types";

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Settlement } from "@/types";
@@ -19,7 +19,7 @@ function isOlderThanDays(dateStr: string, days: number): boolean {
   return d < cutoff;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Auth check
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();

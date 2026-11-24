@@ -386,8 +386,8 @@ export default function SignUpPage() {
               {errors.agreements && <p className="text-xs text-destructive">{errors.agreements}</p>}
             </div>
 
-            <Button type="submit" className="w-full h-12 text-base bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90 mt-4">
-              회원가입
+            <Button type="submit" disabled={isLoading} className="w-full h-12 text-base bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90 mt-4">
+              {isLoading ? "가입 중..." : "회원가입"}
               <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </form>

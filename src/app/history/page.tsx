@@ -34,11 +34,12 @@ export default function HistoryPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([]);
   const [expertMap, setExpertMap] = useState<Record<string, Expert>>({});
   const [categoryMap, setCategoryMap] = useState<Record<string, Category>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => loadHistoryIds().length > 0);
+  const [currentTime] = useState(() => Date.now());
 
   useEffect(() => {
     const historyItems = loadHistoryIds();
-    if (historyItems.length === 0) { setLoading(false); return; }
+    if (historyItems.length === 0) return;
 
     Promise.all(
       historyItems.map(async ({ id, viewedAt }) => {
@@ -92,7 +93,7 @@ export default function HistoryPage() {
     new Intl.NumberFormat("ko-KR").format(price);
 
   const formatTime = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
+    const diff = currentTime - new Date(iso).getTime();
     const hours = Math.floor(diff / 3600000);
     if (hours < 1) return "방금 전";
     if (hours < 24) return `${hours}시간 전`;

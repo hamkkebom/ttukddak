@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import {
-  Sparkles, Users, Video, Award, Target, Heart,
+  Sparkles, Target, Heart,
   ArrowRight, CheckCircle, TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

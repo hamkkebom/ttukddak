@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, ArrowLeft, Mail, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
   const supabase = createClient();
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isSent, setIsSent] = useState(false);

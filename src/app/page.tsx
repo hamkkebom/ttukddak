@@ -1,9 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Search, Sparkles, ArrowRight, Star, Play, ChevronRight, ChevronLeft,
+  Search, Sparkles, ArrowRight, Star, Play, ChevronRight,
   Zap, Layers, Box, ShoppingBag, Building, Music, Heart, GraduationCap,
-  Shield, CheckCircle, TrendingUp, Trophy, Award, ExternalLink,
+  Shield, TrendingUp, Trophy, Award, ExternalLink,
   Wand2, UserCircle, Mic, Film, Flame, Palette, Captions,
   Smartphone, Share2, ShoppingCart, Building2, Sparkle,
   Gamepad2, Brush, LayoutGrid, FileText, Volume2, ImageIcon
@@ -48,15 +48,17 @@ const contestEntries = [
 
 
 export default async function HomePage() {
-  const [categories, allServices, expertsResult] = await Promise.all([
+  const [, allServices, expertsResult] = await Promise.all([
     getCategories(),
     getServices(20),
     getExperts(20),
   ]);
   const experts = expertsResult.experts;
 
-  // 시드 기반 셔플 (매 시간 변경)
-  const seed = Math.floor(Date.now() / 3600000);
+  const seed = allServices.reduce(
+    (acc, service, index) => acc + service.title.length + service.salesCount + index,
+    0
+  );
   function seededShuffle<T>(arr: T[], s: number): T[] {
     const a = [...arr];
     let h = s;

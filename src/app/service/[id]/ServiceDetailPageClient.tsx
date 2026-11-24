@@ -5,12 +5,11 @@ import Image from "next/image";
 import { useState } from "react";
 import {
   ChevronRight, ChevronDown, Star, Heart, Share2, Clock, Zap, Award,
-  CheckCircle, MessageCircle, Calendar, RefreshCw, Play, Shield,
-  Globe, User, ThumbsUp, Flag, ArrowRight, Bookmark, Copy
+  CheckCircle, MessageCircle, RefreshCw, Play, Shield,
+  ThumbsUp, Flag, ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import type { Service, Expert, Category } from "@/types";
@@ -71,11 +70,6 @@ export default function ServiceDetailPageClient({
   const ratingDist = [5, 4, 3, 2, 1].map(r => ({ star: r, count: reviews.filter(rv => rv.rating === r).length }));
 
   const packageLabels = ["기본", "스탠다드", "프리미엄"];
-  const packageColors = [
-    "border-slate-200 hover:border-slate-300",
-    "border-orange-300 ring-1 ring-orange-100",
-    "border-violet-300 hover:border-violet-400",
-  ];
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -241,7 +235,6 @@ export default function ServiceDetailPageClient({
                 setSelectedPackage={setSelectedPackage}
                 formatPrice={formatPrice}
                 packageLabels={packageLabels}
-                packageColors={packageColors}
                 onInquiry={() => setIsInquiryOpen(true)}
               />
             </div>
@@ -571,7 +564,6 @@ export default function ServiceDetailPageClient({
                 setSelectedPackage={setSelectedPackage}
                 formatPrice={formatPrice}
                 packageLabels={packageLabels}
-                packageColors={packageColors}
                 onInquiry={() => setIsInquiryOpen(true)}
               />
 
@@ -664,22 +656,20 @@ function PackageSection({
   setSelectedPackage,
   formatPrice,
   packageLabels,
-  packageColors,
   onInquiry,
 }: {
-  service: any;
+  service: Service;
   selectedPackage: number;
   setSelectedPackage: (i: number) => void;
   formatPrice: (n: number) => string;
   packageLabels: string[];
-  packageColors: string[];
   onInquiry: () => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       {/* Package tabs */}
       <div className="flex border-b border-slate-100">
-        {service.packages.map((pkg: any, i: number) => (
+        {service.packages.map((pkg, i: number) => (
           <button
             key={pkg.name}
             onClick={() => setSelectedPackage(i)}

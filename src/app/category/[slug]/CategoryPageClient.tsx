@@ -188,7 +188,6 @@ function FilterSidebar({
 
 /* ─────────────────────────────── Main Page ──────────────────────────────── */
 export default function CategoryPageClient({
-  slug,
   category,
   initialServices,
   allCategories,
