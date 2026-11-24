@@ -90,10 +90,13 @@ export default function NotificationsPage() {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // The effect may have been cleaned up while we were awaiting.
+      if (!user || !mounted) return;
 
+      // A unique topic per mount: supabase-js reuses channels by topic and
+      // throws if callbacks are added to one that is already subscribed.
       const channel = supabase
-        .channel("notifications-page")
+        .channel(`notifications-page:${crypto.randomUUID()}`)
         .on(
           "postgres_changes",
           {
@@ -112,7 +115,14 @@ export default function NotificationsPage() {
     };
 
     let channelRef: ReturnType<typeof supabase.channel> | undefined;
-    setupRealtime().then((ch) => { channelRef = ch; });
+    setupRealtime().then((ch) => {
+      // Cleanup already ran before the channel existed: remove it now.
+      if (!mounted) {
+        if (ch) supabase.removeChannel(ch);
+        return;
+      }
+      channelRef = ch;
+    });
 
     return () => {
       mounted = false;

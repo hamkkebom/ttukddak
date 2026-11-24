@@ -79,6 +79,7 @@ export function Header() {
 
   useEffect(() => {
     let channelRef: ReturnType<typeof supabase.channel> | undefined;
+    let disposed = false;
 
     const fetchUnreadCount = async (userId: string) => {
       const { count } = await supabase
@@ -94,9 +95,13 @@ export function Header() {
       if (!authUser) return;
 
       await fetchUnreadCount(authUser.id);
+      // The effect may have been cleaned up while we were awaiting.
+      if (disposed) return;
 
+      // A unique topic per mount: supabase-js reuses channels by topic and
+      // throws if callbacks are added to one that is already subscribed.
       channelRef = supabase
-        .channel("header-notifications")
+        .channel(`header-notifications:${crypto.randomUUID()}`)
         .on(
           "postgres_changes",
           {
@@ -115,6 +120,7 @@ export function Header() {
     setupNotifications();
 
     return () => {
+      disposed = true;
       if (channelRef) supabase.removeChannel(channelRef);
     };
   }, [supabase]);

@@ -178,7 +178,7 @@ export default function MessagesPage() {
 
     const sb = createClient();
     const channel = sb
-      .channel(`messages:${selectedConv}`)
+      .channel(`messages:${selectedConv}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -234,7 +234,7 @@ export default function MessagesPage() {
 
     const sb = createClient();
     const channel = sb
-      .channel("conversations-updates")
+      .channel(`conversations-updates:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
